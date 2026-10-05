@@ -259,3 +259,5 @@ li:hover .icon-btn, .icon-btn:focus-visible, .phase-row .icon-btn { opacity: 1; 
   .toolbar input { width: 100%; }
   .road-label { width: 130px; }
 }
+.masked { -webkit-text-security: disc; text-security: disc; }
+.masked:focus { -webkit-text-security: none; }

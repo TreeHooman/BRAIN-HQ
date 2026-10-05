@@ -71,7 +71,7 @@ function wsManage() {
   box.innerHTML = `<div class="card ws-mg">
     ${!st.configured ? `<div class="ws-mg-h"><b>Connect Google accounts</b><span class="small muted">One-time setup, about 10 minutes. After that, adding each company's account takes 20 seconds.</span></div>${steps}
       <div class="ws-grid2"><label class="f">Client ID<input id="wsCid" placeholder="…apps.googleusercontent.com" autocomplete="off" spellcheck="false" maxlength="120"></label>
-      <label class="f">Client secret<input id="wsSec" type="password" placeholder="GOCSPX-…" autocomplete="off" spellcheck="false" maxlength="90"></label></div>
+      <label class="f">Client secret<input id="wsSec" type="text" class="masked" placeholder="GOCSPX-…" autocomplete="new-password" data-lpignore="true" data-1p-ignore spellcheck="false" maxlength="90"></label></div>
       <div class="row end"><button type="button" class="btn primary" id="wsSaveC">Save</button></div>`
     : `<div class="ws-mg-h"><b>Accounts</b><span class="small muted">Label each one by company. The colour marks its mail and files everywhere in LUTHUR.</span></div>
       ${rows || `<div class="small muted">No accounts yet.</div>`}
