@@ -136,7 +136,7 @@ function parseHash() {
 function render() {
   if (!S) return;
   $$("#nav a").forEach(a => a.classList.toggle("on", a.dataset.view === (route.view === "project" ? "projects" : route.view)));
-  const views = { command: vCommand, planner: vPlanner, home: vHome, projects: vProjects, project: vProject, calendar: vCalendar, roadmap: vRoadmap, inbox: vInbox, assistant: vAssistant, missions: vMissions, settings: vSettings, code: vCode, outbox: vOutbox, tasks: vTasks, canvas: vCanvas, workspace: vWorkspace };
+  const views = { command: vCommand, planner: vPlanner, home: vHome, projects: vProjects, project: vProject, calendar: vCalendar, roadmap: vRoadmap, inbox: vInbox, assistant: vAssistant, missions: vMissions, settings: vSettings, code: vCode, outbox: vOutbox, tasks: vTasks, canvas: vCanvas, workspace: vWorkspace, history: typeof vHistory === "function" ? vHistory : vCommand };
   const fn = views[route.view] || vCommand;
   // Don't clobber a field the user is typing in during background refreshes.
   const active = document.activeElement;

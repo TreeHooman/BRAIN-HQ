@@ -62,6 +62,8 @@ export type RunOptions = {
   /** Build-level code sessions only. safe = allowlisted commands; auto = any command except the blocked list;
    *  bypass = Claude Code's bypassPermissions mode. HQ's deny lists (push, deploy, secrets…) apply in every mode. */
   mode?: "safe" | "auto" | "bypass" | null;
+  /** Saved to the History page (and brain/history/) after the run. Omit to keep the run out of history. */
+  history?: { title: string; ask?: string; project?: string | null; kind?: string; format?: (text: string) => string };
 };
 export type RunStats = { context: number; window: number | null; output: number; cost: number | null; rate: { status?: string; type?: string; resetsAt?: number | null; utilization?: number | null } | null };
 export type RunResult = {

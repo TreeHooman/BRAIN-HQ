@@ -17,3 +17,6 @@ node_modules/
 *.log
 *.tmp
 backgrounds/
+
+# Saved answers (local only)
+brain/history/

@@ -6,6 +6,7 @@ HQ is the owner's business brain and autonomous assistant. Read `HANDOFF.md` bef
 
 ## When working on the brain (not the code)
 - `brain/` is the source of truth. Start with `brain/INDEX.md`; open a project's `SUMMARY.md` before its `plan.md`/`log.md`.
+- Past LUTHUR answers (chats, Code, explanations, briefings, missions) are in `brain/history/YYYY-MM.md` (newest at the bottom). Search there when the owner refers to something discussed before.
 - `INDEX.md` is auto-generated. Change `brain/projects/<slug>/project.json` instead (or use the hq-brain MCP tools).
 - After meaningful work on any project (in any session), record it: a dated entry in that project's `log.md` (newest first), updated `nextStep`/`stage`/`health` in `project.json`, decisions in `brain/decisions.md`, dates in `brain/milestones.json` / `brain/reminders.json`.
 

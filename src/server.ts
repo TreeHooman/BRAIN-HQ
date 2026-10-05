@@ -20,6 +20,7 @@ import * as explainer from "./lib/explain.ts";
 import * as usage from "./lib/usage.ts";
 import * as updater from "./lib/updater.ts";
 import * as screen from "./lib/screen.ts";
+import * as history from "./lib/history.ts";
 import { killAll, sweepOrphans } from "./lib/claude.ts";
 
 ensureLocalConfig();
@@ -178,6 +179,7 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/google\/doc\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})\/replace$/, (m, b) => google.docReplace(m[1], m[2], b.find, b.replace, b.matchCase === true)],
   ["GET", /^\/api\/usage$/, () => usage.summary()],
   ["GET", /^\/api\/screen\/read$/, (_, __, u) => screen.read(u.searchParams.get("url") || "")],
+  ["GET", /^\/api\/history$/, (_, __, u) => history.list({ q: u.searchParams.get("q") || "", kind: u.searchParams.get("kind") || "", project: u.searchParams.get("project") || "", before: u.searchParams.get("before") || "", limit: Number(u.searchParams.get("limit")) || 50 })],
   ["POST", /^\/api\/screen\/brief$/, (_, b) => screen.brief(b)],
   ["GET", /^\/api\/screen\/search$/, (_, __, u) => screen.search(u.searchParams.get("q") || "")],
   ["GET", /^\/api\/update$/, (_, __, u) => updater.check(u.searchParams.get("fresh") === "1")],

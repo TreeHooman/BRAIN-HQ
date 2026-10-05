@@ -407,6 +407,7 @@ async function execute(run: Run) {
     prompt: reply ? `The owner replied on this task:\n\n${run.prompt.trim()}\n\nAct on it within your permission (${level}), then end with the same short report format.`
       : resuming ? "Continue the mission where you left off (you were paused by a usage limit or restart). Then finish as instructed." : missionPrompt(run, level, minutes),
     model, fallbackModel: fallback, effort: run.effort, level, runId: run.id, resume: run.sessionId || null,
+    history: { title: run.title, ask: reply ? run.prompt : run.prompt.slice(0, 2000), project: run.project || null, kind: "Mission" },
     addDirs: level === "build" || level === "read" || level === "plan" ? (proj?.paths || []) : [],
     extraAllow: run.extraAllow, timeoutMs: minutes * 60e3,
     onSpawn: pid => { slot.pid = pid; }, onStep,
@@ -553,7 +554,7 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
   let opOk = false;
   try {
     const onStep = opStart({ id: opId, kind: "chat", agent: cfg.assistant?.name || "LUTHUR", title: text.length > 70 ? text.slice(0, 69) + "…" : text, project: c.project, model, level });
-    const res = await runClaude({ prompt: text, model, fallbackModel: fallback, effort: opts.effort || null, level, resume: c.sessionId, system, runId: `chat-${c.id}`,
+    const res = await runClaude({ prompt: text, model, fallbackModel: fallback, effort: opts.effort || null, level, resume: c.sessionId, system, runId: `chat-${c.id}`, history: { title: text.slice(0, 120), ask: text, project: c.project || null, kind: "Chat" },
       timeoutMs: (cfg.chat?.maxMinutes || 6) * 60e3, addDirs: proj?.paths || [], onStep });
     opOk = res.ok;
     const latest = readJson<Chat>(F.chat, c);

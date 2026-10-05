@@ -2,9 +2,10 @@
 // token-cheap access to the brain. Any Claude session can use it, not just HQ missions:
 //   claude mcp add hq-brain -- node "<HQ>/src/mcp/hq-brain.ts"
 // HQ_LEVEL=read hides every write tool. HQ_RUN_ID ties follow-ups/approvals to the run that made them.
+import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
-import { DROP, uid, writeJson } from "../lib/store.ts";
+import { DATA, DROP, uid, writeJson } from "../lib/store.ts";
 import * as brain from "../lib/brain.ts";
 import * as cal from "../lib/calendar.ts";
 import { validate as validateOut } from "../lib/outbox.ts";
@@ -34,6 +35,14 @@ const tools: Tool[] = [
   { name: "list_reminders", description: "Open reminders, soonest first.",
     inputSchema: S({ days: { type: "number", description: "only those due within N days (default 30)" } }),
     run: a => { const lim = Date.now() + (a.days || 30) * 864e5; return JSON.stringify(brain.listReminders().filter(r => !r.done && brain.whenToDate(r.due).getTime() <= lim), null, 1); } },
+  { name: "history_search", description: "Search LUTHUR's saved past answers (chats, Code sessions, explanations, quest briefings, missions, email drafts). Use when the owner refers to something discussed before. Newest first.",
+    inputSchema: S({ query: str("words to find (all must match)"), project: str("optional project slug"), limit: { type: "number", description: "max results (default 5, max 20)" } }, ["query"]),
+    run: a => {
+      const words = String(a.query || "").toLowerCase().split(/\s+/).filter(Boolean);
+      let rows: any[] = []; try { rows = fs.readFileSync(path.join(DATA, "history.jsonl"), "utf8").trim().split("\n").map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch {}
+      const hits = rows.reverse().filter(e => (!a.project || e.project === a.project) && words.every(w => `${e.title}\n${e.ask}\n${e.answer}`.toLowerCase().includes(w))).slice(0, Math.min(20, a.limit || 5));
+      return hits.length ? hits.map(e => `## ${e.at.slice(0, 16).replace("T", " ")} · ${e.kind}${e.project ? " · " + e.project : ""} · ${e.title}\n${e.ask && e.ask !== e.title ? "Asked: " + e.ask.slice(0, 400) + "\n" : ""}${e.answer.slice(0, 1500)}`).join("\n\n") : "Nothing in history matches.";
+    } },
   { name: "list_milestones", description: "Key dates and deadlines across projects.",
     inputSchema: S({ project: str("optional project slug") }),
     run: a => JSON.stringify(brain.listMilestones().filter(m => !a.project || m.project === a.project), null, 1) },

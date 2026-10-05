@@ -125,6 +125,7 @@ export async function send(key: string, text: string, tier = "balanced", effort:
   try {
     const res = await runClaude({
       prompt: text, model, fallbackModel: fallback, effort, level, mode: level === "build" && (mode === "auto" || mode === "bypass") ? mode : "safe", resume: s.sessionId, runId: `code-${key}`, addDirs: dirs,
+      history: { title: `${name}: ${text.slice(0, 100)}`, ask: text, project: s.project, kind: "Code" },
       timeoutMs: (cfg.code?.maxMinutes || 20) * 60e3, onStep, onSpawn: pid => { const b = busy.get(key); if (b) b.pid = pid; },
       system: [
         `You're pair-programming with the owner live in HQ's Code screen on project "${p.name}" (session "${name}").`,
