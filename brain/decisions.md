@@ -2,6 +2,7 @@
 
 Newest first. What was decided, and why.
 
+- **2026-10-05** [luthor] Dashboard assistant renamed JARVIS → Luthor; its chats are viewed on the luthor project page. _Why:_ Owner request; one place to review assistant conversations.
 - **2026-10-05** [hq] HQ built as the business brain: plain files in /brain, Claude Code as the agent engine (subscription, no API bill), autonomy up to build (dev only). _Why:_ one place to plan and track every project, reusing Claude Code instead of rebuilding an agent loop.
 - **2026-10-03** [loancentral-discord] The Discord bot runs standalone as "LoanCentral" on the host PC (own SQLite, no Reddit data); separate Reddit and Discord dashboards one click apart.
 - **2026-10-02** [loancentral] No interest % shown anywhere: amount and repay amount only.

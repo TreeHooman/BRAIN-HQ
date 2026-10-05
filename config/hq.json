@@ -42,9 +42,10 @@
   },
 
   "assistant": {
-    "name": "JARVIS",
+    "name": "Luthor",
+    "project": "luthor",
     "persona": "Calm, precise, quietly witty chief of staff. Anticipates what the owner needs, flags risks early, keeps answers short enough to be read aloud.",
-    "comment": "Rename or restyle the assistant here. Voice input/output is in the dashboard (Assistant screen)."
+    "comment": "Rename or restyle the assistant here. project = the brain project whose page shows every chat (Chats tab). Voice input/output is in the dashboard (Assistant screen)."
   },
 
   "chat": {

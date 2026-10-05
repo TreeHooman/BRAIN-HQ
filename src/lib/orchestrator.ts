@@ -430,6 +430,26 @@ export function newChat() {
   if (c?.messages?.length) writeJson(path.join(F.chatArchive, `${c.id}.json`), c);
   writeJson(F.chat, { id: uid("chat"), sessionId: null, messages: [] });
 }
+/** Every chat (current + archived), newest first. Raw chats stay in data/ (gitignored): they can hold private details. */
+export function listChats(): { id: string; title: string; at: string; count: number; project?: string | null; current: boolean }[] {
+  const cur = readJson<Chat | null>(F.chat, null);
+  let files: string[] = [];
+  try { files = fs.readdirSync(F.chatArchive).filter(f => f.endsWith(".json")); } catch {}
+  const all = files.map(f => readJson<Chat | null>(path.join(F.chatArchive, f), null)).filter((c): c is Chat => !!c?.messages?.length);
+  const row = (c: Chat, current: boolean) => {
+    const first = c.messages.find(m => m.role === "you")?.text || "";
+    return { id: c.id, title: first.length > 80 ? first.slice(0, 79) + "…" : first || "(empty)", at: c.messages[c.messages.length - 1]?.at || "", count: c.messages.length, project: c.project || null, current };
+  };
+  const out = all.map(c => row(c, false));
+  if (cur?.messages?.length && !all.some(c => c.id === cur.id)) out.push(row(cur, true));
+  return out.sort((a, b) => b.at.localeCompare(a.at));
+}
+export function getChat(id: string): Chat | null {
+  if (!/^[\w-]{1,64}$/.test(id)) return null;
+  const cur = readJson<Chat | null>(F.chat, null);
+  if (cur?.id === id) return cur;
+  return readJson<Chat | null>(path.join(F.chatArchive, `${id}.json`), null);
+}
 export async function sendChat(text: string, opts: { project?: string | null; tier?: string } = {}): Promise<void> {
   if (chatBusy) throw new Error("The assistant is still answering.");
   const s = state();
@@ -448,7 +468,7 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
   const level = minLevel(cfg.chat?.permission || "plan", cfg.autonomy?.maxLevel || "build");
   chatBusy = true;
   const system = [
-    `You are ${cfg.assistant?.name || "JARVIS"}, the owner's AI chief of staff, talking with them in the HQ dashboard (they may be using voice). ${cfg.assistant?.persona || ""}`,
+    `You are ${cfg.assistant?.name || "Luthor"}, the owner's AI chief of staff, talking with them in the HQ dashboard (they may be using voice). ${cfg.assistant?.persona || ""}`,
     "Lead with the answer in one or two spoken-friendly sentences; put detail after, in short bullets.",
     "Be brief and concrete. Read brain context only as needed (hq_index first).",
     "Turn loose thoughts into structure: reminders (reminder_add), dates (milestone_add), decisions (decision_log), project facts (project_update/project_log), new projects (project_create), and work to do later (queue_followup: it runs as a background mission).",

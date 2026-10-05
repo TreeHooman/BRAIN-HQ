@@ -1,9 +1,10 @@
 # HQ index
 
-_Auto-generated 2026-10-05 01:36. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-05 15:57. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
+| luthor | tool | live | good | Send one real Luthor chat and confirm it shows in the Chats tab. | 2026-10-05 |
 | loancentral | business | live | watch | Finish Phase 0 housekeeping (due 8 Oct), then Phase 1 dashboard v1. | 2026-10-05 |
 | loancentral-discord | product | building | good | Do the lender-claim test on test ticket REQ-0002 in the main server (preview). | 2026-10-05 |
 | reddit | workstream | building | risk | Draft the Data Access Request resubmission (deadline 31 Oct). | 2026-10-05 |
@@ -30,6 +31,6 @@ _Auto-generated 2026-10-05 01:36. Don't edit; change project.json files instead.
 - 2027-01-12 Unregistered Reddit apps lose access (we're registered) [reddit]
 
 ## Goals (Mission Planner)
-- none
+- Survive the Reddit API shutdown [loancentral]: 0/7 steps, due 2027-03-31
 
 Per project: brain/projects/<slug>/SUMMARY.md (short) → plan.md → log.md. Decisions: brain/decisions.md.

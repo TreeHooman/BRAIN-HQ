@@ -1,4 +1,4 @@
-// HUD layer (JARVIS): motion, effects, Command view, Mission Planner, palette, live ops feed.
+// HUD layer (Luthor): motion, effects, Command view, Mission Planner, palette, live ops feed.
 // Loads after app.js and uses its globals (S, route, api, act, render, refresh, esc, md, ...). No build step.
 "use strict";
 const RM = matchMedia("(prefers-reduced-motion: reduce)");
@@ -123,7 +123,7 @@ function hudClock() {
 setInterval(hudClock, 1000);
 
 // ---------------- ticker (bottom log stream) ----------------
-const ACT_LABEL = { queued: "QUEUED", started: "STARTED", done: "COMPLETE", failed: "FAILED", timeout: "TIME LIMIT", paused: "PAUSED", resumed: "RESUMED", skipped: "SKIPPED", reminder: "REMINDER", chat: "JARVIS", "approval-requested": "APPROVAL", approved: "APPROVED", rejected: "REJECTED", "needs-login": "SIGN-IN", "mission-created": "MISSION", cancelled: "CANCELLED", error: "ERROR" };
+const ACT_LABEL = { queued: "QUEUED", started: "STARTED", done: "COMPLETE", failed: "FAILED", timeout: "TIME LIMIT", paused: "PAUSED", resumed: "RESUMED", skipped: "SKIPPED", reminder: "REMINDER", chat: "LUTHOR", "approval-requested": "APPROVAL", approved: "APPROVED", rejected: "REJECTED", "needs-login": "SIGN-IN", "mission-created": "MISSION", cancelled: "CANCELLED", error: "ERROR" };
 function hudTicker() {
   const t = document.getElementById("ticker");
   if (!t || !S) return;
@@ -276,14 +276,14 @@ const TIER_OPTS = () => [["fast", `Fast · ${cap(tierModel("fast"))}`], ["balanc
 
 // ---------------- command palette (Ctrl+K) ----------------
 const Pal = { items: [], shown: [], sel: 0, remote: [], timer: 0, q: "" };
-const VIEWS = [["command", "Command", "◎"], ["home", "Today", "▦"], ["assistant", "JARVIS", "✦"], ["projects", "Projects", "▣"], ["planner", "Mission Planner", "⬡"], ["calendar", "Calendar", "▤"], ["roadmap", "Roadmap", "≡"], ["inbox", "Inbox", "⇩"], ["missions", "Missions", "➤"], ["settings", "Settings", "⚙"]];
+const VIEWS = [["command", "Command", "◎"], ["home", "Today", "▦"], ["assistant", "Luthor", "✦"], ["projects", "Projects", "▣"], ["planner", "Mission Planner", "⬡"], ["calendar", "Calendar", "▤"], ["roadmap", "Roadmap", "≡"], ["inbox", "Inbox", "⇩"], ["missions", "Missions", "➤"], ["settings", "Settings", "⚙"]];
 function palBase() {
   const go = h => () => { location.hash = h; };
   const it = [];
   for (const [v, t, i] of VIEWS) it.push({ sec: "Go to", ico: i, t, run: go(v) });
   it.push(
-    { sec: "Actions", ico: "✦", t: "Ask JARVIS…", sub: "Open the assistant and talk", run: go("assistant") },
-    { sec: "Actions", ico: "🎙", t: "Talk to JARVIS (voice)", sub: "Alt+J", run: () => { sessionStorage.setItem("hq-listen", "1"); location.hash = "assistant"; } },
+    { sec: "Actions", ico: "✦", t: "Ask Luthor…", sub: "Open the assistant and talk", run: go("assistant") },
+    { sec: "Actions", ico: "🎙", t: "Talk to Luthor (voice)", sub: "Alt+J", run: () => { sessionStorage.setItem("hq-listen", "1"); location.hash = "assistant"; } },
     { sec: "Actions", ico: "+", t: "New reminder", run: () => addOnDayModal(ymd(new Date())) },
     { sec: "Actions", ico: "+", t: "New goal", sub: "Mission Planner", run: () => { location.hash = "planner"; setTimeout(goalModal, 50); } },
     { sec: "Actions", ico: "+", t: "New project", run: () => { location.hash = "projects"; setTimeout(newProjectModal, 50); } },
@@ -428,7 +428,7 @@ function hudShutdown() {
     HUD.asleep = true;
     b.className = "boot shut"; b.hidden = false;
     b.innerHTML = `<div class="boot-inner">${CORE_MINI}<div class="boot-final" id="bootFinal" style="opacity:1"></div><div class="boot-sub">Missions and reminders keep running in the background.</div></div><div class="boot-skip">CLICK OR PRESS ANY KEY TO WAKE</div>`;
-    scrambleTo(document.getElementById("bootFinal"), "JARVIS OFFLINE", 600);
+    scrambleTo(document.getElementById("bootFinal"), "LUTHOR OFFLINE", 600);
     setTimeout(() => b.classList.add("black"), reduced() ? 0 : 2600);
     const wake = e => {
       if (e?.type === "keydown" && ["Shift", "Control", "Alt", "Meta"].includes(e.key)) return;
@@ -489,7 +489,7 @@ function opsRender(d) {
     if (!t) {
       const el = document.createElement("section");
       el.className = "op"; el.setAttribute("aria-label", o.title);
-      el.innerHTML = `<header><span class="op-kind">${o.kind === "chat" ? "JARVIS" : "MISSION"}</span><b class="op-t"></b><small>${esc(cap(o.model))}${o.project ? " · " + esc(projName(o.project)) : ""}${o.level ? " · " + esc(o.level) : ""}</small></header><div class="op-body"></div><footer><span class="op-spin">✻</span> <span class="op-verb"></span> <span class="op-el"></span></footer>`;
+      el.innerHTML = `<header><span class="op-kind">${o.kind === "chat" ? "LUTHOR" : "MISSION"}</span><b class="op-t"></b><small>${esc(cap(o.model))}${o.project ? " · " + esc(projName(o.project)) : ""}${o.level ? " · " + esc(o.level) : ""}</small></header><div class="op-body"></div><footer><span class="op-spin">✻</span> <span class="op-verb"></span> <span class="op-el"></span></footer>`;
       grid.appendChild(el);
       scrambleTo(el.querySelector(".op-t"), o.title, 500);
       t = { el, steps: new Map(), status: null };
@@ -606,7 +606,7 @@ function coreSVG() {
   </svg>`;
 }
 async function vCommand(el) {
-  const name = S.settings.assistantName || "JARVIS";
+  const name = S.settings.assistantName || "Luthor";
   const st = S.status;
   const health = st.auth === "needs-login" || !st.claudeBin ? ["red", "DEGRADED"] : st.pausedUntil && new Date(st.pausedUntil) > new Date() ? ["amber", "PAUSED"] : ["", "NOMINAL"];
   el.innerHTML = `<div class="cmd-head"><div><h1 class="glitch">Command</h1><div class="sys">SYSTEMS <b class="${health[0]}">${health[1]}</b> · CLAUDE LINK <b class="${st.auth === "ok" ? "" : "amber"}">${st.auth === "ok" ? "ONLINE" : st.auth === "needs-login" ? "SIGN-IN NEEDED" : "STANDBY"}</b> · FOCUS <b>${esc(activeProject() ? projName(activeProject()).toUpperCase() : "ALL")}</b></div></div>
@@ -636,7 +636,7 @@ async function vCommand(el) {
 }
 function cmdShowReply(c, animate) {
   const box = document.getElementById("cmdReply"); if (!box) return;
-  const name = S.settings.assistantName || "JARVIS";
+  const name = S.settings.assistantName || "Luthor";
   const msgs = c?.messages || [];
   const lastYou = [...msgs].reverse().find(m => m.role === "you");
   const lastHq = [...msgs].reverse().find(m => m.role === "hq");
@@ -656,7 +656,7 @@ async function cmdSend(text) {
   cmdShowReply({ messages: [{ role: "you", text }] }, false); coreState();
   try { await api("/chat", "POST", { text, project: activeProject() || null, tier: currentTier() }); }
   catch (e) { Cmd.waiting = false; hudNotify("⚠ " + e.message); coreState(); return; }
-  chatState = null; // the JARVIS screen reloads its log next time
+  chatState = null; // the Luthor screen reloads its log next time
   opsKick(); cmdPollStart();
 }
 function cmdPollStart() {
@@ -738,11 +738,11 @@ function vPlanner(el) {
       return `<section class="card goal" data-goal="${g.id}">
         <div class="goal-head"><svg class="gring" viewBox="0 0 54 54" aria-hidden="true"><circle cx="27" cy="27" r="24" fill="none" stroke="rgba(0,229,255,.12)" stroke-width="4"/><circle class="arc-fill" cx="27" cy="27" r="24" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}" data-to="${C * (1 - pct / 100)}" style="transition:stroke-dashoffset 1.4s cubic-bezier(.2,.8,.2,1)"/></svg>
           <div class="grow"><h3>${esc(g.title)}</h3><div class="small muted">${g.project ? `<a href="#project/${g.project}">${esc(projName(g.project))}</a> · ` : ""}${pct}% · ${g.steps.filter(s => s.done).length}/${g.steps.length} steps${g.due ? ` · due ${esc(fmtWhen(g.due))}` : ""}</div>${g.why ? `<div class="small faint" style="margin-top:4px">${esc(g.why)}</div>` : ""}</div>
-          <div class="row"><button class="btn sm" data-break="${g.id}" title="Ask JARVIS to break this down">✦ Break down with JARVIS</button><button class="btn sm" data-addstep="${g.id}">+ Step</button><button class="btn sm ghost" data-delgoal="${g.id}" aria-label="Delete goal">✕</button></div></div>
+          <div class="row"><button class="btn sm" data-break="${g.id}" title="Ask Luthor to break this down">✦ Break down with Luthor</button><button class="btn sm" data-addstep="${g.id}">+ Step</button><button class="btn sm ghost" data-delgoal="${g.id}" aria-label="Delete goal">✕</button></div></div>
         <div class="graph"><svg class="edges" aria-hidden="true"></svg><div class="nodes">${g.steps.map((s, i) => `<div class="node ${s.done ? "done" : ""} ${next && s.id === next.id ? "next" : ""} ${Plan.open === g.id + "/" + s.id ? "open" : ""}" draggable="true" tabindex="0" data-step="${s.id}" role="button" aria-label="Step ${i + 1}: ${esc(s.title)}${s.done ? " (done)" : ""}">
             <div class="num"><span>STEP ${pad(i + 1)}</span><button class="tick" data-tick="${s.id}" aria-label="${s.done ? "Mark not done" : "Mark done"}"></button></div><div class="nt">${esc(s.title)}</div><div class="nd">${s.due ? esc(fmtWhen(s.due)) : "no date"}</div></div>`).join("")}</div></div>
         <div class="node-detail" hidden></div></section>`; }).join("")
-      : `<div class="card empty">No goals yet. Create one, or ask JARVIS to "make a goal for …".</div>`}`;
+      : `<div class="card empty">No goals yet. Create one, or ask Luthor to "make a goal for …".</div>`}`;
   document.getElementById("newGoal").onclick = () => goalModal();
   el.querySelectorAll(".goal").forEach(sec => bindGoal(sec, (S.goals || []).find(g => g.id === sec.dataset.goal)));
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -781,7 +781,7 @@ function bindGoal(sec, g) {
   if (!g) return;
   sec.querySelector("[data-break]").onclick = async () => {
     const text = `Break the Mission Planner goal "${g.title}" (id ${g.id}) into clear, ordered next steps with due dates where sensible. Keep the steps that are already done. Save it with goal_save (same id), then tell me the plan in 3 lines.`;
-    await api("/chat", "POST", { text, project: g.project || null, tier: currentTier() }).then(() => { hudNotify("Queued for JARVIS: breaking down the goal"); chatState = null; opsKick(); location.hash = "assistant"; }).catch(e => hudNotify("⚠ " + e.message));
+    await api("/chat", "POST", { text, project: g.project || null, tier: currentTier() }).then(() => { hudNotify("Queued for Luthor: breaking down the goal"); chatState = null; opsKick(); location.hash = "assistant"; }).catch(e => hudNotify("⚠ " + e.message));
   };
   sec.querySelector("[data-addstep]").onclick = () => {
     modal(`<h3>Add a step to “${esc(g.title)}”</h3><form class="form" id="stepForm"><label class="f">Step<input name="title" required></label><label class="f">Due (optional)<input type="date" name="due"></label>
@@ -827,7 +827,7 @@ function goalModal() {
     <label class="f">Goal<input name="title" required placeholder="e.g. Launch Borrow Fast beta"></label>
     <div class="two"><label class="f">Project<select name="project">${projOptions(activeProject(), "No project")}</select></label><label class="f">Target date<input type="date" name="due"></label></div>
     <label class="f">Why it matters<input name="why"></label>
-    <label class="f">Steps (one per line, in order)<textarea name="steps" placeholder="Leave empty and ask JARVIS to break it down"></textarea></label>
+    <label class="f">Steps (one per line, in order)<textarea name="steps" placeholder="Leave empty and ask Luthor to break it down"></textarea></label>
     <div class="row end"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary">Create goal</button></div></form>`);
   document.getElementById("goalForm").onsubmit = async e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));

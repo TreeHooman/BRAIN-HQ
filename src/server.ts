@@ -46,7 +46,7 @@ function snapshot() {
     status: { ...orch.status(), awake: orch.awakeOn() },
     settings: {
       port: PORT, budget: c.budget?.preset, budgets: Object.keys(c.budget?.presets || {}), budgetNow: budget(c),
-      assistantName: c.assistant?.name || "JARVIS", keepAwake: c.keepAwake, autonomy: c.autonomy?.maxLevel, chatTier: c.chat?.tier,
+      assistantName: c.assistant?.name || "Luthor", assistantProject: c.assistant?.project || "luthor", keepAwake: c.keepAwake, autonomy: c.autonomy?.maxLevel, chatTier: c.chat?.tier,
       ntfy: { enabled: !!c.notifications?.ntfy?.enabled, topic: c.notifications?.ntfy?.topic, server: c.notifications?.ntfy?.server, detail: c.notifications?.ntfy?.detail },
       toast: c.notifications?.toast !== false, models: loadModels(), hqDir: ROOT,
       startup: fs.existsSync(path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "HQ.lnk")),
@@ -101,6 +101,8 @@ const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/live$/, () => orch.liveOps()],
   ["GET", /^\/api\/chat$/, () => orch.chat()],
   ["POST", /^\/api\/chat$/, (_, b) => { void orch.sendChat(String(b.text || ""), { project: b.project, tier: b.tier }).catch(() => {}); return { ok: true }; }],
+  ["GET", /^\/api\/chats$/, () => orch.listChats()],
+  ["GET", /^\/api\/chats\/([\w-]{1,64})$/, m => { const c = orch.getChat(m[1]); if (!c) throw Object.assign(new Error("Not found"), { code: 404 }); return c; }],
   ["POST", /^\/api\/chat\/new$/, () => { orch.newChat(); return { ok: true }; }],
 
   ["POST", /^\/api\/settings$/, (_, b) => {

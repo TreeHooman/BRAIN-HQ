@@ -7,6 +7,7 @@ let S = null;            // latest /api/state snapshot
 let route = { view: "command", arg: null };
 let calMonth = null;     // Date for the calendar view
 let projTab = "summary";
+let openChat = null;     // chat id expanded on the assistant's project page
 let editing = null;      // "summary" | "plan" while editing a doc
 let projCache = {};      // slug -> /api/project/:slug
 
@@ -259,7 +260,10 @@ async function vProject(el) {
   let d = projCache[slug];
   if (!d || !render.background) { try { d = projCache[slug] = await api(`/project/${slug}`); } catch { el.innerHTML = `<h1>Not found</h1>`; return; } }
   const p = d.project;
-  const tabs = [["summary", "Summary"], ["plan", "Plan"], ["log", "Log"], ["work", "Missions & dates"], ["setup", "Setup"]];
+  const isAgent = slug === (S.settings.assistantProject || "luthor");
+  const tabs = [["summary", "Summary"], ["plan", "Plan"], ["log", "Log"], ...(isAgent ? [["chats", "Chats"]] : []), ["work", "Missions & dates"], ["setup", "Setup"]];
+  if (projTab === "chats" && !isAgent) projTab = "summary";
+  if (projTab === "chats") { try { d.chats = await api("/chats"); d.chat = openChat ? await api(`/chats/${openChat}`) : null; } catch { d.chats = d.chats || []; } }
   const doc = part => editing === part
     ? `<textarea class="code" id="docText">${esc(d[part])}</textarea><div class="row end" style="margin-top:8px"><button class="btn ghost" id="docCancel">Cancel</button><button class="btn primary" id="docSave">Save</button></div>`
     : `<div class="row end"><button class="btn sm" id="docEdit">Edit</button></div>${md(d[part])}`;
@@ -269,6 +273,11 @@ async function vProject(el) {
   let body = "";
   if (projTab === "summary" || projTab === "plan") body = `<div class="card">${doc(projTab)}</div>`;
   else if (projTab === "log") body = `<div class="card"><form id="logForm" class="row"><input class="grow" name="text" placeholder="Add a log entry: what happened, what you learned…"><button class="btn">Add</button></form></div><div class="card" style="margin-top:12px">${md(d.log)}</div>`;
+  else if (projTab === "chats") body = `<div class="card tight">${(d.chats || []).length ? d.chats.map(c => `
+      <div class="row" role="button" tabindex="0" style="cursor:pointer;padding:8px 4px" data-chat="${esc(c.id)}"><div class="grow"><div>${esc(c.title)}${c.current ? ' <span class="pill blue">current</span>' : ""}</div>
+        <div class="small faint">${esc(c.at.slice(0, 16).replace("T", " "))} · ${c.count} messages${c.project ? " · " + esc(projName(c.project)) : ""}</div></div></div>
+      ${openChat === c.id && d.chat ? `<div class="card" style="margin:6px 0 12px">${d.chat.messages.map(m => `<div style="margin-bottom:10px"><div class="small faint">${m.role === "you" ? "You" : esc(S.settings.assistantName || "Luthor")} · ${esc(String(m.at).slice(0, 16).replace("T", " "))}</div>${m.role === "you" ? `<div style="white-space:pre-wrap">${esc(m.text)}</div>` : md(m.text)}</div>`).join("")}</div>` : ""}`).join("")
+      : `<div class="empty">No chats yet. Talk to ${esc(S.settings.assistantName || "Luthor")} and they show up here.</div>`}</div>`;
   else if (projTab === "work") body = `
     <div class="cols"><div>
       <h2 style="margin-top:0">Run a mission on this project</h2>
@@ -308,6 +317,7 @@ async function vProject(el) {
     ${body}`;
   const reload = async msg => { delete projCache[slug]; if (msg) toast(msg); await refresh(); render(); };
   $$("[data-tab]", el).forEach(b => b.onclick = () => { projTab = b.dataset.tab; editing = null; render(); });
+  $$("[data-chat]", el).forEach(r => r.onclick = () => { openChat = openChat === r.dataset.chat ? null : r.dataset.chat; render(); });
   $("#headForm").onsubmit = async e => { e.preventDefault(); await api(`/project/${slug}`, "PUT", Object.fromEntries(new FormData(e.target))).catch(x => toast(x.message)); reload("Saved"); };
   $("#askAbout").onclick = () => { sessionStorage.setItem("chatProject", slug); };
   const de = $("#docEdit"); if (de) de.onclick = () => { editing = projTab; render(); };
@@ -423,7 +433,7 @@ function vInbox(el) {
   $$("[data-delin]", el).forEach(b => b.onclick = () => act(() => api(`/inbox/${b.dataset.delin}`, "DELETE"), "Removed"));
 }
 
-// ---------------- voice (JARVIS mode) ----------------
+// ---------------- voice (Luthor mode) ----------------
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const voiceOn = () => { try { return localStorage.getItem("hq-voice") === "1"; } catch { return false; } };
 function speak(text) {
@@ -615,7 +625,7 @@ function vSettings(el) {
     </div><div>
       <h2>Look &amp; feel</h2>
       <div class="card form">
-        <div class="row"><span class="small muted" style="min-width:110px">Theme</span><div class="chips"><button type="button" class="chip ${document.documentElement.dataset.theme === "hud" ? "on" : ""}" data-theme-set="hud">HUD (JARVIS)</button><button type="button" class="chip ${document.documentElement.dataset.theme === "calm" ? "on" : ""}" data-theme-set="calm">Calm</button></div></div>
+        <div class="row"><span class="small muted" style="min-width:110px">Theme</span><div class="chips"><button type="button" class="chip ${document.documentElement.dataset.theme === "hud" ? "on" : ""}" data-theme-set="hud">HUD (Luthor)</button><button type="button" class="chip ${document.documentElement.dataset.theme === "calm" ? "on" : ""}" data-theme-set="calm">Calm</button></div></div>
         <div class="row"><span class="small muted" style="min-width:110px">Sound effects</span><div class="chips"><button type="button" class="chip ${Snd.on() ? "on" : ""}" data-sound="1">On</button><button type="button" class="chip ${Snd.on() ? "" : "on"}" data-sound="0">Off</button></div></div>
         <div class="small muted">Animations follow your Windows “reduce motion” setting. Shortcuts: <kbd class="kbd">Ctrl K</kbd> search, <kbd class="kbd">Ctrl 1–9</kbd> switch project (<kbd class="kbd">Ctrl 0</kbd> all), <kbd class="kbd">Alt J</kbd> talk, <kbd class="kbd">/</kbd> capture.</div>
         <div class="row end"><button type="button" class="btn" id="replayBoot">Replay boot</button><button type="button" class="btn" id="powerDown">⏻ Power down</button></div></div>

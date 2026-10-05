@@ -1,0 +1,16 @@
+{
+  "name": "Luthor",
+  "kind": "tool",
+  "stage": "live",
+  "health": "good",
+  "summary": "HQ's dashboard assistant (formerly JARVIS). Every Luthor chat is listed on this page (Chats tab).",
+  "nextStep": "Send one real Luthor chat and confirm it shows in the Chats tab.",
+  "updated": "2026-10-05",
+  "paths": [],
+  "repos": [],
+  "links": [],
+  "tags": [],
+  "maxPermission": "plan",
+  "phases": [],
+  "order": 0
+}

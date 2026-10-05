@@ -95,3 +95,7 @@ The owner asked for (1) a cleaner, modern, easier-on-the-eyes UI with better fin
 3. **Owner decision pending:** should "Power down" also stop the HQ server (`POST /api/shutdown`)? Currently screen-only.
 4. **New owner request: Google Calendar + Gmail in HQ.** Not started. Options to put to the owner: (a) Calendar via the secret iCal (.ics) address from Google Calendar settings, fetched by the server and shown on Calendar/Command (no deps, read-only; the URL is a secret, so it goes in `config/hq.local.json` and must never be printed); (b) Gmail/Calendar through the claude.ai connectors in a scheduled mission that summarizes unread mail and today's events into the brain (needs those connectors added to HQ's per-run MCP config, which is `--strict-mcp-config` today); (c) Google OAuth app in HQ (most work; the owner must create the Google Cloud credentials). Read-only only; never send mail (agent hard limits).
 5. Brain not yet updated for this work (no `hq` project log entry).
+
+## 2026-10-05: JARVIS renamed to Luthor
+- Assistant name/persona: `config/hq.json` → `assistant` (`project: "luthor"` picks the page that lists chats).
+- New brain project `luthor`; its page has a **Chats** tab (current + archived). API: `GET /api/chats`, `GET /api/chats/:id`. Raw chats stay in `data/chat/` (gitignored).
