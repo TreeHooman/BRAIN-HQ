@@ -8,10 +8,11 @@ const CARD = { agent: [380, 470], project: [360, 470], checklist: [320, 300], no
 const cvTint = sid => { let h = 0; for (const ch of String(sid)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PC[h % PC.length]; };
 const cvTabs = () => { try { return JSON.parse(hstore.get("hq-cv-tabs", "[]")).filter(id => CV.list.some(c => c.id === id)); } catch { return []; } };
 const cvSetTabs = ids => hstore.set("hq-cv-tabs", JSON.stringify([...new Set(ids)].slice(-10)));
-const cvFocus = () => { try { return JSON.parse(hstore.get("hq-cv-focus", "[]")).slice(0, 2); } catch { return []; } };
-const cvSetFocus = ids => { hstore.set("hq-cv-focus", JSON.stringify([...new Set(ids)].slice(-2))); cvFocusRender(); };
+const cvFocus = () => { try { return JSON.parse(hstore.get("hq-cv-focus", "[]")).slice(0, 3); } catch { return []; } };
+const cvSetFocus = ids => { hstore.set("hq-cv-focus", JSON.stringify([...new Set(ids)].slice(-3))); cvFocusRender(); };
 const cvSess = sid => (Live.code?.sessions || []).find(s => s.id === sid);
 const cvStack = () => phone();
+const FOLDER = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`;
 
 async function vCanvas(el) {
   CV.el = el;
@@ -57,10 +58,16 @@ function cvTabsRender() {
   const box = document.getElementById("cvTabs"); if (!box) return;
   const ids = cvTabs();
   box.innerHTML = ids.map(id => { const c = CV.list.find(x => x.id === id); return `<div class="cv-tab ${id === CV.data.id ? "on" : ""}" style="--pc:${c.project ? projColor(c.project) : "var(--accent)"}"><button type="button" data-tab-go="${id}"><i></i>${esc(c.project ? projName(c.project) + " · " : "")}${esc(c.name)}</button><button type="button" class="x" data-tab-x="${id}" aria-label="Close tab">✕</button></div>`; }).join("")
-    + `<button type="button" class="cv-tab-add" id="cvTabAdd" title="New or open a canvas" aria-label="New or open a canvas">+</button>`;
+    + `<button type="button" class="cv-tab-add" id="cvTabAdd" title="New or open a canvas" aria-label="New or open a canvas">+</button><span class="g"></span>`
+    + (cvStack() ? "" : `<div class="cv-modes" role="group" aria-label="View"><button type="button" data-mode="0" class="${cvCols() ? "" : "on"}">Canvas</button><button type="button" data-mode="1" class="${cvCols() ? "on" : ""}">Columns</button></div>`);
   box.querySelectorAll("[data-tab-go]").forEach(b => b.onclick = () => { location.hash = "canvas/" + b.dataset.tabGo; });
   box.querySelectorAll("[data-tab-x]").forEach(b => b.onclick = () => { const left = cvTabs().filter(x => x !== b.dataset.tabX); cvSetTabs(left); if (b.dataset.tabX === CV.data.id) location.hash = "canvas/" + (left.at(-1) || ""); else cvTabsRender(); });
   document.getElementById("cvTabAdd").onclick = cvOpenModal;
+  box.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => {
+    hstore.set("hq-cv-cols", b.dataset.mode);
+    if (b.dataset.mode === "1" && !cvFocus().filter(id => cvSess(id)).length) cvSetFocus(CV.data.cards.filter(c => c.type === "agent" && cvSess(c.ref)).slice(0, 3).map(c => c.ref));
+    cvTabsRender(); cvFocusRender(); if (b.dataset.mode === "0") setTimeout(() => { cvApplyView(); }, 50);
+  });
 }
 function cvCrumb() {
   const c = document.getElementById("cvCrumb"); if (!c) return;
@@ -198,31 +205,36 @@ function cvCardHTML(c) {
   if (c.type === "agent") {
     const s = cvSess(c.ref);
     if (!s) return `<div class="cv-h"><i></i><b>Closed session</b><span class="g"></span>${cvX(c.id)}</div><div class="cv-b cv-pad muted small">This session was closed. Remove the card, or bring it back from Code.</div>${rs}`;
-    return `<div class="cv-h"><i></i><b>${esc(s.name)}</b><em>Claude</em><span class="g"></span><span class="chip">${esc(s.projectName)}</span>${cvX(c.id, `<button type="button" class="x" data-cf="${esc(s.id)}" title="Open to the right" aria-label="Open to the right">⇥</button>`)}</div>${cvAgentBody(s.id, c.id)}${rs}`;
+    return `<div class="cv-h"><i></i><b>${esc(s.name)}</b><em>Claude</em><span class="g"></span><span class="chip" title="${esc(s.projectName)}">${FOLDER}${esc(cvFolder(s.id))}</span>${cvX(c.id, `<button type="button" class="x" data-cf="${esc(s.id)}" title="Open to the right" aria-label="Open to the right">⇥</button>`)}</div>${cvAgentBody(s.id, c.id)}${rs}`;
   }
   if (c.type === "project") return `<div class="cv-h"><i></i><b>${esc(projName(c.ref))}</b><span class="g"></span><em>PROJECT</em>${cvX(c.id)}</div><div class="cv-b cv-scroll" id="cvP-${c.id}"></div>${rs}`;
   if (c.type === "checklist") return `<div class="cv-h"><i></i><b>Checklist</b><span class="g"></span>${cvX(c.id)}</div><div class="cv-b cv-scroll" id="cvG-${c.id}"></div>${rs}`;
   return `<div class="cv-h"><i></i><b>Note</b><span class="g"></span>${cvX(c.id)}</div><div class="cv-b"><textarea class="cv-note" placeholder="Write anything…" aria-label="Note">${esc(c.text || "")}</textarea></div>${rs}`;
 }
 function cvAgentBody(sid, key) {
-  const tier = hstore.get("hq-cv-tier-" + sid, currentTier());
+  const tier = hstore.get("hq-cv-tier-" + sid, currentTier()), ro = hstore.get("hq-cv-ro-" + sid, "0") === "1";
   return `<div class="cv-b"><div class="cv-log" id="cvLog-${key}" data-sid="${esc(sid)}"><div class="cd-empty"><b>Loading…</b></div></div>
-    <form class="cv-ask" data-ask="${esc(sid)}"><textarea rows="2" placeholder="Ask Claude… (Ctrl+Enter)" aria-label="Message"></textarea>
-      <div class="cv-askrow"><select data-tier aria-label="Model">${[["fast", "Haiku"], ["balanced", "Sonnet"], ["deep", "Opus"]].map(([k, l]) => `<option value="${k}" ${k === tier ? "selected" : ""}>${l}</option>`).join("")}</select><span class="cv-st" data-st></span><button type="button" class="cv-stop" data-stop hidden aria-label="Stop">■</button><button class="cv-send" aria-label="Send">↑</button></div></form></div>`;
+    <form class="cv-ask" data-ask="${esc(sid)}"><textarea rows="2" placeholder="Ask Claude…" aria-label="Message"></textarea>
+      <div class="cv-askrow"><select data-tier aria-label="Model">${["fast", "balanced", "deep"].map(k => `<option value="${k}" ${k === tier ? "selected" : ""}>${esc(cvModel(k))}</option>`).join("")}</select>
+        <button type="button" class="cv-lock ${ro ? "on" : ""}" data-lock aria-pressed="${ro}" title="${ro ? "Look only: it can't change files (click to allow edits)" : "Can edit files (click to make it look only)"}">${LOCK(ro)}<span>${ro ? "look only" : "can edit"}</span></button>
+        <span class="cv-st" data-st></span><button type="button" class="cv-stop" data-stop hidden aria-label="Stop">■</button><button class="cv-send" aria-label="Send"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div></form></div>`;
 }
 function cvBindAsk(root) {
   root.querySelectorAll("form[data-ask]").forEach(f => {
     if (f.dataset.bound) return; f.dataset.bound = "1";
     const sid = f.dataset.ask, ta = f.querySelector("textarea");
     f.querySelector("[data-tier]").onchange = e => hstore.set("hq-cv-tier-" + sid, e.target.value);
+    const lk = f.querySelector("[data-lock]");
+    lk.onclick = () => { const on = hstore.get("hq-cv-ro-" + sid, "0") !== "1"; hstore.set("hq-cv-ro-" + sid, on ? "1" : "0"); lk.classList.toggle("on", on); lk.setAttribute("aria-pressed", String(on)); lk.innerHTML = `${LOCK(on)}<span>${on ? "look only" : "can edit"}</span>`; lk.title = on ? "Look only: it can't change files (click to allow edits)" : "Can edit files (click to make it look only)"; };
     f.querySelector("[data-stop]").onclick = () => api(`/code/${sid}/stop`, "POST").catch(x => toast(x.message));
     const go = async () => {
       const text = ta.value.trim(); if (!text) return;
-      try { await api(`/code/${sid}`, "POST", { text, tier: f.querySelector("[data-tier]").value, effort: currentEffort() === "auto" ? null : currentEffort() }); ta.value = ""; Snd.blip(980, .06); CV.seen.delete(sid); setTimeout(cvPoll, 300); }
+      try { await api(`/code/${sid}`, "POST", { text, tier: f.querySelector("[data-tier]").value, effort: currentEffort() === "auto" ? null : currentEffort(), readOnly: hstore.get("hq-cv-ro-" + sid, "0") === "1" }); ta.value = ""; Snd.blip(980, .06); CV.seen.delete(sid); setTimeout(cvPoll, 300); }
       catch (e) { toast(e.message, 5000); }
     };
     f.onsubmit = e => { e.preventDefault(); go(); };
-    ta.onkeydown = e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go(); } };
+    ta.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey && !touchDev()) { e.preventDefault(); go(); } };
+    ta.oninput = () => { ta.style.height = "auto"; ta.style.height = Math.min(160, ta.scrollHeight) + "px"; };
   });
 }
 function cvCardBind(el, c) {
@@ -293,7 +305,7 @@ function cvAgentPaint(sid, log) {
     log.dataset.n = String(d.messages.length); log.scrollTop = log.scrollHeight;
   }
   const op = s.busy ? Live.ops.find(o => o.id === s.opId) : null, live = log.querySelector(".cv-live");
-  if (live) live.innerHTML = s.busy ? `<div class="cd-msg hq"><div class="cd-steps">${(op?.steps || []).filter(x => x.kind === "tool" || x.kind === "text").slice(-8).map(x => stepLine(x, true)).join("")}<div class="s run"><b>${op ? "Working" : "Starting"}</b><span>${op ? `${op.calls} steps · ${fmtDur(Date.now() - op.startedAt)}` : ""}</span></div></div></div>` : "";
+  if (live) live.innerHTML = s.busy ? `<div class="cd-msg hq"><div class="cd-steps">${(op?.steps || []).filter(x => x.kind === "tool" || x.kind === "text").slice(-3).map(x => stepLine(x, true)).join("")}<div class="s run"><b>${op ? "Working" : "Starting"}</b><span>${op ? `${op.calls} steps · ${fmtDur(Date.now() - op.startedAt)}` : ""}</span></div></div></div>` : "";
   if (stick && s.busy) log.scrollTop = log.scrollHeight;
   const f = log.parentElement.querySelector("form[data-ask]");
   if (f) { f.querySelector("[data-st]").textContent = s.busy ? "working…" : d.level === "build" ? "" : "read-only"; f.querySelector("[data-stop]").hidden = !s.busy; f.querySelector(".cv-send").disabled = s.busy; }
@@ -346,10 +358,17 @@ function cvAddMenu() {
 function cvFocusRender() {
   const box = document.getElementById("cvFocus"); if (!box) return;
   const ids = cvFocus().filter(id => cvSess(id));
-  box.classList.toggle("on", ids.length > 0 && !cvStack());
-  const key = ids.join(",");
+  box.classList.toggle("on", (ids.length > 0 || cvCols()) && !cvStack());
+  document.querySelector(".cv")?.classList.toggle("cols", cvCols());
+  const key = ids.join(",") + (cvCols() ? "|c" : "");
   if (box.dataset.k === key) return; box.dataset.k = key;
-  box.innerHTML = ids.map(sid => { const s = cvSess(sid); return `<section class="cv-fcol" style="--tint:${cvTint(sid)}"><div class="cv-h"><i></i><b>${esc(s.name)}</b><em>Claude</em><span class="g"></span><span class="chip">${esc(s.projectName)}</span><button type="button" class="x" data-funf="${esc(sid)}" title="Close" aria-label="Close">✕</button></div>${cvAgentBody(sid, "f-" + sid)}</section>`; }).join("");
+  box.innerHTML = ids.map(sid => { const s = cvSess(sid); return `<section class="cv-fcol" style="--tint:${cvTint(sid)}"><div class="cv-h"><i></i><b>${esc(s.name)}</b><em>Claude</em><span class="g"></span><span class="chip">${FOLDER}${esc(cvFolder(sid))}</span><button type="button" class="x" data-funf="${esc(sid)}" title="Close" aria-label="Close">✕</button></div>${cvAgentBody(sid, "f-" + sid)}</section>`; }).join("");
+  if (cvCols()) {
+    const free = CV.data.cards.filter(c => c.type === "agent" && cvSess(c.ref) && !ids.includes(c.ref));
+    if (ids.length < 3) box.insertAdjacentHTML("beforeend", `<div class="cv-fadd"><span>Add a column</span>${free.map(c => { const s = cvSess(c.ref); return `<button type="button" data-fadd="${esc(s.id)}" style="--tint:${cvTint(s.id)}"><i></i>${esc(s.name)}</button>`; }).join("")}<button type="button" data-fnew>+ New chat</button></div>`);
+    box.querySelectorAll("[data-fadd]").forEach(b => b.onclick = () => cvSetFocus([...cvFocus(), b.dataset.fadd]));
+    box.querySelector("[data-fnew]")?.addEventListener("click", async () => { const slug = CV.data.project || codeProjects()[0]?.slug; if (!slug) return toast("Give a project a folder first."); const before = new Set(CV.data.cards.map(c => c.id)); await cvNewChat(slug); const nc = CV.data.cards.find(c => !before.has(c.id)); if (nc) cvSetFocus([...cvFocus(), nc.ref]); });
+  }
   box.querySelectorAll("[data-funf]").forEach(b => b.onclick = () => cvSetFocus(cvFocus().filter(x => x !== b.dataset.funf)));
   cvBindAsk(box);
   ids.forEach(sid => { const l = document.getElementById("cvLog-f-" + sid); if (l) { l.dataset.n = ""; cvAgentFill(sid, "f-" + sid); } });
@@ -366,6 +385,19 @@ async function cvPoll() {
   const busy = (Live.code?.sessions || []).some(s => s.busy);
   CV.poll = setTimeout(cvPoll, busy ? 1300 : 5000);
 }
+// Chat messages: steps fold into one line ("› 3 steps · Edited app/page.tsx"), the answer stays clean.
+codeMsgHTML = function (m) {
+  if (m.role === "you") return `<div class="cd-msg you">${esc(m.text)}</div>`;
+  const steps = (m.steps || []).filter(s => s.kind === "tool"), last = steps.at(-1);
+  const sum = last ? `${esc(last.verb || last.tool || "")} ${esc(last.target || "")}` : "";
+  const fold = steps.length ? `<details class="cm-fold"><summary><span class="cm-n">${steps.length} step${steps.length > 1 ? "s" : ""}</span><span class="cm-l">${sum}</span>${m.added || m.removed ? `<span class="cm-d"><span class="a">+${m.added || 0}</span> <span class="d">−${m.removed || 0}</span></span>` : ""}</summary><div class="cd-steps">${steps.map(x => stepLine(x)).join("")}</div></details>` : "";
+  return `<div class="cd-msg hq ${m.error ? "err" : ""}">${fold}<div class="md">${md(m.text || "")}</div>${m.ms ? `<div class="cm-t">${fmtDur(m.ms)}</div>` : ""}</div>`;
+};
+const cvFolder = sid => { const s = cvSess(sid), p = S.projects.find(x => x.slug === s?.project); const f = (p?.paths || [])[0] || ""; return f.split(/[\\/]/).filter(Boolean).pop() || s?.projectName || ""; };
+const cvModel = t => { const n = ({ fast: "Haiku", balanced: "Sonnet", deep: "Opus" })[t], m = String(tierModel(t) || ""); return m && m.toLowerCase() !== n.toLowerCase() ? `${n} · ${m}` : n; };
+const LOCK = on => `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="${on ? "M8 11V8a4 4 0 0 1 8 0v3" : "M8 11V8a4 4 0 0 1 7.5-2"}"/></svg>`;
+const cvCols = () => !cvStack() && hstore.get("hq-cv-cols", "0") === "1";
+
 const _renderCV = render;
 render = function () {
   if (render.background && route.view === "canvas") return; // the canvas updates itself; a full redraw would reset the board

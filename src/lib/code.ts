@@ -104,11 +104,12 @@ export function check(key: string, text: string) {
   if (!dirs.length) throw new Error(`No folder found for ${p.name}. Add its folder under the project's Setup tab.`);
 }
 
-export async function send(key: string, text: string, tier = "balanced", effort: string | null = null): Promise<void> {
+export async function send(key: string, text: string, tier = "balanced", effort: string | null = null, readOnly = false): Promise<void> {
   check(key, text);
   text = String(text || "").trim().slice(0, 20000);
   const s = load(key);
-  const { p, dirs, level } = access(s.project);
+  const { p, dirs, level: max } = access(s.project);
+  const level = readOnly ? "read" : max; // the lock in the chat box: look only, no edits
   s.messages.push({ role: "you", text, at: new Date().toISOString() });
   save(key, s);
   const cfg = loadConfig();

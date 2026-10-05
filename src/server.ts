@@ -131,7 +131,7 @@ const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/code\/external\/([a-z0-9-]+)$/, m => code.external(m[1])],
   ["POST", /^\/api\/code\/import$/, (_, b) => code.importSession(String(b.project || ""), String(b.session || ""), b.name)],
   ["GET", /^\/api\/code\/([a-z0-9-]+)$/, m => code.get(m[1])],
-  ["POST", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => { code.check(m[1], String(b.text || "")); void code.send(m[1], String(b.text || ""), b.tier, b.effort || null).catch(() => {}); return { ok: true }; }],
+  ["POST", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => { code.check(m[1], String(b.text || "")); void code.send(m[1], String(b.text || ""), b.tier, b.effort || null, b.readOnly === true).catch(() => {}); return { ok: true }; }],
   ["PUT", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => code.rename(m[1], String(b.name || ""))],
   ["POST", /^\/api\/code\/([a-z0-9-]+)\/stop$/, m => { code.stop(m[1]); return { ok: true }; }],
   ["DELETE", /^\/api\/code\/([a-z0-9-]+)$/, m => { code.close(m[1]); return { ok: true }; }],

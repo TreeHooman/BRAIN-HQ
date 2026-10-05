@@ -154,3 +154,4 @@ The owner asked for (1) a cleaner, modern, easier-on-the-eyes UI with better fin
   - The first visit auto-creates a "Main canvas" for the focused project, containing its sessions and goals.
 - Phone: cards are stacked with no panning.
 - Codex/GPT agents (shown in Morphy) are not added. The engine stays Claude Code; adding another engine would be a separate, opt-in piece of work.
+- Follow-up: chat messages everywhere use a compact `codeMsgHTML` (override in canvas.js). Steps fold into "› N steps · last action · +a −r" and expand on click. The input bar has a model picker, a lock (`readOnly` → the session runs at "read" level for that message, enforced server-side in `code.send`) and a reactor send button; Enter sends. Canvas has Canvas / Columns modes (Columns = up to 3 chats filling the screen, `hq-cv-cols`). Stark layer: HUD corner brackets, a glowing dot, and a header shimmer plus scan line while an agent works.

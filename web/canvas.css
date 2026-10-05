@@ -95,3 +95,73 @@ body[data-view="canvas"] #ops { display: none !important; }
 .cv.stack .cv-h { cursor: default; }
 @media (prefers-reduced-motion: reduce) { .cv-card.pop, .cv-fcol { animation: none; } }
 .cv.stack [data-cf] { display: none; }
+
+/* ---- compact chat (shared by Canvas, Side by side and the Code drawer) ---- */
+.cm-fold { margin-bottom: 6px; }
+.cm-fold > summary { list-style: none; display: flex; align-items: center; gap: 8px; cursor: pointer; font: 12px var(--mono); color: #7d8091; padding: 3px 0; user-select: none; }
+.cm-fold > summary::-webkit-details-marker { display: none; }
+.cm-fold > summary::before { content: "›"; font-size: 14px; transition: transform .2s; color: #9aa0b5; }
+.cm-fold[open] > summary::before { transform: rotate(90deg); }
+.cm-fold .cm-n { color: #c9ccd8; font-weight: 600; flex: none; }
+.cm-fold .cm-l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cm-fold .cm-l::before { content: "· "; }
+.cm-fold .cm-d { margin-left: auto; flex: none; } .cm-fold .a { color: #9ece6a; } .cm-fold .d { color: #f7768e; }
+.cm-fold .cd-steps { margin: 6px 0 4px 6px; padding-left: 10px; border-left: 1px solid rgba(255, 255, 255, .08); }
+.cm-t { font: 10.5px var(--mono); color: #5d6072; margin-top: 4px; }
+.cd-msg.hq .md { font-size: 13.5px; line-height: 1.55; }
+.cd-msg.hq .md strong { color: #fff; }
+
+/* ---- input bar: model · lock · send ---- */
+.cv-askrow select { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.cv-lock { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 7px; border-radius: 6px; border: 1px solid transparent; background: none; color: #7d8091; font: 11px var(--mono); cursor: pointer; }
+.cv-lock:hover { border-color: #2a2c36; color: #c9ccd8; } .cv-lock.on { color: #e0af68; border-color: rgba(224, 175, 104, .3); }
+.cv-h .chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, .08); }
+.cv-h .chip svg { flex: none; opacity: .8; }
+
+/* ---- Columns mode: up to 3 chats filling the screen ---- */
+.cv-tabs .g { flex: 1; }
+.cv-modes { display: flex; gap: 2px; padding: 2px; border-radius: 8px; background: #16171d; border: 1px solid #2a2c36; flex: none; }
+.cv-modes button { padding: 5px 12px; border-radius: 6px; border: 0; background: none; color: #7d8091; font: 12.5px var(--font); cursor: pointer; }
+.cv-modes button.on { background: #262833; color: #fff; }
+.cv.cols .cv-area { display: none; }
+.cv.cols .cv-focus { display: flex; width: 100%; }
+.cv-fadd { width: 200px; flex: none; display: flex; flex-direction: column; gap: 6px; padding: 12px; border: 1px dashed #3a3d4b; border-radius: 12px; color: #7d8091; font: 12px var(--mono); overflow-y: auto; }
+.cv-fadd button { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; border: 1px solid #2a2c36; background: #16171d; color: #e4e6ee; font: 12.5px var(--font); text-align: left; cursor: pointer; }
+.cv-fadd button i { width: 8px; height: 8px; border-radius: 50%; background: var(--tint, var(--accent)); flex: none; }
+.cv-fadd button:hover { border-color: var(--tint, var(--accent)); }
+
+/* ================= Stark layer: HUD corners, glow, scan, reactor send ================= */
+.cv-card, .cv-fcol { --hud: color-mix(in srgb, var(--tint) 70%, #6ff2ff); }
+.cv-card::before, .cv-fcol::before, .cv-card::after, .cv-fcol::after { content: ""; position: absolute; width: 14px; height: 14px; pointer-events: none; z-index: 2; opacity: .85; }
+.cv-card::before, .cv-fcol::before { left: 6px; top: 6px; border-left: 1.5px solid var(--hud); border-top: 1.5px solid var(--hud); border-radius: 3px 0 0 0; }
+.cv-card::after, .cv-fcol::after { right: 6px; bottom: 6px; border-right: 1.5px solid var(--hud); border-bottom: 1.5px solid var(--hud); border-radius: 0 0 3px 0; }
+.cv-fcol { position: relative; }
+.cv-h { position: relative; padding-left: 18px; }
+.cv-h b { font-family: var(--head, var(--font)); letter-spacing: .02em; }
+.cv-h em { font: 600 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+.cv-h i { box-shadow: 0 0 0 3px color-mix(in srgb, var(--tint) 20%, transparent), 0 0 10px var(--tint); }
+.cv-h::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: linear-gradient(90deg, transparent, var(--hud), transparent); opacity: .45; }
+/* working agent: header shimmer + a scan line sweeping the chat */
+.cv-card:has(.cv-stop:not([hidden])), .cv-fcol:has(.cv-stop:not([hidden])) { box-shadow: 0 0 0 1px color-mix(in srgb, var(--tint) 55%, transparent), 0 0 34px color-mix(in srgb, var(--tint) 22%, transparent), 0 10px 30px rgba(0, 0, 0, .35); }
+.cv-card:has(.cv-stop:not([hidden])) .cv-h i, .cv-fcol:has(.cv-stop:not([hidden])) .cv-h i { animation: cvPulse 1.1s ease-in-out infinite; }
+@keyframes cvPulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--tint) 10%, transparent), 0 0 18px var(--tint); } }
+.cv-card:has(.cv-stop:not([hidden])) .cv-log, .cv-fcol:has(.cv-stop:not([hidden])) .cv-log { background-image: linear-gradient(180deg, transparent 0, color-mix(in srgb, var(--tint) 10%, transparent) 50%, transparent 100%); background-size: 100% 120px; background-repeat: no-repeat; animation: cvScan 2.4s linear infinite; }
+@keyframes cvScan { from { background-position: 0 -120px; } to { background-position: 0 calc(100% + 120px); } }
+.cv-st { text-transform: uppercase; letter-spacing: .12em; font-size: 10px; }
+/* reactor send button */
+.cv-send { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 50% 45%, #eaffff, color-mix(in srgb, var(--tint) 70%, #6ff2ff) 55%, color-mix(in srgb, var(--tint) 40%, #0b2a3a) 100%); color: #021018;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, .4), 0 0 0 3px color-mix(in srgb, var(--tint) 45%, transparent), 0 0 14px color-mix(in srgb, var(--tint) 50%, transparent); transition: transform .15s, box-shadow .2s; }
+.cv-send:hover:not(:disabled) { transform: scale(1.08); box-shadow: 0 0 0 2px rgba(0, 0, 0, .4), 0 0 0 4px color-mix(in srgb, var(--tint) 60%, transparent), 0 0 24px var(--tint); background: radial-gradient(circle at 50% 45%, #fff, #6ff2ff 55%, #0b2a3a); color: #021018; }
+.cv-send:disabled { filter: grayscale(.6); }
+.cv-ask { background: linear-gradient(180deg, rgba(0, 0, 0, .3), rgba(0, 0, 0, .18)); }
+.cv-ask:focus-within { box-shadow: 0 0 0 1px color-mix(in srgb, var(--tint) 40%, transparent), 0 0 20px color-mix(in srgb, var(--tint) 12%, transparent); }
+.cv-log .cd-msg.you { border-radius: 12px 12px 3px 12px; }
+/* board: faint HUD grid + vignette */
+.cv-area { background-image: radial-gradient(circle, rgba(111, 242, 255, .11) 1px, transparent 1.3px); box-shadow: inset 0 0 120px rgba(0, 0, 0, .6); }
+.cv-area::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 4; background: linear-gradient(90deg, rgba(111, 242, 255, .05), transparent 2%, transparent 98%, rgba(111, 242, 255, .05)), linear-gradient(180deg, rgba(111, 242, 255, .05), transparent 3%, transparent 97%, rgba(111, 242, 255, .05)); }
+.cv-crumb b { text-shadow: 0 0 14px rgba(111, 242, 255, .35); }
+.cv-tab.on { box-shadow: inset 0 -2px 0 var(--pc); }
+.cv-tools { box-shadow: 0 0 24px rgba(111, 242, 255, .08); border-color: rgba(111, 242, 255, .18); }
+@media (prefers-reduced-motion: reduce) { .cv-card .cv-log, .cv-fcol .cv-log, .cv-h i { animation: none !important; } }
+.cv-modes { margin-left: auto; }
+.cv-card .cv-lock span { display: none; } .cv-card .cv-lock { padding: 0 5px; }
