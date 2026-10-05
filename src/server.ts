@@ -19,6 +19,7 @@ import * as compose from "./lib/compose.ts";
 import * as explainer from "./lib/explain.ts";
 import * as usage from "./lib/usage.ts";
 import * as updater from "./lib/updater.ts";
+import * as screen from "./lib/screen.ts";
 import { killAll, sweepOrphans } from "./lib/claude.ts";
 
 ensureLocalConfig();
@@ -176,6 +177,9 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/google\/doc\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})\/append$/, (m, b) => google.docAppend(m[1], m[2], b.text)],
   ["POST", /^\/api\/google\/doc\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})\/replace$/, (m, b) => google.docReplace(m[1], m[2], b.find, b.replace, b.matchCase === true)],
   ["GET", /^\/api\/usage$/, () => usage.summary()],
+  ["GET", /^\/api\/screen\/read$/, (_, __, u) => screen.read(u.searchParams.get("url") || "")],
+  ["POST", /^\/api\/screen\/brief$/, (_, b) => screen.brief(b)],
+  ["GET", /^\/api\/screen\/search$/, (_, __, u) => screen.search(u.searchParams.get("q") || "")],
   ["GET", /^\/api\/update$/, (_, __, u) => updater.check(u.searchParams.get("fresh") === "1")],
   ["PUT", /^\/api\/update$/, (_, b) => updater.saveSettings(b)],
   ["POST", /^\/api\/update\/apply$/, (_, b) => updater.apply(String(b.sha || ""))],
