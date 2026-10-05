@@ -499,6 +499,6 @@ export function calFeeds() {
   return accounts().map(a => {
     const st = calState.get(a.id), n = [...calCache.entries()].filter(([k]) => k.startsWith(a.id + "|")).reduce((s, [, v]) => s + v.events.length, 0);
     const need = !a.refresh || !!st?.need;
-    return { id: "g:" + a.id, name: a.label, color: a.color, host: a.email, google: true, needsReconnect: need, ok: st ? st.ok : null, error: !a.refresh ? "Press Reconnect to sign in again." : st?.error || null, lastSync: st?.ok && st.at ? new Date(st.at).toISOString() : null, count: n };
+    return { id: "g:" + a.id, name: a.label, color: a.color, host: a.email, google: true, calGranted: hasCal(a), needsReconnect: need, ok: st ? st.ok : null, error: !a.refresh ? "Press Reconnect to sign in again." : st?.error || null, lastSync: st?.ok && st.at ? new Date(st.at).toISOString() : null, count: n };
   });
 }
