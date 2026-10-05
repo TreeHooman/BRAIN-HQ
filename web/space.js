@@ -187,7 +187,7 @@ function foldPanels() {
     const top = c.getBoundingClientRect().top + (document.scrollingElement?.scrollTop || 0);
     const max = desk ? Math.max(200, Math.round(innerHeight - top - 28)) : base;
     if (c.closest(".fold-in") !== c && c.parentElement?.closest(".card.fold-on, .nv-panel.fold-on")) return; // nested
-    if (c.querySelector("form, input, textarea, select") || c.closest(".modal")) return;
+    if (c.querySelector("form, input, textarea, select") || c.closest(".modal") || c.classList.contains("no-fold")) return;
     if (c.classList.contains("fold-on")) { if (!c.classList.contains("fold-open")) c.style.maxHeight = max + "px"; return; }
     if (c.scrollHeight <= max + (desk ? 0 : 60)) return;
     const key = foldKey(c);
