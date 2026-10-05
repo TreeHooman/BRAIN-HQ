@@ -13,6 +13,7 @@ import * as outbox from "./lib/outbox.ts";
 import * as code from "./lib/code.ts";
 import * as spotify from "./lib/spotify.ts";
 import * as canvas from "./lib/canvas.ts";
+import * as mail from "./lib/mail.ts";
 import { killAll, sweepOrphans } from "./lib/claude.ts";
 
 ensureLocalConfig();
@@ -136,6 +137,9 @@ const routes: [string, RegExp, Handler][] = [
   ["PUT", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => code.rename(m[1], String(b.name || ""))],
   ["POST", /^\/api\/code\/([a-z0-9-]+)\/stop$/, m => { code.stop(m[1]); return { ok: true }; }],
   ["DELETE", /^\/api\/code\/([a-z0-9-]+)$/, m => { code.close(m[1]); return { ok: true }; }],
+  ["GET", /^\/api\/mail$/, () => mail.status()],
+  ["POST", /^\/api\/mail\/refresh$/, () => { void mail.refresh().catch(() => {}); return mail.status(); }],
+  ["POST", /^\/api\/mail\/enable$/, (_, b) => mail.setEnabled(b.on !== false)],
   ["GET", /^\/api\/canvas$/, () => canvas.list()],
   ["POST", /^\/api\/canvas$/, (_, b) => canvas.create(b)],
   ["GET", /^\/api\/canvas\/(cv-[a-z0-9]+)$/, m => canvas.get(m[1])],
@@ -223,6 +227,7 @@ server.listen(PORT, HOST, () => {
   if (!process.env.HQ_NO_ORCHESTRATOR) orch.start();
   cal.kick();
   outbox.recover();
+  if (!process.env.HQ_NO_ORCHESTRATOR) mail.startAuto();
 });
 const shutdown = () => { orch.stop(); killAll(); process.exit(0); };
 process.on("exit", () => killAll());

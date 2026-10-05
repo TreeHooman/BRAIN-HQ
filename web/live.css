@@ -484,3 +484,7 @@ label.f .wp-btn { width: 100%; }
 .sp-add { width: 180px; flex: none; display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px dashed #4a5270; border-radius: 6px; font: 12px var(--mono); color: #6b7391; overflow-y: auto; }
 .sp-add button { display: flex; align-items: center; gap: 7px; text-align: left; padding: 7px 9px; border-radius: 4px; border: 1px solid #343a50; background: #12141c; color: #c8cee0; cursor: pointer; font: 12px var(--mono); }
 .sp-add button i { width: 7px; height: 7px; border-radius: 50%; background: var(--pc); flex: none; } .sp-add button:hover { border-color: var(--pc); }
+/* Command: inbox rows */
+.ml-row .t b { color: var(--text); margin-right: 6px; font-weight: 600; }
+.ml-row:not(.unread) .t { color: var(--text2); } .ml-row:not(.unread) .t b { color: var(--text2); font-weight: 500; }
+.ml-foot { display: flex; align-items: center; gap: 6px; margin-top: 8px; font: 11px var(--mono); color: var(--text3); } .ml-foot span { flex: 1; }
