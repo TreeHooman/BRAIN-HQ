@@ -40,6 +40,6 @@ try {
 } finally {
   Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
   if ($Zip) { Remove-Item -LiteralPath $zf.FullName -Force -ErrorAction SilentlyContinue }
-  if ($auto) { & wscript "$hq\scripts\start-hq.vbs" --silent; Stop-Transcript | Out-Null }
+  if ($auto) { Start-Process cmd -ArgumentList '/c node --no-warnings src\server.ts >> data\server.log 2>&1' -WorkingDirectory $hq -WindowStyle Hidden; Stop-Transcript | Out-Null }
   else { & "$hq\scripts\START-HQ.cmd"; Write-Host "HQ restarted. In the browser press Ctrl+F5 once." -ForegroundColor Green }
 }
