@@ -11,6 +11,7 @@ import { describe } from "./lib/schedule.ts";
 import * as cal from "./lib/calendar.ts";
 import * as outbox from "./lib/outbox.ts";
 import * as code from "./lib/code.ts";
+import * as spotify from "./lib/spotify.ts";
 
 ensureLocalConfig();
 const cfg = loadConfig();
@@ -126,6 +127,8 @@ const routes: [string, RegExp, Handler][] = [
 
   ["GET", /^\/api\/code$/, () => code.list()],
   ["POST", /^\/api\/code$/, (_, b) => code.create(String(b.project || ""), b.name)],
+  ["GET", /^\/api\/code\/external\/([a-z0-9-]+)$/, m => code.external(m[1])],
+  ["POST", /^\/api\/code\/import$/, (_, b) => code.importSession(String(b.project || ""), String(b.session || ""), b.name)],
   ["GET", /^\/api\/code\/([a-z0-9-]+)$/, m => code.get(m[1])],
   ["POST", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => { code.check(m[1], String(b.text || "")); void code.send(m[1], String(b.text || ""), b.tier, b.effort || null).catch(() => {}); return { ok: true }; }],
   ["PUT", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => code.rename(m[1], String(b.name || ""))],
@@ -139,6 +142,15 @@ const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/chat$/, () => orch.chat()],
   ["POST", /^\/api\/chat$/, (_, b) => { void orch.sendChat(String(b.text || ""), { project: b.project, tier: b.tier, effort: b.effort }).catch(() => {}); return { ok: true }; }],
   ["POST", /^\/api\/chat\/new$/, () => { orch.newChat(); return { ok: true }; }],
+
+  ["GET", /^\/api\/spotify$/, () => spotify.status(PORT)],
+  ["POST", /^\/api\/spotify\/client$/, (_, b) => spotify.setClientId(String(b.clientId || ""))],
+  ["POST", /^\/api\/spotify\/login$/, () => ({ url: spotify.loginUrl(PORT) })],
+  ["POST", /^\/api\/spotify\/disconnect$/, () => spotify.disconnect()],
+  ["GET", /^\/api\/spotify\/now$/, () => spotify.now()],
+  ["GET", /^\/api\/spotify\/devices$/, () => spotify.devices()],
+  ["POST", /^\/api\/spotify\/control$/, (_, b) => spotify.control(String(b.action || ""), b.value)],
+  ["POST", /^\/api\/spotify\/play$/, (_, b) => spotify.play(String(b.query || ""))],
 
   ["POST", /^\/api\/settings$/, (_, b) => {
     const patch: any = {};
@@ -166,6 +178,13 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname.startsWith("/api/")) {
       // Block cross-site requests: only the dashboard sends this header (custom headers force a CORS preflight we never allow).
       if (req.method !== "GET" && req.headers["x-hq"] !== "1") return send(res, 403, { error: "Missing X-HQ header" });
+      // Spotify sends the browser back here after sign-in (a plain GET, so it can't carry X-HQ; state + PKCE protect it).
+      if (url.pathname === "/api/spotify/callback" && req.method === "GET") {
+        let msg = "";
+        try { await spotify.callback(url.searchParams); } catch (e: any) { msg = e?.message || "Sign-in failed"; }
+        res.writeHead(302, { Location: "/#settings/spotify" + (msg ? "?error=" + encodeURIComponent(msg.slice(0, 120)) : "?ok=1"), "Cache-Control": "no-store" });
+        return res.end();
+      }
       if (url.pathname === "/api/search" && req.method === "GET") return send(res, 200, brain.searchBrain(url.searchParams.get("q") || ""));
       for (const [method, re, h] of routes) {
         const m = url.pathname.match(re);

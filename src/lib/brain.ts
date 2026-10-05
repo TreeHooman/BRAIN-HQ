@@ -20,7 +20,7 @@ export const KINDS = ["business", "product", "workstream", "strategy", "research
 export const STAGES = ["idea", "planned", "building", "live", "paused", "done"];
 export const HEALTH = ["good", "watch", "risk", "unknown"];
 const DOCS: Record<string, string> = { summary: "SUMMARY.md", plan: "plan.md", log: "log.md" };
-const EDITABLE = ["name", "kind", "stage", "health", "summary", "nextStep", "order", "paths", "repos", "links", "tags", "maxPermission", "phases", "notes"];
+const EDITABLE = ["name", "kind", "stage", "health", "summary", "nextStep", "order", "paths", "repos", "links", "tags", "maxPermission", "phases", "notes", "color"];
 
 const F = {
   reminders: path.join(BRAIN, "reminders.json"),
@@ -63,6 +63,8 @@ export function updateProject(slug: string, patch: Partial<Project>): Project {
   if (!cur) throw new Error(`No project ${slug}`);
   const next: any = { ...cur };
   for (const k of EDITABLE) if (k in patch) next[k] = (patch as any)[k];
+  if ("color" in patch && next.color !== null && !/^#[0-9a-f]{6}$/i.test(String(next.color))) throw new Error("Colour must look like #22c55e");
+  if (next.color === null) delete next.color;
   next.updated = localDate();
   delete next.slug;
   writeJson(path.join(pdir(slug), "project.json"), next);

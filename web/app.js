@@ -2,6 +2,7 @@
 "use strict";
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const MIC_SVG = `<svg class="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>`;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 let S = null;            // latest /api/state snapshot
 let route = { view: "code", arg: null };
@@ -88,7 +89,7 @@ function md(src) {
     if (/^\s*\|.*\|\s*$/.test(l)) { flushPara(); flushList(); table.push(l.trim()); continue; } else flushTable();
     let m;
     if ((m = l.match(/^(#{1,4})\s+(.*)/))) { flushPara(); flushList(); const n = Math.min(3, m[1].length); html += `<h${n}>${inline(m[2])}</h${n}>`; continue; }
-    if ((m = l.match(/^\s*[-*]\s+(?:\[( |x)\]\s+)?(.*)/))) { flushPara(); if (!list || list.t !== "ul") { flushList(); list = { t: "ul", items: [] }; } list.items.push((m[1] === "x" ? "✅ " : m[1] === " " ? "☐ " : "") + m[2]); continue; }
+    if ((m = l.match(/^\s*[-*]\s+(?:\[( |x)\]\s+)?(.*)/))) { flushPara(); if (!list || list.t !== "ul") { flushList(); list = { t: "ul", items: [] }; } list.items.push((m[1] === "x" ? "✓ " : m[1] === " " ? "☐ " : "") + m[2]); continue; }
     if ((m = l.match(/^\s*\d+[.)]\s+(.*)/))) { flushPara(); if (!list || list.t !== "ol") { flushList(); list = { t: "ol", items: [] }; } list.items.push(m[1]); continue; }
     if (/^>\s?/.test(l)) { flushPara(); flushList(); html += `<blockquote>${inline(l.replace(/^>\s?/, ""))}</blockquote>`; continue; }
     if (/^---+$/.test(l.trim())) { flushPara(); flushList(); html += "<hr>"; continue; }
@@ -200,7 +201,7 @@ function vHome(el) {
     <div class="cols">
       <div>
         <h2>Today</h2>
-        <div class="card">${reminderList(urgent, "Nothing due today. 🎉")}
+        <div class="card">${reminderList(urgent, "Nothing due today.")}
           <form id="quickRem" class="row" style="margin-top:10px"><input class="grow" name="title" placeholder="Add a reminder…"><input type="datetime-local" name="due" value="${ymd(now)}T${pad(Math.min(23, now.getHours() + 1))}:00"><button class="btn">Add</button></form></div>
         <h2>Morning brief ${S.brief ? `<span class="faint">· ${esc(S.brief.date)}</span>` : ""}</h2>
         <div class="card">${S.brief ? md(S.brief.text) : `<div class="empty">No brief yet. It's written every day at 8:00 once Claude is signed in. <a href="#missions">Run it now</a></div>`}</div>
@@ -294,15 +295,19 @@ async function vProject(el) {
         <label class="f">Links (label | url, one per line)<textarea name="links">${esc((p.links || []).map(l => `${l.label} | ${l.url}`).join("\n"))}</textarea></label></div>
       <div class="two"><label class="f">Tags (comma separated)<input name="tags" value="${esc((p.tags || []).join(", "))}"></label>
         <label class="f">Notes for agents<input name="notes" value="${esc(p.notes || "")}"></label></div>
+      <div class="f"><div class="small muted" style="margin-bottom:6px">Colour (outlines everything from this project)</div><div class="swatches" id="swatches">${PC.map(c => `<button type="button" class="sw ${projColor(slug) === c ? "on" : ""}" data-color="${c}" style="--c:${c}" aria-label="Colour ${c}"></button>`).join("")}</div></div>
       <div><div class="f small muted" style="margin-bottom:6px">Roadmap phases</div><div id="phases">${(p.phases || []).map(phaseRow).join("")}</div><button type="button" class="btn sm" id="addPhase">+ Phase</button></div>
       <div class="row end"><button class="btn primary">Save setup</button></div></form></div>`;
   el.innerHTML = `
     <div class="small"><a href="#projects">← Projects</a></div>
     <div class="between" style="margin-top:6px"><div><span class="kind">${esc(p.kind)}</span><h1><span class="dot ${p.health}"></span> ${esc(p.name)}</h1></div>
       <div class="row"><a class="btn" href="#assistant" id="askAbout">✦ Ask about this</a></div></div>
-    <div class="card" style="margin-top:12px"><form id="headForm" class="form">
+    <div class="card proj-sum" style="margin-top:12px"><div class="ps-row"><span class="pill">${esc(p.stage)}</span><span class="pill ${p.health === "good" ? "green" : p.health === "watch" ? "amber" : p.health === "risk" ? "red" : ""}">${esc(p.health)}</span><span class="faint small grow">updated ${esc(p.updated)}</span><button class="btn sm ghost" type="button" id="headEdit">Edit</button></div>
+      ${p.summary ? `<div class="ps-sum">${esc(p.summary)}</div>` : ""}${p.nextStep ? `<div class="ps-next"><b>Next</b>${esc(p.nextStep)}</div>` : ""}
+      ${(p.links || []).length || (p.repos || []).length ? `<div class="small ps-links">${(p.links || []).map(l => `<a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label)}</a>`).join(" · ")}${(p.repos || []).map(r => ` · <a href="https://github.com/${esc(r)}" target="_blank" rel="noopener">${esc(r)}</a>`).join("")}</div>` : ""}</div>
+    <div class="card" style="margin-top:12px" id="headCard" hidden><form id="headForm" class="form">
       <div class="three"><label class="f">Stage<select name="stage">${opts(["idea", "planned", "building", "live", "paused", "done"], p.stage)}</select></label>
-      <label class="f">Health<select name="health">${opts([["good", "🟢 good"], ["watch", "🟡 watch"], ["risk", "🔴 risk"], ["unknown", "⚪ unknown"]], p.health)}</select></label>
+      <label class="f">Health<select name="health">${opts([["good", "good"], ["watch", "watch"], ["risk", "risk"], ["unknown", "unknown"]], p.health)}</select></label>
       <label class="f">Updated<input value="${esc(p.updated)}" disabled></label></div>
       <label class="f">One-line summary<input name="summary" value="${esc(p.summary)}"></label>
       <label class="f">Next step<input name="nextStep" value="${esc(p.nextStep)}"></label>
@@ -312,6 +317,7 @@ async function vProject(el) {
     ${body}`;
   const reload = async msg => { delete projCache[slug]; if (msg) toast(msg); await refresh(); render(); };
   $$("[data-tab]", el).forEach(b => b.onclick = () => { projTab = b.dataset.tab; editing = null; render(); });
+  $("#headEdit").onclick = () => { const c = $("#headCard"); c.hidden = !c.hidden; $("#headEdit").textContent = c.hidden ? "Edit" : "Done"; };
   $("#headForm").onsubmit = async e => { e.preventDefault(); await api(`/project/${slug}`, "PUT", Object.fromEntries(new FormData(e.target))).catch(x => toast(x.message)); reload("Saved"); };
   $("#askAbout").onclick = () => { sessionStorage.setItem("chatProject", slug); };
   const de = $("#docEdit"); if (de) de.onclick = () => { editing = projTab; render(); };
@@ -324,6 +330,7 @@ async function vProject(el) {
   bindReminders(el); bindMissionForm(el); bindRuns(el);
   const sf = $("#setupForm");
   if (sf) {
+    $$("[data-color]", el).forEach(b => b.onclick = async () => { await api(`/project/${slug}`, "PUT", { color: b.dataset.color }).catch(x => toast(x.message)); reload("Colour saved"); });
     $("#addPhase").onclick = () => $("#phases").insertAdjacentHTML("beforeend", phaseRow({ name: "", status: "planned" }));
     el.addEventListener("click", e => { if (e.target.matches("[data-rmphase]")) e.target.closest(".phase-row").remove(); });
     sf.onsubmit = async e => {
@@ -473,9 +480,9 @@ async function vAssistant(el) {
   const focus = activeProject();
   const examples = ["What should I focus on today?", "Plan the next 2 weeks for LoanCentral", "Remind me Friday at 3pm to call the bank", "Turn my inbox into tasks", "Every Monday 9am, review Borrow Fast and suggest next steps"];
   el.innerHTML = `<div class="chat">
-    <div class="between"><div><h1><span class="arc"></span>${esc(S.settings.assistantName)}</h1><p class="sub" style="margin:0">Your chief of staff. It runs on Claude in the background on your subscription, and can update the brain, set reminders and queue missions. Talk with 🎙 (or Alt+J).</p></div>
+    <div class="between"><div><h1><span class="arc"></span>${esc(S.settings.assistantName)}</h1><p class="sub" style="margin:0">Your chief of staff. It runs on Claude in the background on your subscription, and can update the brain, set reminders and queue missions. Tap the mic to talk (or Alt+J).</p></div>
       <div class="row"><select id="chatProj" title="Focus">${projOptions(focus, "All projects")}</select>
-      <button class="btn ${voiceOn() ? "primary" : ""}" id="voiceToggle" title="Speak replies aloud">${voiceOn() ? "🔊 Voice on" : "🔈 Voice off"}</button>
+      <button class="btn ${voiceOn() ? "primary" : ""}" id="voiceToggle" title="Speak replies aloud">${voiceOn() ? "Voice on" : "Voice off"}</button>
       <button class="btn" id="newChat">New chat</button></div></div>
     <div class="chat-tier">${tierSwitch()}</div>
     <div class="chat-log" id="chatLog">
@@ -483,7 +490,7 @@ async function vAssistant(el) {
         : `<div class="card" style="margin-top:20px"><b>Try:</b><div class="row" style="margin-top:8px">${examples.map(x => `<button class="btn sm" data-ex="${esc(x)}">${esc(x)}</button>`).join("")}</div></div>`}
       ${c.busy ? `<div class="typing"><span class="dot pulse" style="background:var(--blue)"></span> Thinking… (reading only what it needs)</div>` : ""}
     </div>
-    <form class="chat-in" id="chatForm"><button type="button" class="btn mic" id="micBtn" title="Talk (Alt+J)" ${c.busy ? "disabled" : ""}>🎙</button><textarea id="chatText" placeholder="Message ${esc(S.settings.assistantName)}… (Enter to send, Shift+Enter for a new line)" ${c.busy ? "disabled" : ""}></textarea><button class="btn primary" ${c.busy ? "disabled" : ""}>Send</button></form>
+    <form class="chat-in" id="chatForm"><button type="button" class="btn mic" id="micBtn" title="Talk (Alt+J)" ${c.busy ? "disabled" : ""} aria-label="Talk">${MIC_SVG}</button><textarea id="chatText" placeholder="Message ${esc(S.settings.assistantName)}… (Enter to send, Shift+Enter for a new line)" ${c.busy ? "disabled" : ""}></textarea><button class="btn primary" ${c.busy ? "disabled" : ""}>Send</button></form>
   </div>`;
   const log = $("#chatLog"); log.scrollTop = log.scrollHeight;
   if (vAssistant.fresh) { vAssistant.fresh = false; const lastHq = $$(".msg.hq", log).pop(); if (lastHq) revealHTML(lastHq.querySelector(".md") || lastHq); }
@@ -541,7 +548,7 @@ function missionForm(m = {}, compact = false) {
       <div class="row"><label class="row small"><input type="checkbox" name="skipIfUnchanged" ${m.skipIfUnchanged ? "checked" : ""}> Skip when nothing in the brain changed (saves tokens)</label>
       <label class="row small"><input type="checkbox" name="enabled" ${m.enabled !== false ? "checked" : ""}> Enabled</label>
       <label class="f small" style="flex-direction:row;align-items:center">Max minutes <input name="maxMinutes" type="number" min="1" max="120" value="${m.maxMinutes || ""}" style="width:80px"></label></div>`}
-    <div class="tier-warn" ${m.tier === "deep" ? "" : "hidden"}>⚠ ${cap(tierModel("deep"))} uses your Pro usage limit much faster.</div>
+    <div class="tier-warn" ${m.tier === "deep" ? "" : "hidden"}>${cap(tierModel("deep"))} uses your Pro usage limit much faster.</div>
     <div class="row end">${compact ? `<button class="btn primary" name="go" value="run">Run now</button>` : `<button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary">Save mission</button>`}</div>
   </form>`;
 }
@@ -637,14 +644,14 @@ function vSettings(el) {
         <div class="row"><span class="small muted" style="min-width:110px">Sidebar</span><div class="chips"><button type="button" class="chip ${hstore.get("hq-side", "hide") === "pin" ? "" : "on"}" data-side="hide">Hidden (☰ top left)</button><button type="button" class="chip ${hstore.get("hq-side", "hide") === "pin" ? "on" : ""}" data-side="pin">Always shown</button></div></div>
         <div class="row"><span class="small muted" style="min-width:110px">Sound effects</span><div class="chips"><button type="button" class="chip ${Snd.on() ? "on" : ""}" data-sound="1">On</button><button type="button" class="chip ${Snd.on() ? "" : "on"}" data-sound="0">Off</button></div></div>
         <div class="small muted">Animations follow your Windows “reduce motion” setting. Shortcuts: <kbd class="kbd">Ctrl K</kbd> search, <kbd class="kbd">Ctrl 1–9</kbd> switch project (<kbd class="kbd">Ctrl 0</kbd> all), <kbd class="kbd">Alt J</kbd> talk, <kbd class="kbd">/</kbd> capture.</div>
-        <div class="row end"><button type="button" class="btn" id="replayBoot">Replay boot</button><button type="button" class="btn" id="powerDown">⏻ Power down</button></div></div>
+        <div class="row end"><button type="button" class="btn" id="replayBoot">Replay boot</button><button type="button" class="btn" id="powerDown">Power down</button></div></div>
       <h2>Calendar</h2>
       <div class="card form" id="calCard">
         ${(S.calendar?.feeds || []).map(f => `<div class="row"><span class="dot ${f.ok === false ? "risk" : f.ok ? "good" : "unknown"}"></span><div class="grow"><b>${esc(f.name)}</b> <span class="small faint">${esc(f.host)}</span>
-          <div class="small ${f.ok === false ? "" : "muted"}">${f.ok === false ? "⚠ " + esc(f.error || "Sync failed") : f.lastSync ? `Synced ${esc(ago(f.lastSync))} · ${f.count} events` : "Syncing…"}</div></div><button type="button" class="btn sm ghost" data-calrm="${esc(f.id)}">Remove</button></div>`).join("") || `<div class="small muted">No calendar connected.</div>`}
+          <div class="small ${f.ok === false ? "" : "muted"}">${f.ok === false ? esc(f.error || "Sync failed") : f.lastSync ? `Synced ${esc(ago(f.lastSync))} · ${f.count} events` : "Syncing…"}</div></div><button type="button" class="btn sm ghost" data-calrm="${esc(f.id)}">Remove</button></div>`).join("") || `<div class="small muted">No calendar connected.</div>`}
         <div class="two"><label class="f">Name<input id="calName" placeholder="Personal" maxlength="40" autocomplete="off"></label>
           <label class="f">Secret address (iCal)<input id="calUrl" type="password" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" autocomplete="off" spellcheck="false"></label></div>
-        <div class="note blue small"><b>Google Calendar:</b> calendar.google.com → ⚙ Settings → click your calendar on the left → <b>Integrate calendar</b> → copy <b>Secret address in iCal format</b>. Outlook and iCloud .ics links work too.<br>Read-only. The address stays on this PC (<code>config/hq.local.json</code>) and is never shown again. If it leaks, press “Reset” next to it in Google and add the new one.</div>
+        <div class="note blue small"><b>Google Calendar:</b> calendar.google.com → Settings → click your calendar on the left → <b>Integrate calendar</b> → copy <b>Secret address in iCal format</b>. Outlook and iCloud .ics links work too.<br>Read-only. The address stays on this PC (<code>config/hq.local.json</code>) and is never shown again. If it leaks, press “Reset” next to it in Google and add the new one.</div>
         <div class="row end">${S.calendar?.feeds?.length ? `<button type="button" class="btn" id="calSync">Sync now</button>` : ""}<button type="button" class="btn primary" id="calAdd">Connect</button></div></div>
       <h2>Email &amp; calendar sending</h2>
       <div class="card form" id="connCard"></div>

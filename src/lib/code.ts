@@ -2,7 +2,8 @@
 // Several sessions can run at once (cap: code.maxParallel); each one resumes its own Claude session.
 import path from "node:path";
 import fs from "node:fs";
-import { DATA, readJson, uid, writeJson } from "./store.ts";
+import os from "node:os";
+import { DATA, ROOT, readJson, uid, writeJson } from "./store.ts";
 import { loadConfig, minLevel, modelFor } from "./config.ts";
 import { killTree, runClaude } from "./claude.ts";
 import { opStart, opEnd, activity } from "./orchestrator.ts";
@@ -10,7 +11,7 @@ import type { Step } from "./narrate.ts";
 import * as brain from "./brain.ts";
 
 type Msg = { role: "you" | "hq"; text: string; at: string; error?: boolean; steps?: Step[]; added?: number; removed?: number; ms?: number };
-type Session = { id: string; project: string; name?: string; sessionId: string | null; createdAt?: string; updatedAt?: string; messages: Msg[] };
+type Session = { id: string; project: string; name?: string; sessionId: string | null; createdAt?: string; updatedAt?: string; importedFrom?: string; messages: Msg[] };
 
 const DIR = path.join(DATA, "code");
 const ID = /^[a-z0-9-]{1,60}$/;
@@ -151,4 +152,84 @@ export async function send(key: string, text: string, tier = "balanced", effort:
     save(key, latest);
     activity("code", { session: key, project: s.project, ok: res.ok, kind: res.kind });
   } finally { busy.delete(key); opEnd(opId, ok); }
+}
+
+// ---------------- existing Claude Code sessions (from the terminal / VS Code) ----------------
+// Claude Code keeps each conversation in ~/.claude/projects/<folder path with every non-letter/digit as "-">/<uuid>.jsonl.
+// Importing copies that file next to HQ's own sessions and resumes the copy, so the original is never changed
+// and runs keep HQ's cwd, permissions and settings (not the other folder's).
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const claudeProjects = () => path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude"), "projects");
+const enc = (p: string) => path.resolve(p).replace(/[^a-zA-Z0-9]/g, "-");
+
+function head(file: string, bytes: number, fromEnd = false): string {
+  let fd: number | null = null;
+  try {
+    fd = fs.openSync(file, "r");
+    const size = fs.fstatSync(fd).size, n = Math.min(bytes, size), buf = Buffer.alloc(n);
+    fs.readSync(fd, buf, 0, n, fromEnd ? size - n : 0);
+    return buf.toString("utf8");
+  } catch { return ""; } finally { if (fd !== null) try { fs.closeSync(fd); } catch {} }
+}
+function textOf(m: any): string {
+  const c = m?.message?.content;
+  if (typeof c === "string") return c;
+  if (Array.isArray(c)) return c.filter((x: any) => x?.type === "text").map((x: any) => x.text).join("\n");
+  return "";
+}
+const human = (t: string) => !!t.trim() && !/^\s*<(command|local-command|system-reminder|user-prompt-submit-hook)/.test(t) && !/^Caveat:/.test(t);
+function lines(raw: string): any[] { const out = []; for (const l of raw.split("\n")) { if (!l.trim()) continue; try { out.push(JSON.parse(l)); } catch {} } return out; }
+
+function sessionFiles(slug: string): { id: string; file: string; mtime: number; size: number; folder: string }[] {
+  const { p } = access(slug);
+  const root = claudeProjects(), mine = enc(ROOT).toLowerCase();
+  let dirs: string[] = [];
+  try { dirs = fs.readdirSync(root); } catch { return []; }
+  const wants = (p.paths || []).map(d => enc(d).toLowerCase());
+  const out = [];
+  for (const d of dirs) {
+    const dl = d.toLowerCase();
+    if (dl === mine || !wants.some(w => dl === w || dl.startsWith(w + "-"))) continue;
+    let files: string[] = [];
+    try { files = fs.readdirSync(path.join(root, d)).filter(f => f.endsWith(".jsonl") && UUID.test(f.slice(0, -6))); } catch { continue; }
+    for (const f of files) { try { const st = fs.statSync(path.join(root, d, f)); out.push({ id: f.slice(0, -6), file: path.join(root, d, f), mtime: st.mtimeMs, size: st.size, folder: d }); } catch {} }
+  }
+  return out.sort((a, b) => b.mtime - a.mtime);
+}
+
+/** Claude Code sessions found for this project's folders, newest first (titles + first ask, never whole transcripts). */
+export function external(slug: string) {
+  const taken = new Set(keys().map(k => readJson<Session | null>(path.join(DIR, `${k}.json`), null)?.importedFrom).filter(Boolean));
+  return sessionFiles(slug).slice(0, 25).map(s => {
+    const first = lines(head(s.file, 256e3));
+    const title = first.find(x => x.type === "summary" && x.summary)?.summary || "";
+    const ask = first.filter(x => x.type === "user").map(textOf).find(human) || "";
+    const cwd = first.find(x => typeof x.cwd === "string")?.cwd || "";
+    return { id: s.id, title: String(title).slice(0, 90), ask: ask.replace(/\s+/g, " ").slice(0, 160), folder: cwd ? path.basename(cwd) : "", updatedAt: new Date(s.mtime).toISOString(), sizeKb: Math.round(s.size / 1024), imported: taken.has(s.id) };
+  }).filter(s => s.ask || s.title);
+}
+
+export function importSession(slug: string, sid: string, name?: string) {
+  if (!UUID.test(sid)) throw Object.assign(new Error("Bad session id"), { code: 404 });
+  const src = sessionFiles(slug).find(s => s.id === sid);
+  if (!src) throw Object.assign(new Error("That session wasn't found in this project's folders."), { code: 404 });
+  if (src.size > 200e6) throw new Error("That session is too big to bring in.");
+  const destDir = path.join(claudeProjects(), enc(ROOT));
+  fs.mkdirSync(destDir, { recursive: true });
+  const dest = path.join(destDir, `${sid}.jsonl`);
+  if (!fs.existsSync(dest)) fs.copyFileSync(src.file, dest);
+  // show the last few exchanges so the owner sees where it left off
+  const tail = lines(head(src.file, 1e6, true)).filter(x => x.type === "user" || x.type === "assistant");
+  const hist: Msg[] = [];
+  for (const x of tail) {
+    const t = textOf(x); if (!t.trim() || (x.type === "user" && !human(t))) continue;
+    hist.push({ role: x.type === "user" ? "you" : "hq", text: t.slice(0, 4000), at: x.timestamp || new Date(src.mtime).toISOString() });
+  }
+  const meta = external(slug).find(e => e.id === sid);
+  const { id } = create(slug, name || meta?.title || meta?.ask.slice(0, 40));
+  const s = load(id);
+  s.sessionId = sid; s.importedFrom = sid;
+  s.messages = [...hist.slice(-8), { role: "hq", text: "_Brought in from Claude Code. Keep going: I remember this whole conversation. (Your original session is untouched.)_", at: new Date().toISOString() }];
+  save(id, s);
+  return { id };
 }

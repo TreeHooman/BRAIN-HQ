@@ -7,6 +7,23 @@ const touchDev = () => matchMedia("(pointer: coarse)").matches;
 const phone = () => matchMedia("(max-width: 760px)").matches;
 const hhmmss = t => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
 
+// ---------------- project colours: every project gets one, used to outline anything that belongs to it ----------------
+const PC = ["#38bdf8", "#a78bfa", "#f59e0b", "#f472b6", "#34d399", "#fb7185", "#60a5fa", "#facc15", "#2dd4bf", "#c084fc", "#fb923c", "#4ade80"];
+function projColor(slug) {
+  const p = S?.projects?.find(x => x.slug === slug); if (!p) return "var(--border2)";
+  if (/^#[0-9a-f]{6}$/i.test(p.color || "")) return p.color;
+  const i = [...S.projects].sort((a, b) => (a.order ?? 99) - (b.order ?? 99) || a.slug.localeCompare(b.slug)).findIndex(x => x.slug === slug);
+  return PC[(i < 0 ? 0 : i) % PC.length];
+}
+/** Tags every link/card that points at a project with that project's colour (CSS draws the outline or dot). */
+function paintProjects(root = document) {
+  root.querySelectorAll('a[href^="#project/"], [data-slug], [data-project]').forEach(el => {
+    const slug = (el.getAttribute("href") || "").replace(/^#project\//, "").split(/[/?]/)[0] || el.dataset.slug || el.dataset.project;
+    if (!slug || !S.projects.some(p => p.slug === slug)) return;
+    el.style.setProperty("--pc", projColor(slug)); el.classList.add("pc");
+  });
+}
+
 // ---------------- live data (one poller for the Code and Tasks screens) ----------------
 const Live = { ops: [], now: 0, code: null, tasks: null, timer: 0, names: new Map(), n: 0, taskSeen: new Map() };
 function agentName(op) {
@@ -36,9 +53,9 @@ function netNodes(scope) {
   for (const o of ops) {
     const tools = o.steps.filter(s => s.kind === "tool"), last = o.steps.at(-1);
     nodes.push({ id: o.id, name: agentName(o), sub: o.title.replace(/^[^:]+:\s*/, ""), run: o.status === "running", st: o.status, steps: tools.length,
-      t: (o.endedAt || Live.now) - o.startedAt, act: last ? (last.kind === "text" ? "“" + last.target + "”" : `${last.verb} ${last.target}`) : "starting…", parent: o.parent && ops.some(x => x.id === o.parent) ? o.parent : null, kind: o.kind });
+      t: (o.endedAt || Live.now) - o.startedAt, act: last ? (last.kind === "text" ? "“" + last.target + "”" : `${last.verb} ${last.target}`) : "starting…", parent: o.parent && ops.some(x => x.id === o.parent) ? o.parent : null, kind: o.kind, project: o.project });
   }
-  if (scope === "code") for (const s of Live.code?.sessions || []) if (!s.busy && nodes.length < 10) nodes.push({ id: "idle-" + s.id, name: s.name, sub: s.projectName, run: false, st: s.error ? "failed" : "idle", steps: 0, t: 0, act: s.task ? "last: " + s.task : "ready", parent: null, kind: "code", session: s.id });
+  if (scope === "code") for (const s of Live.code?.sessions || []) if (!s.busy && nodes.length < 10) nodes.push({ id: "idle-" + s.id, name: s.name, sub: s.projectName, run: false, st: s.error ? "failed" : "idle", steps: 0, t: 0, act: s.task ? "last: " + s.task : "ready", parent: null, kind: "code", session: s.id, project: s.project });
   if (scope === "tasks") for (const t of Live.tasks || []) if (t.status === "queued" && nodes.length < 10) nodes.push({ id: "q-" + t.id, name: "queued", sub: t.title, run: false, st: "queued", steps: 0, t: 0, act: "waiting for a free agent", parent: null, kind: "mission" });
   return nodes.slice(0, 10);
 }
@@ -63,11 +80,18 @@ function netUpdate(box, scope) {
     let el = box.querySelector(`.lv-node[data-id="${CSS.escape(nd.id)}"]`);
     if (!el) { el = document.createElement("div"); el.className = "lv-node"; el.dataset.id = nd.id; el.style.opacity = "0"; box.appendChild(el); requestAnimationFrame(() => { el.style.opacity = ""; }); }
     el.className = `lv-node st-${nd.st} ${nd.run ? "run" : ""}`;
+    if (nd.project) el.style.setProperty("--pc", projColor(nd.project)); else el.style.removeProperty("--pc");
     const stat = nd.run ? `<span class="s run">⋮ ${nd.steps} · ${fmtDur(nd.t)}</span>` : nd.st === "done" ? `<span class="s ok">✓ done</span>` : nd.st === "failed" ? `<span class="s bad">✕ failed</span>` : nd.st === "queued" ? `<span class="s">◌ queued</span>` : `<span class="s">○ idle</span>`;
     el.innerHTML = `<div class="h"><i>✱</i><b>${esc(nd.name)}</b></div><div class="b"><span class="sub">${esc(nd.sub)}</span>${stat}</div><div class="a">${esc(nd.act)}</div>`;
     el.onclick = nd.session ? () => codeOpen(nd.session) : nd.kind === "code" ? () => { const s = (Live.code?.sessions || []).find(x => x.opId === nd.id); if (s) codeOpen(s.id); } : null;
     let x, y;
-    if (tree) { x = 34; y = 92 + i * 74; el.style.transform = `translate(${x}px, ${y}px)`; pos.set(nd.id, [x, y + 26]); }
+    if (!tree && scope === "code") {
+      // octagon: up to 8 slots around the orchestrator, like a terminal agent map
+      const slots = n <= 2 ? [[-1, 0], [1, 0]] : n <= 4 ? [[-1, -1], [1, -1], [1, 1], [-1, 1]] : n <= 6 ? [[-.62, -1], [.62, -1], [1, 0], [.62, 1], [-.62, 1], [-1, 0]] : [[-.42, -1], [.42, -1], [1, -.42], [1, .42], [.42, 1], [-.42, 1], [-1, .42], [-1, -.42]];
+      const [sx, sy] = slots[i % slots.length], rx = Math.max(140, W / 2 - 118), ry = Math.max(110, H / 2 - 62);
+      x = hx + sx * rx; y = hy + 8 + sy * ry;
+      el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`; pos.set(nd.id, [x, y]);
+    } else if (tree) { x = 34; y = 92 + i * 74; el.style.transform = `translate(${x}px, ${y}px)`; pos.set(nd.id, [x, y + 26]); }
     else {
       const a = (start + i * step) * Math.PI / 180, rx = W * .36, ry = H * .37;
       x = hx + Math.cos(a) * rx; y = hy + Math.sin(a) * ry;
@@ -79,9 +103,10 @@ function netUpdate(box, scope) {
   // wires (+ a travelling packet on the busy ones); sub-agents hang off their parent
   const svg = box.querySelector(".lv-wires");
   svg.setAttribute("viewBox", `0 0 ${W} ${box.clientHeight}`);
-  svg.innerHTML = nodes.map((nd, i) => {
+  const ring = !tree && scope === "code" && n > 2 ? nodes.map((nd, i) => { const [ax, ay] = pos.get(nd.id), [bx, by] = pos.get(nodes[(i + 1) % n].id); return `<path class="ring" d="M${ax} ${ay} L${bx} ${by}"/>`; }).join("") : "";
+  svg.innerHTML = ring + nodes.map((nd, i) => {
     const [x, y] = pos.get(nd.id), [px, py] = nd.parent && pos.has(nd.parent) ? pos.get(nd.parent) : tree ? [24, 58] : [hx, hy];
-    const d = tree ? `M${px} ${py} V${y} H${x}` : `M${px} ${py} Q${(px + x) / 2 + (y - py) * .12} ${(py + y) / 2 - (x - px) * .12} ${x} ${y}`;
+    const d = tree ? `M${px} ${py} V${y} H${x}` : scope === "code" ? `M${px} ${py} L${x} ${y}` : `M${px} ${py} Q${(px + x) / 2 + (y - py) * .12} ${(py + y) / 2 - (x - px) * .12} ${x} ${y}`;
     return `<path id="w${i}" class="${nd.run ? "run" : nd.st === "done" ? "ok" : ""}" d="${d}"/>${nd.run ? `<circle r="2.6" class="pk"><animateMotion dur="${1.4 + (i % 3) * .35}s" repeatCount="indefinite" keyPoints="${i % 2 ? "1;0" : "0;1"}" keyTimes="0;1" calcMode="linear"><mpath href="#w${i}"/></animateMotion></circle>` : ""}`;
   }).join("");
 }
@@ -116,12 +141,19 @@ function stepLine(s, live) {
   return `<div class="s ${s.ok === false ? "bad" : ""} ${live && !s.done && s.result === undefined ? "run" : ""}"><b>${esc(s.verb || s.tool)}</b><span>${esc(s.target || "")}</span>${s.result ? `<em>· ${esc(s.result)}</em>` : ""}</div>${diff}`;
 }
 async function vCode(el) {
-  el.innerHTML = `<div class="between"><div><h1>Code</h1><p class="sub">Run several Claude Code sessions at once and watch every step and decision live. Edits stay in your dev folders; commits, pushes and deploys are blocked.</p></div>
-      <div class="row"><span class="pill" id="lvCap"></span><button class="btn primary" id="lvNew" type="button">＋ New session</button></div></div>
-    <div class="lv-top">${netShell("code")}</div>
-    <div class="lv-grid" id="lvGrid"></div>
-    <div class="lv-drawer" id="lvDrawer" hidden><div class="lv-dscrim" data-close></div><div class="card lv-dpanel"><div class="cd-main" id="cdMain"></div></div></div>`;
+  const filt = hstore.get("hq-code-filter", "all"), net = hstore.get("hq-code-net", phone() ? "0" : "1") === "1";
+  el.innerHTML = `<div class="tui">
+    <div class="tui-head"><div><h1>Code</h1><p class="sub">Several Claude Code sessions at once. Click a box to talk to it. Commits, pushes and deploys stay blocked.</p></div>
+      <div class="tui-acts"><span class="tui-cap" id="lvCap"></span><button class="btn" id="lvImport" type="button">Bring in session</button><button class="btn primary" id="lvNew" type="button">+ New session</button></div></div>
+    <div class="tui-bar"><div class="tui-chips" role="group" aria-label="Show">${[["all", "All"], ["run", "Working"], ["bad", "Needs a look"]].map(([k, l]) => `<button type="button" data-cf="${k}" class="${filt === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <button type="button" class="tui-tog" id="lvNetTog" aria-pressed="${net}">${net ? "Hide" : "Show"} agent map</button></div>
+    <div class="lv-top" id="lvTop" ${net ? "" : "hidden"}>${netShell("code")}</div>
+    <div class="lv-grid" id="lvGrid"></div></div>
+    <div class="lv-drawer" id="lvDrawer" hidden><div class="lv-dscrim" data-close></div><div class="card lv-dpanel tui-d"><div class="cd-main" id="cdMain"></div></div></div>`;
   document.getElementById("lvNew").onclick = codeNewModal;
+  document.getElementById("lvImport").onclick = () => codeImportModal();
+  el.querySelectorAll("[data-cf]").forEach(b => b.onclick = () => { hstore.set("hq-code-filter", b.dataset.cf); el.querySelectorAll("[data-cf]").forEach(x => x.classList.toggle("on", x === b)); codeGrid(); });
+  document.getElementById("lvNetTog").onclick = e => { const on = hstore.get("hq-code-net", phone() ? "0" : "1") !== "1"; hstore.set("hq-code-net", on ? "1" : "0"); document.getElementById("lvTop").hidden = !on; e.target.textContent = `${on ? "Hide" : "Show"} agent map`; e.target.setAttribute("aria-pressed", String(on)); if (on) netUpdate(document.getElementById("lvNet"), "code"); };
   el.querySelector("[data-close]").onclick = codeClose;
   if (!Live.code) Live.code = await api("/code").catch(() => ({ sessions: [], max: 4, running: 0 }));
   codeGrid(); livePoll();
@@ -130,28 +162,55 @@ async function vCode(el) {
 function codeGrid() {
   const g = document.getElementById("lvGrid"); if (!g || !Live.code) return;
   const { sessions, max, running } = Live.code;
-  const cap = document.getElementById("lvCap"); if (cap) { cap.textContent = `${running}/${max} running`; cap.className = "pill " + (running ? "blue" : ""); }
+  const cap = document.getElementById("lvCap"); if (cap) { cap.innerHTML = `<i class="${running ? "on" : ""}"></i>${running}/${max} running`; }
+  const filt = hstore.get("hq-code-filter", "all");
+  const shown = sessions.filter(s => filt === "run" ? s.busy : filt === "bad" ? s.error && !s.busy : true);
   const tile = s => {
     const op = s.busy ? Live.ops.find(o => o.id === s.opId) : null;
-    const steps = op ? op.steps.slice(-7) : s.steps.map(x => ({ kind: "tool", ...x, done: true }));
+    const steps = op ? op.steps.slice(-6) : s.steps.map(x => ({ kind: "tool", ...x, done: true })).slice(-5);
     const lines = steps.map(x => x.kind === "text" ? `<div class="ln say">${esc(x.target)}</div>`
       : `<div class="ln ${x.ok === false ? "bad" : x.result !== undefined || x.done ? "ok" : "run"}"><b>${esc(x.verb || "")}</b>(${esc(x.target || "")})${x.result ? `<div class="rs">└ ${x.ok === false ? "✕" : "✓"} ${esc(x.result)}</div>` : ""}</div>`).join("");
-    const foot = s.busy ? `<span class="run">✱ Working for ${fmtDur(Live.now - (op?.startedAt || Live.now))}</span><span>${op ? `${op.calls} steps · <span class="a">+${op.added}</span> <span class="d">−${op.removed}</span>` : ""}</span>`
+    const foot = s.busy ? `<span class="run">✱ Working ${fmtDur(Live.now - (op?.startedAt || Live.now))}</span><span>${op ? `${op.calls} steps · <span class="a">+${op.added}</span> <span class="d">−${op.removed}</span>` : ""}</span>`
       : s.messages ? `<span class="${s.error ? "bad" : "ok"}">${s.error ? "✕ Needs a look" : "✓ Done"}${s.ms ? ` (${fmtDur(s.ms)})` : ""}</span><span>${s.added || s.removed ? `<span class="a">+${s.added}</span> <span class="d">−${s.removed}</span>` : ""}</span>` : `<span>○ Ready</span><span></span>`;
-    return `<div class="card lv-tile ${s.busy ? "run" : s.error ? "bad" : ""}" data-open-s="${esc(s.id)}" tabindex="0" role="button">
-      <div class="h"><i>✱</i><b>${esc(s.name)}</b><span class="pj">${esc(s.projectName)}</span>${s.busy ? `<button class="x" data-stop="${esc(s.id)}" title="Stop" type="button">■</button>` : `<button class="x" data-closes="${esc(s.id)}" title="Close session" type="button">✕</button>`}</div>
+    return `<div class="lv-tile ${s.busy ? "run" : s.error ? "bad" : ""}" style="--pc:${projColor(s.project)}" data-open-s="${esc(s.id)}" tabindex="0" role="button" aria-label="Open ${esc(s.name)}">
+      <div class="h"><i>✱</i><b>${esc(s.name)}</b><span class="pj">${esc(s.projectName)}</span><span class="rule"></span>${s.busy ? `<button class="x" data-stop="${esc(s.id)}" title="Stop" aria-label="Stop" type="button">■</button>` : `<button class="x" data-closes="${esc(s.id)}" title="Close session" aria-label="Close session" type="button">✕</button>`}</div>
       ${s.task ? `<div class="task">↳ ${esc(s.task)}</div>` : ""}
-      <div class="lines">${lines || `<div class="ln dim">${s.reply ? esc(s.reply) : "Tap to give it a job."}</div>`}</div>
+      <div class="lines">${lines || `<div class="ln dim">${s.reply ? esc(s.reply) : "Click to give it a job."}</div>`}</div>
       <div class="f">${foot}</div></div>`;
   };
-  const html = sessions.map(tile).join("") + `<button class="card lv-tile lv-add" type="button" id="lvAdd"><span>＋</span>New session<small>run another agent in parallel</small></button>`;
+  const empty = !sessions.length ? `<div class="tui-empty"><b>No sessions yet.</b><span>Start a new one, or bring in a Claude Code session you already have open in the terminal or VS Code.</span></div>` : !shown.length ? `<div class="tui-empty"><span>Nothing here. <a href="javascript:void 0" data-cf-all>Show all</a></span></div>` : "";
+  const html = empty + shown.map(tile).join("") + `<button class="lv-tile lv-add" type="button" id="lvAdd"><span>+</span>New session<small>runs in parallel with the others</small></button>`;
   if (g.innerHTML !== html) {
     g.innerHTML = html;
     g.querySelectorAll("[data-open-s]").forEach(t => { t.onclick = e => { if (!e.target.closest("button")) codeOpen(t.dataset.openS); }; t.onkeydown = e => { if (e.key === "Enter") codeOpen(t.dataset.openS); }; });
     g.querySelectorAll("[data-stop]").forEach(b => b.onclick = () => api(`/code/${b.dataset.stop}/stop`, "POST").then(liveKick).catch(x => toast(x.message)));
     g.querySelectorAll("[data-closes]").forEach(b => b.onclick = async () => { if (!confirm("Close this session? Its history is archived.")) return; await api(`/code/${b.dataset.closes}`, "DELETE").catch(x => toast(x.message)); Live.code = await api("/code").catch(() => Live.code); codeGrid(); });
+    g.querySelector("[data-cf-all]")?.addEventListener("click", () => document.querySelector('[data-cf="all"]')?.click());
     document.getElementById("lvAdd").onclick = codeNewModal;
   }
+}
+// Bring in a Claude Code session started elsewhere (terminal, VS Code) for one of the project's folders.
+async function codeImportModal(slug) {
+  const projs = codeProjects();
+  if (!projs.length) { toast("Add a folder to a project first (project, then Setup)."); return; }
+  slug = slug || (activeProject() && projs.some(p => p.slug === activeProject()) ? activeProject() : projs[0].slug);
+  modal(`<h2>Bring in a session</h2><p class="small muted" style="margin-top:-4px">Pick up a Claude Code conversation you started in the terminal or VS Code. HQ continues from a copy, so the original stays as it is.</p>
+    <label class="f">Project<select id="ciProj">${projs.map(p => `<option value="${p.slug}" ${p.slug === slug ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label>
+    <div class="ci-list" id="ciList"><div class="small muted">Looking…</div></div>
+    <div class="row" style="justify-content:flex-end;margin-top:8px"><button type="button" class="btn" onclick="closeModal()">Close</button></div>`);
+  document.getElementById("ciProj").onchange = e => codeImportModal(e.target.value);
+  const list = await api(`/code/external/${slug}`).catch(e => ({ error: e.message }));
+  const box = document.getElementById("ciList"); if (!box) return;
+  if (list.error) { box.innerHTML = `<div class="small">${esc(list.error)}</div>`; return; }
+  box.innerHTML = list.length ? list.map(x => `<button type="button" class="ci-row" data-ci="${esc(x.id)}" ${x.imported ? "disabled" : ""}>
+      <b>${esc(x.title || x.ask.slice(0, 70))}</b><span>${x.title && x.ask ? esc(x.ask) : ""}</span>
+      <small>${esc(ago(x.updatedAt))}${x.folder ? " · " + esc(x.folder) : ""} · ${x.sizeKb > 1024 ? (x.sizeKb / 1024).toFixed(1) + " MB" : x.sizeKb + " KB"}${x.imported ? " · already in HQ" : ""}</small></button>`).join("")
+    : `<div class="small muted">No Claude Code sessions found for this project's folders on this PC.</div>`;
+  box.querySelectorAll("[data-ci]").forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    try { const { id } = await api("/code/import", "POST", { project: slug, session: b.dataset.ci }); closeModal(); Live.code = await api("/code"); codeGrid(); codeOpen(id); toast("Session brought in"); }
+    catch (x) { b.disabled = false; toast(x.message, 5000); }
+  });
 }
 function codeNewModal() {
   const projs = codeProjects();
@@ -235,30 +294,38 @@ async function codeSend() {
 
 // ---------------- Tasks: delegate → watch the agents → report back ----------------
 const TK_ST = { queued: ["", "queued"], running: ["blue", "working"], paused: ["amber", "paused"], done: ["green", "done"], issue: ["red", "needs a look"], cancelled: ["", "cancelled"] };
-const CAN = [["read", "Look only"], ["plan", "Update brain"], ["build", "Build code"]];
+const CAN = [["read", "Just look and tell me"], ["plan", "Can update my notes"], ["build", "Can write code"]];
 async function vTasks(el) {
-  const can = hstore.get("hq-task-can", "plan");
-  el.innerHTML = `<div class="between"><div><h1>Tasks</h1><p class="sub">Tell ${esc(S.settings.assistantName)} what to get done. It splits big jobs across parallel agents, shows you every step and decision, and reports back here and on your phone.</p></div>
-      <div class="row"><button class="btn" type="button" id="tkBrief">▶ Brief me</button></div></div>
+  const can = hstore.get("hq-task-can", "plan"), name = esc(S.settings.assistantName || "JARVIS");
+  el.innerHTML = `<div class="between"><div><h1>Tasks</h1><p class="sub">Give ${name} a job. It works on it in the background and tells you here (and on your phone) when it's done.</p></div></div>
     <form class="card lv-ask" id="tkForm" autocomplete="off">
-      <textarea id="tkText" rows="2" placeholder="e.g. Research 3 cheaper hosting options for Borrow Fast and compare them"></textarea>
+      <textarea id="tkText" rows="2" placeholder="What do you need done? e.g. Find 3 cheaper hosting options for Borrow Fast"></textarea>
       <div class="lv-ask-row">
-        <button type="button" class="btn mic" id="tkMic" aria-label="Talk">🎙</button>
-        <select id="tkProj" aria-label="Project">${projOptions(activeProject(), "All of HQ")}</select>
-        <div class="tiers lv-can" role="group" aria-label="Allowed to">${CAN.map(([k, l]) => `<button type="button" data-can="${k}" class="${k === can ? "on" : ""}">${l}</button>`).join("")}</div>
-        ${tierSwitch()}
-        <button class="btn primary lv-go">Delegate</button>
+        <button type="button" class="btn mic" id="tkMic" aria-label="Talk">${MIC_SVG}</button>
+        <button type="button" class="tk-opt" id="tkOptBtn" aria-expanded="false"><span id="tkSum"></span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></button>
+        <button class="btn primary lv-go">Send to ${name}</button>
+      </div>
+      <div class="tk-opts" id="tkOpts" hidden>
+        <label class="tk-o"><span>Which project?</span><select id="tkProj" aria-label="Project">${projOptions(activeProject(), "Any / all of HQ")}</select></label>
+        <div class="tk-o"><span>What's it allowed to do?</span><div class="tiers lv-can" role="group" aria-label="Allowed to">${CAN.map(([k, l]) => `<button type="button" data-can="${k}" class="${k === can ? "on" : ""}">${l}</button>`).join("")}</div></div>
+        <div class="tk-o"><span>Speed and brain power</span>${tierSwitch()}</div>
+        <p class="small muted" style="margin:0">Fast is quick and cheap. Opus is the smartest but uses your limit faster. Effort = how hard it thinks; Auto is fine for most jobs.</p>
       </div>
     </form>
-    <div class="lv-top">${netShell("tasks")}</div>
+    <div class="tk-how" id="tkHow"><div><b>1</b><span>Tell it the job</span><small>Type or talk. Big jobs get split between several helpers.</small></div><div><b>2</b><span>It works on it</span><small>You can watch live below, or leave and do something else.</small></div><div><b>3</b><span>You get a report</span><small>Result, what it did, and anything it needs from you. Reply to ask for changes.</small></div></div>
+    <div class="lv-top" id="tkLive" hidden>${netShell("tasks")}</div>
     <div id="tkList"></div>`;
   bindTierSwitch(el);
-  el.querySelectorAll("[data-can]").forEach(b => b.onclick = () => { hstore.set("hq-task-can", b.dataset.can); el.querySelectorAll("[data-can]").forEach(x => x.classList.toggle("on", x === b)); });
+  const sum = () => { const c = CAN.find(x => x[0] === hstore.get("hq-task-can", "plan")) || CAN[1], pj = document.getElementById("tkProj"); document.getElementById("tkSum").textContent = `${pj?.value ? pj.selectedOptions[0].textContent : "All of HQ"} · ${c[1].replace(/^Can /, "")} · ${cap(currentTier() === "deep" ? "Opus" : currentTier())}`; };
+  el.querySelectorAll("[data-can]").forEach(b => b.onclick = () => { hstore.set("hq-task-can", b.dataset.can); el.querySelectorAll("[data-can]").forEach(x => x.classList.toggle("on", x === b)); sum(); });
+  document.getElementById("tkProj").onchange = sum;
+  el.querySelector("#tkOpts").addEventListener("click", () => setTimeout(sum, 50));
+  document.getElementById("tkOptBtn").onclick = e => { const o = document.getElementById("tkOpts"); o.hidden = !o.hidden; e.currentTarget.setAttribute("aria-expanded", String(!o.hidden)); };
+  sum();
   const ta = document.getElementById("tkText");
   ta.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey && !touchDev()) { e.preventDefault(); taskSend(); } };
   document.getElementById("tkForm").onsubmit = e => { e.preventDefault(); taskSend(); };
   document.getElementById("tkMic").onclick = () => voiceOnce(t => { ta.value = t; }, t => { ta.value = t; taskSend(); }, document.getElementById("tkMic"));
-  document.getElementById("tkBrief").onclick = () => Brief.start();
   if (!Live.tasks) { const r = await api("/tasks").catch(() => null); Live.tasks = r?.tasks || []; for (const t of Live.tasks) Live.taskSeen.set(t.id, t.status); }
   taskList(); livePoll();
 }
@@ -267,7 +334,7 @@ async function taskSend(text) {
   try { await api("/tasks", "POST", { text, project: document.getElementById("tkProj")?.value || null, permission: hstore.get("hq-task-can", "plan"), tier: currentTier() }); }
   catch (e) { toast("⚠ " + e.message, 5000); return; }
   if (ta) ta.value = ""; Snd.blip(980, .06); corePing?.(); liveKick();
-  Cine.show([[".lv-task.st-queued, .lv-task.st-running", "Delegated · it reports back when done"], ["#lvNet", "Watch the agents work here"]]);
+  Cine.show([[".lv-task.st-queued, .lv-task.st-running", "Sent · it reports back when done"]]);
 }
 function taskList() {
   const box = document.getElementById("tkList"); if (!box) return;
@@ -282,7 +349,7 @@ function taskList() {
     const lastOut = [...t.runs].reverse().find(r => r.output || r.error);
     const thread = t.runs.filter(r => r.reply).map(r => `<div class="lv-you">↳ ${esc(r.prompt || r.title)}</div>`).join("");
     const subs = agents.slice(1).filter(r => r.output);
-    return `<div class="card lv-task st-${t.status}" data-task="${t.id}">
+    return `<div class="card lv-task st-${t.status}" data-task="${t.id}" ${t.project ? `style="--pc:${projColor(t.project)}"` : ""}>
       <div class="h"><span class="pill ${cls}">${lbl}</span><b>${esc(t.title)}</b><span class="faint small">${t.project ? esc(projName(t.project)) + " · " : ""}${ago(t.createdAt)}</span>
         ${open.includes(t) ? `<button class="btn sm ghost" data-tcancel="${t.id}" type="button">Cancel</button>` : ""}</div>
       ${agents.length > 1 || open.includes(t) ? `<div class="lv-chain">${chain}</div>` : ""}
@@ -295,7 +362,9 @@ function taskList() {
   };
   const html = (open.length ? `<h2 class="lv-h">Working on</h2>${open.map(card).join("")}` : "")
     + (rest.length ? `<h2 class="lv-h">Reports</h2>${rest.slice(0, 3).map(card).join("")}${rest.length > 3 ? `<details class="lv-older"><summary>${rest.length - 3} older report${rest.length > 4 ? "s" : ""}</summary>${rest.slice(3, 20).map(card).join("")}</details>` : ""}` : "")
-    + (!ts.length ? `<div class="card lv-emptyt"><b>No tasks yet.</b> Type one above, tap 🎙, or say “Hey JARVIS, …” with hands-free on.</div>` : "");
+    + (!ts.length ? `<div class="card lv-emptyt"><b>No tasks yet.</b> Type one above, tap the mic, or say “Hey ${esc(S.settings.assistantName || "JARVIS")}, …” with hands-free on.</div>` : "");
+  const lv = document.getElementById("tkLive"); if (lv) { const was = lv.hidden; lv.hidden = !open.length; if (was && !lv.hidden) netUpdate(document.getElementById("lvNet"), "tasks"); }
+  const how = document.getElementById("tkHow"); if (how) how.hidden = ts.length > 2;
   const typing = box.contains(document.activeElement) && document.activeElement.tagName === "INPUT";
   if (box.innerHTML !== html && !typing) {
     box.innerHTML = html;
@@ -311,7 +380,7 @@ function taskList() {
     if (was && ["running", "queued", "paused"].includes(was) && (t.status === "done" || t.status === "issue")) {
       const out = [...t.runs].reverse().find(r => r.output)?.output || "";
       const first = out.replace(/\*\*Result\*\*:?/i, "").replace(/[#*_`>]/g, "").split(/\n+/).map(x => x.trim()).filter(Boolean)[0] || "";
-      toast(`${t.status === "done" ? "✅ Done" : "⚠ Needs a look"}: ${t.title}`, 6000); Snd.blip(1320, .08);
+      toast(`${t.status === "done" ? "Done" : "Needs a look"}: ${t.title}`, 6000); Snd.blip(1320, .08);
       speakAlways(`${t.status === "done" ? "Task complete" : "A task needs your attention"}: ${t.title}. ${first}`);
     }
     Live.taskSeen.set(t.id, t.status);
@@ -390,7 +459,7 @@ function voiceCommand(cmd) {
     if (p) { location.hash = "project/" + p.slug; speakAlways(p.name); return; }
   }
   if (/^(stop|cancel|never ?mind|be quiet|shut up)$/.test(c)) { speechSynthesis?.cancel(); return; }
-  toast("🎙 " + cmd);
+  toast(`Heard: “${cmd}”`);
   api("/chat", "POST", { text: cmd, tier: currentTier() }).then(() => { opsKick?.(); jarvisReplyWatch(); }).catch(e => toast(e.message));
 }
 // speak JARVIS's chat answer when it lands (hands-free mode doesn't need the JARVIS screen open)
@@ -410,6 +479,7 @@ async function jarvisReplyWatch() {
   }
 }
 
+const SPK_SVG = on => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/>${on ? `<path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>` : `<path d="M17 9l5 6M22 9l-5 6"/>`}</svg>`;
 // ---------------- guided briefing: JARVIS walks you through what needs doing, screen by screen ----------------
 const Brief = {
   on: false, steps: [], i: 0, paused: false, t: 0, el: null,
@@ -455,20 +525,20 @@ const Brief = {
     if (!this.el) {
       this.el = document.createElement("div"); this.el.id = "brief"; this.el.className = "brief";
       this.el.innerHTML = `<div class="cine-bars"></div><div class="brief-spot"></div><div class="brief-way"><b>▼</b><span>HERE</span></div><div class="brief-card" role="dialog" aria-live="polite"><div class="brief-top"><span class="brief-k">◆ BRIEFING</span><span class="brief-n"></span></div><div class="brief-t"></div><div class="brief-s"></div><div class="brief-dots"></div>
-        <div class="brief-ctl"><button type="button" data-b="prev" aria-label="Back">◀</button><button type="button" data-b="pause" aria-label="Pause">❚❚</button><button type="button" data-b="next" aria-label="Next">▶</button><button type="button" data-b="mute" aria-label="Mute">🔊</button><button type="button" data-b="exit" aria-label="Close">✕</button></div>
+        <div class="brief-ctl"><button type="button" data-b="prev" aria-label="Back">◀</button><button type="button" data-b="pause" aria-label="Pause">❚❚</button><button type="button" data-b="next" aria-label="Next">▶</button><button type="button" data-b="mute" aria-label="Mute"></button><button type="button" data-b="exit" aria-label="Close">✕</button></div>
         <div class="brief-hint">Say “next”, “back”, “pause” or “stop”${Wake.on ? "" : " (with hands-free on)"}</div></div>`;
       document.body.appendChild(this.el);
       this.el.querySelector(".brief-ctl").onclick = e => { const b = e.target.closest("[data-b]")?.dataset.b; if (b) this.ctl(b); };
       this.el.querySelector(".brief-spot").onclick = () => this.ctl("next");
     }
     this.el.hidden = false; document.body.classList.add("briefing"); requestAnimationFrame(() => this.el.classList.add("on"));
-    this.el.querySelector('[data-b="mute"]').textContent = hstore.get("hq-mute", "0") === "1" ? "🔇" : "🔊";
+    this.el.querySelector('[data-b="mute"]').innerHTML = SPK_SVG(hstore.get("hq-mute", "0") !== "1");
     this.show();
   },
   ctl(b) {
     if (b === "next") this.go(1); else if (b === "prev") this.go(-1);
     else if (b === "pause") { this.paused = !this.paused; this.el.querySelector('[data-b="pause"]').textContent = this.paused ? "▶︎" : "❚❚"; if (this.paused) { clearTimeout(this.t); speechSynthesis?.cancel(); } else this.show(); }
-    else if (b === "mute") { const m = hstore.get("hq-mute", "0") === "1"; hstore.set("hq-mute", m ? "0" : "1"); this.el.querySelector('[data-b="mute"]').textContent = m ? "🔊" : "🔇"; if (!m) speechSynthesis?.cancel(); }
+    else if (b === "mute") { const m = hstore.get("hq-mute", "0") === "1"; hstore.set("hq-mute", m ? "0" : "1"); this.el.querySelector('[data-b="mute"]').innerHTML = SPK_SVG(m); if (!m) speechSynthesis?.cancel(); }
     else if (b === "exit") this.end();
   },
   voice(c) {
@@ -542,9 +612,40 @@ function liveChrome() {
   Wake.btn();
 }
 
+// ---------------- Command: when a project is in focus, show what's coming up and important for it ----------------
+function focusPanel() {
+  const R = document.getElementById("cmdRight"); if (!R) return;
+  document.getElementById("nvFocus")?.remove();
+  const ap = activeProject(), p = S.projects.find(x => x.slug === ap); if (!p) return;
+  const now = new Date(), soon = new Date(now.getTime() + 30 * 864e5), day = d => Math.ceil((d - now) / 864e5);
+  const rows = [];
+  S.reminders.filter(r => !r.done && r.project === ap).forEach(r => { const d = toDate(r.due); if (d <= soon) rows.push({ d, t: r.title, k: d < now ? "red" : day(d) <= 2 ? "amber" : "", s: d < now ? `OVERDUE · ${fmtWhen(r.due)}` : `REMINDER · ${fmtWhen(r.due)}`, h: "#project/" + ap }); });
+  S.milestones.filter(m => !m.done && m.project === ap).forEach(m => { const d = toDate(m.date + "T23:59"); if (d >= now && d <= new Date(now.getTime() + 60 * 864e5)) rows.push({ d, t: m.title, k: m.kind === "deadline" && day(d) <= 7 ? "red" : m.kind === "deadline" ? "amber" : "", s: `${m.kind === "deadline" ? "DEADLINE" : "MILESTONE"} · IN ${day(d)} DAY${day(d) === 1 ? "" : "S"}`, h: "#roadmap" }); });
+  S.approvals.filter(a => a.status === "pending" && a.project === ap).forEach(a => rows.push({ d: now, t: a.title, k: "amber", s: "NEEDS YOUR OK", h: "#missions" }));
+  (S.outbox || []).filter(x => (x.status === "draft" || x.status === "failed") && x.project === ap).forEach(x => rows.push({ d: now, t: x.kind === "email" ? `Email: ${x.payload?.subject || ""}` : `Event: ${x.payload?.title || ""}`, k: "amber", s: "WAITING TO SEND", h: "#outbox" }));
+  rows.sort((a, b) => (a.k === "red" ? 0 : a.k === "amber" ? 1 : 2) - (b.k === "red" ? 0 : b.k === "amber" ? 1 : 2) || a.d - b.d);
+  const goals = S.goals.filter(g => g.project === ap && g.steps?.some(x => !x.done)).slice(0, 3);
+  const working = (S.status?.active || []).filter(r => r.project === ap);
+  const codes = (Live.code?.sessions || []).filter(x => x.project === ap && x.busy);
+  const el = document.createElement("div");
+  el.className = "card nv-panel nv-focus"; el.id = "nvFocus"; el.style.setProperty("--pc", projColor(ap));
+  el.innerHTML = `<div class="ttl">Focus <b>${esc(p.name)}</b></div>
+    <div class="fx-meta"><span class="pill">${esc(p.stage)}</span><span class="pill ${p.health === "good" ? "green" : p.health === "watch" ? "amber" : p.health === "risk" ? "red" : ""}">${esc(p.health)}</span>${working.length + codes.length ? `<span class="pill blue">${working.length + codes.length} working</span>` : ""}</div>
+    ${p.nextStep ? `<a class="fx-next" href="#project/${esc(ap)}"><small>NEXT STEP</small>${esc(p.nextStep)}</a>` : ""}
+    ${rows.slice(0, 6).map(r => `<a class="nv-row sev-${r.k || "blue"}" href="${r.h}"><span class="led ${r.k}"></span><div style="min-width:0"><div class="t">${esc(r.t)}</div><small>${esc(r.s)}</small></div></a>`).join("") || `<div class="nv-empty">Nothing due for ${esc(p.name)} in the next 30 days.</div>`}
+    ${goals.map(g => { const done = g.steps.filter(x => x.done).length, pct = Math.round(done / g.steps.length * 100); return `<a class="fx-goal" href="#planner"><span>${esc(g.title)}</span><i style="--w:${pct}%"></i><small>${done}/${g.steps.length} · next: ${esc(g.steps.find(x => !x.done)?.title || "")}</small></a>`; }).join("")}
+    <div class="fx-acts"><a class="btn sm" href="#project/${esc(ap)}">Open project</a><button class="btn sm" type="button" id="fxAsk">Ask what's next</button><button class="btn sm ghost" type="button" id="fxAll">Clear focus</button></div>`;
+  const L = document.getElementById("cmdLeft");
+  if (phone() && L) L.prepend(el); else R.prepend(el); // phone: right under the ask box
+  el.querySelector("#fxAll").onclick = () => setActiveProject("");
+  el.querySelector("#fxAsk").onclick = () => { const i = document.getElementById("cmdText"); if (i) { i.value = `What's most important for ${p.name} right now?`; document.getElementById("cmdAsk")?.requestSubmit(); } };
+}
+const _cmdFill = cmdFill;
+cmdFill = function (q) { _cmdFill(q); try { focusPanel(); } catch (e) { console.warn(e); } };
+
 // ---------------- hooks into the existing app ----------------
 const _render = render;
-render = function () { _render(); document.body.dataset.view = route.view; liveChrome(); if (route.view !== "code" && route.view !== "tasks") clearTimeout(Live.timer); if (route.view !== "code") clearTimeout(Code.poll); };
+render = function () { _render(); document.body.dataset.view = route.view; liveChrome(); try { paintProjects(document.getElementById("view")); paintProjects(document.getElementById("nav")); } catch {} const pv = document.getElementById("view"); if (pv) { if (route.view === "project" && route.arg) pv.style.setProperty("--pc", projColor(route.arg)); else pv.style.removeProperty("--pc"); } if (route.view !== "code" && route.view !== "tasks") clearTimeout(Live.timer); if (route.view !== "code") clearTimeout(Code.poll); };
 // the sidebar button: on phones it's always a drawer (never "unpins" the desktop setting)
 document.getElementById("sideBtn")?.addEventListener("click", e => { if (!phone()) return; e.stopImmediatePropagation(); sideSet(!document.body.classList.contains("side-open")); }, true);
 window.addEventListener("resize", () => { if (route.view === "code" || route.view === "tasks") netUpdate(document.getElementById("lvNet"), route.view); });

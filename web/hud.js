@@ -262,7 +262,7 @@ function tierSwitch() {
   const cur = currentTier();
   const b = (t, label) => `<button type="button" data-tier="${t}" class="${cur === t ? "on" : ""}" aria-pressed="${cur === t}" title="${esc(S.settings.models.tiers?.[t]?.use || "")}">${label}</button>`;
   return `<div class="tiers" role="group" aria-label="Model">${b("fast", `Fast <small>${cap(tierModel("fast"))}</small>`)}${b("balanced", `Balanced <small>${cap(tierModel("balanced"))}</small>`)}${b("deep", cap(tierModel("deep")))}</div>
-    <div class="tier-warn" ${cur === "deep" ? "" : "hidden"}>⚠ ${cap(tierModel("deep"))} uses your Pro usage limit much faster. Switch back when you're done.</div>`;
+    <div class="tier-warn" ${cur === "deep" ? "" : "hidden"}>${cap(tierModel("deep"))} uses your Pro usage limit much faster. Switch back when you're done.</div>`;
 }
 function bindTierSwitch(root) {
   root.querySelectorAll(".tiers [data-tier]").forEach(b => b.onclick = () => {
@@ -283,7 +283,7 @@ function palBase() {
   for (const [v, t, i] of VIEWS) it.push({ sec: "Go to", ico: i, t, run: go(v) });
   it.push(
     { sec: "Actions", ico: "✦", t: "Ask JARVIS…", sub: "Open the assistant and talk", run: go("assistant") },
-    { sec: "Actions", ico: "🎙", t: "Talk to JARVIS (voice)", sub: "Alt+J", run: () => { sessionStorage.setItem("hq-listen", "1"); location.hash = "assistant"; } },
+    { sec: "Actions", ico: "◉", t: "Talk to JARVIS (voice)", sub: "Alt+J", run: () => { sessionStorage.setItem("hq-listen", "1"); location.hash = "assistant"; } },
     { sec: "Actions", ico: "+", t: "New reminder", run: () => addOnDayModal(ymd(new Date())) },
     { sec: "Actions", ico: "+", t: "New goal", sub: "Mission Planner", run: () => { location.hash = "planner"; setTimeout(goalModal, 50); } },
     { sec: "Actions", ico: "+", t: "New project", run: () => { location.hash = "projects"; setTimeout(newProjectModal, 50); } },
@@ -300,7 +300,7 @@ function palBase() {
     it.push({ sec: "Focus", ico: "◉", t: `Switch to ${p.name}`, sub: i < 9 ? `Ctrl+${i + 1}` : "Set the active project", run: () => setActiveProject(p.slug) });
   });
   it.push({ sec: "Focus", ico: "◉", t: "Switch to all projects", sub: "Ctrl+0", run: () => setActiveProject("") });
-  S.reminders.filter(r => !r.done).forEach(r => it.push({ sec: "Reminders", ico: "⏰", t: r.title, sub: `${fmtWhen(r.due)}${r.project ? " · " + projName(r.project) : ""}`, run: go(r.project ? "project/" + r.project : "home") }));
+  S.reminders.filter(r => !r.done).forEach(r => it.push({ sec: "Reminders", ico: "◷", t: r.title, sub: `${fmtWhen(r.due)}${r.project ? " · " + projName(r.project) : ""}`, run: go(r.project ? "project/" + r.project : "home") }));
   S.milestones.filter(m => !m.done).forEach(m => it.push({ sec: "Milestones", ico: "◆", t: m.title, sub: `${m.date}${m.project ? " · " + projName(m.project) : ""}`, run: go("roadmap") }));
   S.missions.forEach(m => it.push({ sec: "Missions", ico: "➤", t: m.title, sub: m.scheduleText, run: go("missions") }));
   (S.goals || []).forEach(g => it.push({ sec: "Goals", ico: "⬡", t: g.title, sub: g.project ? projName(g.project) : "", run: go("planner") }));
@@ -610,12 +610,12 @@ async function vCommand(el) {
   const st = S.status;
   const health = st.auth === "needs-login" || !st.claudeBin ? ["red", "DEGRADED"] : st.pausedUntil && new Date(st.pausedUntil) > new Date() ? ["amber", "PAUSED"] : ["", "NOMINAL"];
   el.innerHTML = `<div class="cmd-head"><div><h1 class="glitch">Command</h1><div class="sys">SYSTEMS <b class="${health[0]}">${health[1]}</b> · CLAUDE LINK <b class="${st.auth === "ok" ? "" : "amber"}">${st.auth === "ok" ? "ONLINE" : st.auth === "needs-login" ? "SIGN-IN NEEDED" : "STANDBY"}</b> · FOCUS <b>${esc(activeProject() ? projName(activeProject()).toUpperCase() : "ALL")}</b></div></div>
-      <div class="row"><button class="btn sm" id="cmdPal" type="button">⌕ Search <kbd class="kbd">Ctrl K</kbd></button><button class="btn sm" id="cmdPower" type="button" title="Power-down sequence">⏻ Power down</button></div></div>
+      <div class="row"><button class="btn sm" id="cmdPal" type="button">⌕ Search <kbd class="kbd">Ctrl K</kbd></button><button class="btn sm" id="cmdPower" type="button" title="Power-down sequence">Power down</button></div></div>
     <div class="cmd">
       <div class="cmd-col" id="cmdLeft"></div>
       <div class="cmd-center">
         <div class="core-wrap" id="core">${coreSVG()}<div class="core-label"><div><b>${esc(name)}</b><span id="coreState" data-v="">STANDBY</span></div></div></div>
-        <form class="cmd-ask" id="cmdAsk" autocomplete="off"><button type="button" class="btn mic" id="cmdMic" title="Talk (Alt+J)" aria-label="Talk">🎙</button><input id="cmdText" placeholder="How can I help, sir?" aria-label="Ask ${esc(name)}"><button class="btn primary">Send</button></form>
+        <form class="cmd-ask" id="cmdAsk" autocomplete="off"><button type="button" class="btn mic" id="cmdMic" title="Talk (Alt+J)" aria-label="Talk">${MIC_SVG}</button><input id="cmdText" placeholder="How can I help, sir?" aria-label="Ask ${esc(name)}"><button class="btn primary">Send</button></form>
         <div class="cmd-tier">${tierSwitch()}</div>
         <div class="card cmd-reply" id="cmdReply"></div>
       </div>

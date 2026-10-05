@@ -98,7 +98,7 @@ function vOutbox(el) {
   const all = S.outbox || [];
   const open = all.filter(x => ["draft", "failed", "sending"].includes(x.status)), done = all.filter(x => !open.includes(x));
   el.innerHTML = `<div class="between"><div><h1>Outbox</h1><p class="sub">Emails and calendar changes wait here until you approve them. Nothing leaves HQ without your click.</p></div>
-      <div class="row"><button class="btn" id="obEv" type="button">＋ Event</button><button class="btn primary" id="obEm" type="button">✉ New email</button></div></div>
+      <div class="row"><button class="btn" id="obEv" type="button">＋ Event</button><button class="btn primary" id="obEm" type="button">New email</button></div></div>
     ${open.length ? `<div class="ob-grid">${open.map(obCard).join("")}</div>` : `<div class="card"><div class="empty">Nothing waiting. Ask JARVIS “email Sam that…” or “move my dentist to Friday 3pm” and it lands here for your OK.</div></div>`}
     ${done.length ? `<h2>History</h2><div class="ob-grid">${done.slice(0, 20).map(obCard).join("")}</div>` : ""}`;
   document.getElementById("obEm").onclick = () => outboxCompose("email");

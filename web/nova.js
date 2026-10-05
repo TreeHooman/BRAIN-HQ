@@ -323,7 +323,7 @@ async function vCommand(el) {
           </div>
           <div class="nv-tip" id="nvTip" role="tooltip"></div>
         </div>
-        <form class="nv-ask" id="cmdAsk" autocomplete="off"><button type="button" class="btn mic" id="cmdMic" title="Talk (Alt+J)" aria-label="Talk">🎙</button><input id="cmdText" placeholder="Ask ${esc(name)} anything…" aria-label="Ask ${esc(name)}"><button class="btn primary">Send</button></form>
+        <form class="nv-ask" id="cmdAsk" autocomplete="off"><button type="button" class="btn mic" id="cmdMic" title="Talk (Alt+J)" aria-label="Talk">${MIC_SVG}</button><input id="cmdText" placeholder="Ask ${esc(name)} anything…" aria-label="Ask ${esc(name)}"><button class="btn primary">Send</button></form>
         <div class="nv-under">${tierSwitch()}</div>
         <div class="card nv-reply" id="cmdReply"></div>
       </div>
@@ -506,7 +506,7 @@ function cmdFill(quiet) {
   const rowA = a => `<a class="nv-row sev-${a[0] || "blue"}" href="${a[3]}"><span class="led ${a[0]}"></span><div style="min-width:0"><div class="t">${esc(a[1])}</div><small>${a[2]}</small></div></a>`;
   R.innerHTML = `<div class="card nv-panel"><div class="ttl">Needs you <b>${A.length || "clear"}</b></div>${groups.map(([k, label, items]) => `<div class="nv-grp g-${k || "blue"}">${label}<b>${items.length}</b></div>${items.slice(0, 5).map(rowA).join("")}`).join("") || `<div class="nv-row sev-green"><span class="led green"></span><div><div class="t">All clear</div><small>NOTHING WAITING ON YOU</small></div></div>`}</div>
     <div class="card nv-panel"><div class="ttl">Quick actions</div><div class="row" style="flex-wrap:wrap;gap:8px">
-      <a class="btn sm" href="#code">⌨ Code</a><button class="btn sm" type="button" data-nv="email">✉ Email</button><button class="btn sm" type="button" data-nv="event">＋ Event</button><a class="btn sm" href="#planner">⬡ Planner</a><button class="btn sm" type="button" data-nv="pal">⌕ Search</button></div></div>`;
+      <a class="btn sm" href="#code">Code</a><button class="btn sm" type="button" data-nv="email">Email</button><button class="btn sm" type="button" data-nv="event">＋ Event</button><a class="btn sm" href="#planner">⬡ Planner</a><button class="btn sm" type="button" data-nv="pal">⌕ Search</button></div></div>`;
   R.querySelector('[data-nv="email"]').onclick = () => outboxCompose("email");
   R.querySelector('[data-nv="event"]').onclick = () => outboxCompose("calendar");
   R.querySelector('[data-nv="pal"]').onclick = () => palOpen();
