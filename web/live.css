@@ -514,3 +514,9 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 html, body { overflow-x: hidden; }
 .lv-drawer > .lv-dpanel { position: absolute !important; left: auto !important; right: 12px !important; top: 12px !important; bottom: 12px !important; margin: 0 !important; }
 @media (max-width: 760px) { .lv-drawer > .lv-dpanel { inset: 0 !important; width: 100% !important; } }
+/* Settings: sections fold like drop-downs */
+#view h2.fold { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 8px; padding: 10px 2px; margin: 6px 0 0; border-bottom: 1px solid var(--border); }
+#view h2.fold::after { content: ""; margin-left: auto; width: 8px; height: 8px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .2s; opacity: .7; }
+#view h2.fold.open::after { transform: rotate(45deg); }
+#view h2.fold:hover { color: var(--accent); }
+#view h2.fold.open { border-bottom-color: transparent; }

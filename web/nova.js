@@ -40,7 +40,7 @@ vec3 stars(vec2 uv,float sc,float sz){vec2 p=uv*sc,id=floor(p),f=fract(p)-.5;flo
  return smoothstep(.05*sz,0.,d)*tw*mix(vec3(.75,.92,1.),vec3(1.,.82,1.),h21(id+1.3));}
 vec3 sky(vec2 uv,vec2 m,float t,float neb){
  vec3 col=vec3(.003,.006,.02);
- col+=stars(uv+m*.006,64.,1.)*.55+stars(uv+m*.016+vec2(t*.1,0.),36.,1.4)*.8+stars(uv+m*.035,19.,2.)*.95;
+ col+=stars(uv+m*.006,90.,.7)*.6+stars(uv+m*.016,48.,.8)*.85+stars(uv+m*.035,24.,1.)*1.;
  if(neb>0.){vec2 q=uv*1.25+m*.04;float w=fbm(q*1.1+vec2(t,-t*.6));float nb=fbm(q*2.1+w*1.7+vec2(-t*.8,t*.5));
   vec3 c=mix(vec3(.0,.32,.46),vec3(.26,.12,.52),smoothstep(.3,.8,w));c=mix(c,vec3(.55,.08,.38),smoothstep(.55,.95,nb)*.4);
   col+=c*pow(smoothstep(.32,1.,nb),1.7)*.55*neb;}
@@ -55,11 +55,12 @@ vec3 s0(vec2 uv,vec2 m,float t){
  vec3 rc=mix(vec3(.85,.72,.55),vec3(.55,.75,.95),.35)*ring*.75*(.6+.4*smoothstep(-.3,.3,rp.x/R));
  float dd=length(d);
  if(rp.y>0.)col+=rc; // far half of the rings, behind the planet
- if(dd<R){vec3 n=vec3(d/R,sqrt(max(0.,1.-dot(d,d)/(R*R))));vec3 L=normalize(vec3(-.65,.35,.55));
+ float px=2./uR.y, pa=smoothstep(R+px,R-px,dd);
+ if(pa>0.){vec3 bg0=col; vec2 dn=d*min(1.,(R-px*.5)/max(dd,1e-4)); vec3 n=vec3(dn/R,sqrt(max(0.,1.-dot(dn,dn)/(R*R))));vec3 L=normalize(vec3(-.65,.35,.55));
   float lat=n.y*.92+n.x*.18; float b=fbm(vec2(lat*7.,n.x*1.2+t*.25))*.6+.5*sin(lat*22.+fbm(vec2(lat*3.,t*.1))*4.);
   vec3 base=mix(vec3(.62,.38,.22),vec3(.95,.82,.62),.5+.5*b); base=mix(base,vec3(.3,.55,.8),.08);
   float dif=max(0.,dot(n,L)); float shadow=1.-.85*smoothstep(.0,.05,abs(rp.y)/R*1.)*0.;
-  col=base*(dif*1.1+.03)*shadow+vec3(.2,.5,.9)*pow(1.-n.z,3.)*.6*dif;}
+  col=mix(bg0,base*(dif*1.1+.03)*shadow+vec3(.2,.5,.9)*pow(1.-n.z,3.)*.6*dif,pa);}
  col+=vec3(.25,.55,1.)*exp(-max(0.,dd-R)*38.)*.35*smoothstep(.0,.4,dot(normalize(d+1e-4),normalize(vec2(-.65,.35)))+.3);
  if(rp.y<=0.)col=mix(col,col*.25+rc,ring>0.?.9:0.); // near half crosses in front
  col+=glow(uv,vec2(-.75,.42)-m*.02,vec3(1.,.9,.75),.08); // distant sun
@@ -70,13 +71,14 @@ vec3 s1(vec2 uv,vec2 m,float t){
  vec2 C=vec2(0.,-2.05)-m*vec2(.05,.03); float R=1.8; vec2 d=uv-C; float r=length(d);
  vec2 S=vec2(-.32,-.2)-m*vec2(.05,.03)+vec2(0.,.004*sin(t*.5)); // sun peeking over the limb
  float h=r-R;
- if(h<0.){vec3 n=vec3(d/R,sqrt(max(0.,1.-r*r/(R*R))));
+ float px=2./uR.y, pa=smoothstep(px,-px,h);
+ if(pa>0.){vec3 bg0=col; vec2 dn=d*min(1.,(R-px*.5)/max(r,1e-4)); vec3 n=vec3(dn/R,sqrt(max(0.,1.-dot(dn,dn)/(R*R))));
   vec2 g=n.xy*3.+vec2(t*.08,0.); float land=smoothstep(.52,.6,fbm(g*1.7)); float cl=smoothstep(.45,.85,fbm(g*2.6+vec2(t*.12,3.)));
   vec3 surf=mix(vec3(.02,.09,.22),vec3(.12,.18,.08),land); surf=mix(surf,vec3(.85,.9,1.),cl*.85);
   float lit=smoothstep(.0,.6,dot(normalize(d),normalize(S-C))*1.6-.9);
   float city=land*(1.-lit)*(1.-cl)*step(.82,h21(floor(n.xy*300.)))*.6;
   col=surf*(lit*.9+.02)+vec3(1.,.7,.35)*city;
-  col+=vec3(.3,.6,1.)*pow(1.-n.z,4.)*(.4+lit);}
+  col=mix(bg0,col+vec3(.3,.6,1.)*pow(1.-n.z,4.)*(.4+lit),pa);}
  float atm=exp(-abs(h)*(h>0.?55.:140.));
  float sunSide=pow(max(0.,dot(normalize(d),normalize(S-C))),40.);
  col+=mix(vec3(.25,.55,1.),vec3(1.,.6,.3),sunSide)*atm*(.55+1.8*sunSide);
@@ -107,17 +109,26 @@ vec3 s3(vec2 uv,vec2 m,float t){
  col+=armc*arms*body*(.35+.9*dust)*1.3; col-=vec3(.25,.2,.12)*smoothstep(.55,.8,dust)*arms*body*1.2;
  col+=vec3(1.,.85,.6)*exp(-r*11.)*1.2+vec3(1.,.7,.45)*.02/(r*r*30.+.02)*.4;
  return max(col,0.);}
-vec3 pick(float id,vec2 uv,vec2 m,float t){if(id<.5)return s0(uv,m,t);if(id<1.5)return s1(uv,m,t);if(id<2.5)return s2(uv,m,t);return s3(uv,m,t);}
+// 4: the original deep-space nebula (no floor grid)
+vec3 s4(vec2 uv,vec2 m,float t){
+ vec2 q=uv*1.25+m*.06;
+ float w=fbm(q*1.1+vec2(t,-t*.6)); float nb=fbm(q*2.1+w*1.7+vec2(-t*.8,t*.5));
+ vec3 col=mix(vec3(.0,.32,.46),vec3(.26,.12,.52),smoothstep(.3,.8,w)); col=mix(col,vec3(.55,.08,.38),smoothstep(.55,.95,nb)*.4);
+ col*=pow(smoothstep(.32,1.,nb),1.7)*(.5+uB*.25);
+ col+=vec3(.003,.007,.025)+vec3(0.,.025,.05)*max(0.,1.-length(uv));
+ return col;}
+vec3 pick(float id,vec2 uv,vec2 m,float t){if(id>3.5)return s4(uv,vec2(m.x,-m.y),t);if(id<.5)return s0(uv,m,t);if(id<1.5)return s1(uv,m,t);if(id<2.5)return s2(uv,m,t);return s3(uv,m,t);}
 void main(){
  vec2 uv=(gl_FragCoord.xy-.5*uR)/uR.y; vec2 m=uM-.5; m.y=-m.y; float t=uT*.022*(1.+uB*2.);
  uv/=1.+uZ*.04; uv.y+=uS*.00004;
  vec3 col=pick(uA,uv,m,t); if(uX>0.001)col=mix(col,pick(uN,uv,m,t),uX);
- col*=1.+uB*.15;
- vec2 mp=m*vec2(uR.x/uR.y,1.); col+=vec3(.05,.25,.4)*.035/(length(uv-mp)+.25);
- col*=1.-.35*dot(uv*.6,uv*.6); // vignette
- col=col/(1.+col*.35); // soft tone map
+ vec2 mp=m*vec2(uR.x/uR.y,1.);
+ if(uA>3.5&&uX<.001){col+=vec3(.05,.25,.4)*.05/(length(uv-vec2(mp.x,-mp.y))+.25);}
+ else{col*=1.+uB*.15; col+=vec3(.05,.25,.4)*.035/(length(uv-mp)+.25); col*=1.-.35*dot(uv*.6,uv*.6); col=col/(1.+col*.35);}
  gl_FragColor=vec4(col,1.);}`;
 const Scene = { c: null, gl: null, p: null, raf: 0, scale: .6, frame: 0, ok: false };
+/** Planets need full resolution to look sharp; the soft nebula is fine (and cheap) at 60%. */
+function sceneRes(sharp) { const sc = sharp ? 1 : .6; if (Scene.scale !== sc) { Scene.scale = sc; sceneSize(); } }
 function sceneStart() {
   if (Scene.ok || Scene.failed) return sceneKick();
   const c = document.createElement("canvas"); c.id = "nova-bg"; c.setAttribute("aria-hidden", "true"); document.body.prepend(c);
@@ -139,7 +150,7 @@ function sceneDraw() {
   const { gl, p } = Scene, t = (performance.now() - NV.t0) / 1000;
   gl.uniform2f(p.u("uR"), Scene.c.width, Scene.c.height); gl.uniform1f(p.u("uT"), reduced() ? 12 : t);
   gl.uniform1f(p.u("uB"), NV.busy); gl.uniform1f(p.u("uS"), NV.scroll); gl.uniform2f(p.u("uM"), NV.sx, NV.sy ?? .5);
-  const v = typeof spaceView === "function" ? spaceView() : { a: 0, n: 0, x: 0, z: 0 };
+  const v = typeof spaceView === "function" ? spaceView() : { a: 4, n: 4, x: 0, z: 0 };
   gl.uniform1f(p.u("uA"), v.a); gl.uniform1f(p.u("uN"), v.n); gl.uniform1f(p.u("uX"), v.x); gl.uniform1f(p.u("uZ"), v.z);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
