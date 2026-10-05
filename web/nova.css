@@ -135,7 +135,12 @@
   [data-theme="hud"] .assemble > *, [data-theme="hud"] .assemble .cols > * > *, [data-theme="hud"] .assemble .tiles > * {
     animation: novaIn .9s var(--ease) both; animation-delay: calc(var(--i, 0) * 55ms); }
   [data-theme="hud"] .view-in > * { animation: none; }
-  [data-theme="hud"] .assemble > .nv-desk, [data-theme="hud"] .assemble .nv-desk > * { animation-name: novaFade; }
+  /* Fade the glass panels themselves, never a wrapper around them: a fading parent turns off the panels' frosted blur
+     (stars showed through, then "poofed" when it ended) and flattens the curved 3D side screens. Wrappers only slide. */
+  [data-theme="hud"] .assemble > :has(.card, .nv-panel):not(.card, .nv-panel), [data-theme="hud"] .assemble .cols > * > :has(.card, .nv-panel):not(.card, .nv-panel) { animation-name: novaRise; }
+  [data-theme="hud"] .assemble > .nv-desk, [data-theme="hud"] .assemble .nv-desk > * { animation: none; }
+  [data-theme="hud"] .assemble :is(.card, .nv-panel):not(:is(.card, .nv-panel) *) { animation: novaFade .8s var(--ease) both; animation-delay: calc(var(--i, 0) * 55ms); }
+  [data-theme="hud"] .assemble .nv-mid > :not(:has(.card, .nv-panel)):not(.card, .nv-panel) { animation: novaFade .8s var(--ease) both; animation-delay: 120ms; }
 }
 /* translate/opacity only: animating transform or filter here flattened 3D panels (the War Room's curved side screens) and
    they snapped back afterwards, which looked like a second bounce */
@@ -144,6 +149,7 @@
   100% { opacity: 1; translate: 0 0; }
 }
 @keyframes novaFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes novaRise { from { translate: 0 22px; } to { translate: 0 0; } }
 @keyframes novaPop { 0% { opacity: 0; transform: translateY(18px) scale(.94); filter: blur(8px); } 100% { opacity: 1; transform: none; filter: none; } }
 @keyframes novaBreath { 0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(111, 242, 255, .6)); } 50% { transform: scale(1.08); filter: drop-shadow(0 0 16px rgba(111, 242, 255, .95)); } }
 /* page sweep: a thin light plane passes on view change */

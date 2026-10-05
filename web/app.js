@@ -192,7 +192,7 @@ function vHome(el) {
   for (const a of pend) needs.push(`<div class="card alert"><div class="between"><b>Needs your OK: ${esc(a.title)}</b><span class="row"><button class="btn sm good" data-ap="${a.id}" data-yes="1">Approve</button><button class="btn sm" data-ap="${a.id}">Reject</button></span></div><div class="small muted" style="margin-top:6px">${esc(a.detail).slice(0, 400)}</div></div>`);
   el.innerHTML = `
     <div class="between"><div><h1>${hello}</h1><p class="sub">${DOW[now.getDay()]}, ${MON[now.getMonth()]} ${now.getDate()} · ${active.length} active projects · ${open.length} open reminders</p></div>
-      <div class="row"><a class="btn primary" href="#assistant"><span class="arc sm"></span> Talk to ${esc(S.settings.assistantName)}</a></div></div>
+      <div class="row"><a class="btn primary" href="#assistant"><img src="icon.svg" class="eye-logo sm" alt=""> Talk to ${esc(S.settings.assistantName)}</a></div></div>
     ${needs.join("")}
     <div class="tiles">
       <a class="tile ${urgent.some(r => toDate(r.due) < now) ? "red" : "amber"}" href="#calendar"><b>${urgent.length}</b><span>Due today${urgent.some(r => toDate(r.due) < now) ? " (some overdue)" : ""}</span></a>
@@ -483,7 +483,7 @@ async function vAssistant(el) {
   const focus = activeProject();
   const examples = ["What should I focus on today?", "Plan the next 2 weeks for LoanCentral", "Remind me Friday at 3pm to call the bank", "Turn my inbox into tasks", "Every Monday 9am, review Borrow Fast and suggest next steps"];
   el.innerHTML = `<div class="chat">
-    <div class="between"><div><h1><span class="arc"></span>${esc(S.settings.assistantName)}</h1><p class="sub" style="margin:0">Your chief of staff. It runs on Claude in the background on your subscription, and can update the brain, set reminders and queue missions. Tap the mic to talk (or Alt+J).</p></div>
+    <div class="between"><div><h1><img src="icon.svg" class="eye-logo" alt="">${esc(S.settings.assistantName)}</h1><p class="sub" style="margin:0">Your chief of staff. It runs on Claude in the background on your subscription, and can update the brain, set reminders and queue missions. Tap the mic to talk (or Alt+J).</p></div>
       <div class="row"><select id="chatProj" title="Focus">${projOptions(focus, "All projects")}</select>
       <button class="btn ${voiceOn() ? "primary" : ""}" id="voiceToggle" title="Speak replies aloud">${voiceOn() ? "Voice on" : "Voice off"}</button>
       <button class="btn" id="newChat">New chat</button></div></div>
@@ -715,8 +715,11 @@ document.addEventListener("keydown", e => {
 $("#capture").onsubmit = async e => {
   e.preventDefault();
   const t = $("#captureText").value.trim(); if (!t) return;
-  await api("/inbox", "POST", { text: t }).then(() => { $("#captureText").value = ""; toast("Saved to inbox"); }).catch(x => toast(x.message));
-  await refresh(); render();
+  // goes straight to the LUTHUR chat (and opens it so the reply shows)
+  if (chatState?.busy) return toast("LUTHUR is still answering. Try again in a moment.");
+  try { await api("/chat", "POST", { text: t, project: activeProject() || null, tier: currentTier() }); } catch (x) { return toast(x.message); }
+  $("#captureText").value = ""; $("#captureText").blur(); chatState = null; opsKick?.();
+  if (route.view !== "assistant") location.hash = "assistant"; else render();
 };
 
 // ---------------- boot (after hud.js has loaded) ----------------
