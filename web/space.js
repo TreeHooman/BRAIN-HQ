@@ -163,3 +163,31 @@ vSettings = function (el) {
 
 // Command desk panels lean slightly with the mouse (CSS reads --dx/--dy, -1..1)
 addEventListener("mousemove", e => { const d = document.querySelector(".nv-desk"); if (!d) return; d.style.setProperty("--dx", ((e.clientX / innerWidth) * 2 - 1).toFixed(3)); d.style.setProperty("--dy", ((e.clientY / innerHeight) * 2 - 1).toFixed(3)); }, { passive: true });
+
+// ---------------- long panels fold: anything taller than the screen allows gets "Show more ▾" ----------------
+// Works on every page after each render. Skips views that manage their own scrolling (Code, Canvas, Workspace lists)
+// and forms (so you never lose a field). Expanded state is remembered per panel title for this visit.
+const Folds = { open: new Set(), t: 0 };
+const FOLD_SKIP = /^(code|canvas|workspace|tasks)$/;
+function foldKey(el) { return (route.view || "") + "|" + (el.querySelector(".ttl, h2, h3, b")?.textContent || "").trim().slice(0, 40); }
+function foldPanels() {
+  const view = document.getElementById("view"); if (!view || FOLD_SKIP.test(route.view || "")) return;
+  const base = Math.max(320, Math.round(innerHeight * (matchMedia("(max-width: 760px)").matches ? .62 : .55)));
+  const desk = route.view === "command" && !matchMedia("(max-width: 1099px)").matches; // Command desktop: everything fits on one screen
+  view.querySelectorAll(".card, .nv-panel").forEach(c => {
+    const top = c.getBoundingClientRect().top + (document.scrollingElement?.scrollTop || 0);
+    const max = desk ? Math.max(200, Math.round(innerHeight - top - 28)) : base;
+    if (c.closest(".fold-in") !== c && c.parentElement?.closest(".card.fold-on, .nv-panel.fold-on")) return; // nested
+    if (c.querySelector("form, input, textarea, select") || c.closest(".modal")) return;
+    if (c.classList.contains("fold-on")) { if (!c.classList.contains("fold-open")) c.style.maxHeight = max + "px"; return; }
+    if (c.scrollHeight <= max + (desk ? 0 : 60)) return;
+    const key = foldKey(c);
+    c.classList.add("fold-on"); c.style.setProperty("--fold-max", max + "px");
+    const b = document.createElement("button"); b.type = "button"; b.className = "fold-btn";
+    const set = on => { c.classList.toggle("fold-open", on); c.style.maxHeight = on ? "" : max + "px"; b.innerHTML = on ? "Show less ▴" : "Show more ▾"; on ? Folds.open.add(key) : Folds.open.delete(key); };
+    b.onclick = e => { e.stopPropagation(); const on = !c.classList.contains("fold-open"); set(on); if (!on) c.scrollIntoView({ block: "nearest", behavior: "smooth" }); };
+    c.append(b); set(Folds.open.has(key));
+  });
+}
+new MutationObserver(() => { clearTimeout(Folds.t); Folds.t = setTimeout(foldPanels, 120); }).observe(document.getElementById("view") || document.body, { childList: true, subtree: true });
+addEventListener("resize", () => { clearTimeout(Folds.t); Folds.t = setTimeout(() => { document.querySelectorAll(".fold-on").forEach(c => { c.classList.remove("fold-on"); c.style.maxHeight = ""; c.querySelector(":scope > .fold-btn")?.remove(); }); foldPanels(); }, 250); });

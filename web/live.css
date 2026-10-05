@@ -553,3 +553,10 @@ html, body { overflow-x: hidden; }
 .mus-seek:hover .ms-knob, .mus-seek.drag .ms-knob { opacity: 1; transform: scale(1); }
 .mus-seek:hover, .mus-seek.drag { height: 6px !important; }
 .ms-time { display: flex; justify-content: space-between; font: 10px var(--mono); color: var(--text3); letter-spacing: .05em; margin: -2px 0 4px; font-variant-numeric: tabular-nums; }
+/* auto drop-down for long panels */
+.fold-on { overflow: hidden; position: relative; padding-bottom: 46px !important; transition: max-height .35s ease; }
+.fold-on:not(.fold-open)::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 90px; pointer-events: none; z-index: 2; border-radius: 0 0 inherit inherit; background: linear-gradient(to bottom, transparent, rgba(6, 12, 28, .96) 70%); }
+.fold-on > .fold-btn, .fold-btn { position: absolute !important; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 3; background: rgba(10, 22, 44, .9); border: 1px solid var(--border2); color: var(--accent); border-radius: 999px; padding: 5px 14px; font: 500 11.5px var(--mono); letter-spacing: .05em; cursor: pointer; white-space: nowrap; }
+.fold-btn:hover { border-color: var(--accent); }
+[data-theme="calm"] .fold-on:not(.fold-open)::before { background: linear-gradient(to bottom, transparent, var(--surface) 70%); }
+.fold-on > .fold-btn { z-index: 3 !important; } .fold-on::before { z-index: 2 !important; }
