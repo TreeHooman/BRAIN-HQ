@@ -1,5 +1,5 @@
 // Command screen extras: "Upcoming" (next 7 days of calendar, reminders and milestones) and "Inbox"
-// (latest Gmail, read-only, through the claude.ai connector; refreshed by HQ every 30 min while turned on).
+// (latest Gmail, read-only, through the claude.ai connector; refreshed by LUTHUR every 30 min while turned on).
 "use strict";
 const Mail = { st: null, t: 0, loading: false };
 const mailGet = async () => { Mail.st = await api("/mail").catch(() => Mail.st); return Mail.st; };
@@ -27,7 +27,7 @@ function inboxHTML() {
   const m = Mail.st;
   if (!m) return `<div class="card nv-panel" id="nvMail"><div class="ttl">Inbox</div><div class="nv-empty">Loading…</div></div>`;
   if (!m.enabled) return `<div class="card nv-panel" id="nvMail"><div class="ttl">Inbox <b>off</b></div>
-    <div class="nv-empty" style="margin-bottom:10px">See your latest emails here. HQ reads Gmail through your claude.ai Gmail connector, <b>read-only</b> (it can't send, draft or delete), every 30 minutes. Each check is a small Haiku run on your Claude plan.</div>
+    <div class="nv-empty" style="margin-bottom:10px">See your latest emails here. LUTHUR reads Gmail through your claude.ai Gmail connector, <b>read-only</b> (it can't send, draft or delete), every 30 minutes. Each check is a small Haiku run on your Claude plan.</div>
     <button type="button" class="btn sm primary" id="mailOn">Show my inbox here</button></div>`;
   const unread = m.items.filter(x => x.unread).length;
   const rows = m.items.slice(0, 7).map(x => {

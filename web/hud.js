@@ -123,7 +123,7 @@ function hudClock() {
 setInterval(hudClock, 1000);
 
 // ---------------- ticker (bottom log stream) ----------------
-const ACT_LABEL = { queued: "QUEUED", started: "STARTED", done: "COMPLETE", failed: "FAILED", timeout: "TIME LIMIT", paused: "PAUSED", resumed: "RESUMED", skipped: "SKIPPED", reminder: "REMINDER", chat: "JARVIS", "approval-requested": "APPROVAL", approved: "APPROVED", rejected: "REJECTED", "needs-login": "SIGN-IN", "mission-created": "MISSION", cancelled: "CANCELLED", error: "ERROR" };
+const ACT_LABEL = { queued: "QUEUED", started: "STARTED", done: "COMPLETE", failed: "FAILED", timeout: "TIME LIMIT", paused: "PAUSED", resumed: "RESUMED", skipped: "SKIPPED", reminder: "REMINDER", chat: "LUTHUR", "approval-requested": "APPROVAL", approved: "APPROVED", rejected: "REJECTED", "needs-login": "SIGN-IN", "mission-created": "MISSION", cancelled: "CANCELLED", error: "ERROR" };
 function hudTicker() {
   const t = document.getElementById("ticker");
   if (!t || !S) return;
@@ -276,14 +276,14 @@ const TIER_OPTS = () => [["fast", `Fast · ${cap(tierModel("fast"))}`], ["balanc
 
 // ---------------- command palette (Ctrl+K) ----------------
 const Pal = { items: [], shown: [], sel: 0, remote: [], timer: 0, q: "" };
-const VIEWS = [["command", "Command", "◎"], ["home", "Today", "▦"], ["assistant", "JARVIS", "✦"], ["projects", "Projects", "▣"], ["planner", "Mission Planner", "⬡"], ["calendar", "Calendar", "▤"], ["roadmap", "Roadmap", "≡"], ["inbox", "Inbox", "⇩"], ["missions", "Missions", "➤"], ["settings", "Settings", "⚙"]];
+const VIEWS = [["command", "Command", "◎"], ["home", "Today", "▦"], ["assistant", "LUTHUR", "✦"], ["projects", "Projects", "▣"], ["planner", "Mission Planner", "⬡"], ["calendar", "Calendar", "▤"], ["roadmap", "Roadmap", "≡"], ["inbox", "Inbox", "⇩"], ["missions", "Missions", "➤"], ["settings", "Settings", "⚙"]];
 function palBase() {
   const go = h => () => { location.hash = h; };
   const it = [];
   for (const [v, t, i] of VIEWS) it.push({ sec: "Go to", ico: i, t, run: go(v) });
   it.push(
-    { sec: "Actions", ico: "✦", t: "Ask JARVIS…", sub: "Open the assistant and talk", run: go("assistant") },
-    { sec: "Actions", ico: "◉", t: "Talk to JARVIS (voice)", sub: "Alt+J", run: () => { sessionStorage.setItem("hq-listen", "1"); location.hash = "assistant"; } },
+    { sec: "Actions", ico: "✦", t: "Ask LUTHUR…", sub: "Open the assistant and talk", run: go("assistant") },
+    { sec: "Actions", ico: "◉", t: "Talk to LUTHUR (voice)", sub: "Alt+J", run: () => { sessionStorage.setItem("hq-listen", "1"); location.hash = "assistant"; } },
     { sec: "Actions", ico: "+", t: "New reminder", run: () => addOnDayModal(ymd(new Date())) },
     { sec: "Actions", ico: "+", t: "New goal", sub: "Mission Planner", run: () => { location.hash = "planner"; setTimeout(goalModal, 50); } },
     { sec: "Actions", ico: "+", t: "New project", run: () => { location.hash = "projects"; setTimeout(newProjectModal, 50); } },
@@ -292,7 +292,7 @@ function palBase() {
     { sec: "Actions", ico: "◎", t: `Model: ${cap(tierModel("deep"))} (deep)`, sub: "Uses your usage limit faster", run: () => { hstore.set("hq-tier", "deep"); hudNotify(`Model set to ${cap(tierModel("deep"))}`); render(); } },
     { sec: "Actions", ico: "◎", t: `Model: ${cap(tierModel("balanced"))} (balanced)`, run: () => { hstore.set("hq-tier", "balanced"); hudNotify(`Model set to ${cap(tierModel("balanced"))}`); render(); } },
     { sec: "Actions", ico: "↻", t: "Replay boot sequence", run: () => hudBoot(false) },
-    { sec: "Actions", ico: "⏻", t: "Shut down HQ (screen)", sub: "Power-down sequence; click to wake", run: () => hudShutdown() },
+    { sec: "Actions", ico: "⏻", t: "Shut down LUTHUR (screen)", sub: "Power-down sequence; click to wake", run: () => hudShutdown() },
   );
   if (!S) return it;
   S.projects.forEach((p, i) => {
@@ -395,7 +395,7 @@ function hudBoot(short) {
     const b = document.getElementById("boot");
     if (!b) return resolve();
     const lines = short
-      ? ["REACTIVATING CORE", "RESTORING SESSION", "LINK TO HQ SERVER"]
+      ? ["REACTIVATING CORE", "RESTORING SESSION", "LINK TO LUTHUR SERVER"]
       : ["INITIALIZING SYSTEMS…", "LOADING BRAIN INDEX", `MOUNTING ${S ? S.projects.length : "—"} PROJECT MODULES`, "SYNCING REMINDERS + MILESTONES", "CLAUDE CODE LINK " + (S?.status?.auth === "ok" ? "ESTABLISHED" : "STANDBY"), "CALIBRATING HUD"];
     const per = short ? 160 : 330;
     b.className = "boot" + (short ? " short" : "");
@@ -428,7 +428,7 @@ function hudShutdown() {
     HUD.asleep = true;
     b.className = "boot shut"; b.hidden = false;
     b.innerHTML = `<div class="boot-inner">${CORE_MINI}<div class="boot-final" id="bootFinal" style="opacity:1"></div><div class="boot-sub">Missions and reminders keep running in the background.</div></div><div class="boot-skip">CLICK OR PRESS ANY KEY TO WAKE</div>`;
-    scrambleTo(document.getElementById("bootFinal"), "JARVIS OFFLINE", 600);
+    scrambleTo(document.getElementById("bootFinal"), "LUTHUR OFFLINE", 600);
     setTimeout(() => b.classList.add("black"), reduced() ? 0 : 2600);
     const wake = e => {
       if (e?.type === "keydown" && ["Shift", "Control", "Alt", "Meta"].includes(e.key)) return;
@@ -489,7 +489,7 @@ function opsRender(d) {
     if (!t) {
       const el = document.createElement("section");
       el.className = "op"; el.setAttribute("aria-label", o.title);
-      el.innerHTML = `<header><span class="op-kind">${o.kind === "chat" ? "JARVIS" : "MISSION"}</span><b class="op-t"></b><small>${esc(cap(o.model))}${o.project ? " · " + esc(projName(o.project)) : ""}${o.level ? " · " + esc(o.level) : ""}</small></header><div class="op-body"></div><footer><span class="op-spin">✻</span> <span class="op-verb"></span> <span class="op-el"></span></footer>`;
+      el.innerHTML = `<header><span class="op-kind">${o.kind === "chat" ? "LUTHUR" : "MISSION"}</span><b class="op-t"></b><small>${esc(cap(o.model))}${o.project ? " · " + esc(projName(o.project)) : ""}${o.level ? " · " + esc(o.level) : ""}</small></header><div class="op-body"></div><footer><span class="op-spin">✻</span> <span class="op-verb"></span> <span class="op-el"></span></footer>`;
       grid.appendChild(el);
       scrambleTo(el.querySelector(".op-t"), o.title, 500);
       t = { el, steps: new Map(), status: null };
@@ -606,7 +606,7 @@ function coreSVG() {
   </svg>`;
 }
 async function vCommand(el) {
-  const name = S.settings.assistantName || "JARVIS";
+  const name = S.settings.assistantName || "LUTHUR";
   const st = S.status;
   const health = st.auth === "needs-login" || !st.claudeBin ? ["red", "DEGRADED"] : st.pausedUntil && new Date(st.pausedUntil) > new Date() ? ["amber", "PAUSED"] : ["", "NOMINAL"];
   el.innerHTML = `<div class="cmd-head"><div><h1 class="glitch">Command</h1><div class="sys">SYSTEMS <b class="${health[0]}">${health[1]}</b> · CLAUDE LINK <b class="${st.auth === "ok" ? "" : "amber"}">${st.auth === "ok" ? "ONLINE" : st.auth === "needs-login" ? "SIGN-IN NEEDED" : "STANDBY"}</b> · FOCUS <b>${esc(activeProject() ? projName(activeProject()).toUpperCase() : "ALL")}</b></div></div>
@@ -636,7 +636,7 @@ async function vCommand(el) {
 }
 function cmdShowReply(c, animate) {
   const box = document.getElementById("cmdReply"); if (!box) return;
-  const name = S.settings.assistantName || "JARVIS";
+  const name = S.settings.assistantName || "LUTHUR";
   const msgs = c?.messages || [];
   const lastYou = [...msgs].reverse().find(m => m.role === "you");
   const lastHq = [...msgs].reverse().find(m => m.role === "hq");

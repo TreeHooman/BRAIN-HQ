@@ -1,4 +1,4 @@
-// HQ dashboard. Plain JS, no build step. Talks to the local HQ server (/api/*).
+// LUTHUR dashboard. Plain JS, no build step. Talks to the local LUTHUR server (/api/*).
 "use strict";
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -22,7 +22,7 @@ async function api(path, method = "GET", body) {
 }
 async function refresh() {
   try { S = await api("/state"); renderChrome(); return S; }
-  catch (e) { $("#pills").innerHTML = `<span class="pill red">HQ server not reachable</span>`; return null; }
+  catch (e) { $("#pills").innerHTML = `<span class="pill red">LUTHUR server not reachable</span>`; return null; }
 }
 function toast(msg, ms = 2600) {
   if (typeof hudNotify === "function" && document.documentElement.dataset.theme === "hud") return hudNotify(msg, ms > 2600 ? ms : undefined);
@@ -632,7 +632,7 @@ function vSettings(el) {
           <label class="f">Permission ceiling<select id="autonomy">${opts([["read", "read"], ["plan", "plan"], ["build", "build (dev only)"]], s.autonomy)}</select></label>
           <label class="f">Default chat model<select id="chatTier">${opts(TIER_OPTS(), s.chatTier)}</select></label></div>
         <div class="small muted">${esc(s.budget)}: up to ${s.budgetNow.maxRunsPerDay} missions/day, ${s.budgetNow.maxMinutesPerRun} min each, ${s.budgetNow.maxFollowupsPerRun} follow-ups per run. Chat doesn't count.</div>
-        <label class="f">Keep the PC awake<select id="keepAwake">${opts([["busy", "While missions are queued or running"], ["always", "Always while HQ runs (multi-day autonomy)"], ["off", "Never"]], s.keepAwake)}</select></label>
+        <label class="f">Keep the PC awake<select id="keepAwake">${opts([["busy", "While missions are queued or running"], ["always", "Always while LUTHUR runs (multi-day autonomy)"], ["off", "Never"]], s.keepAwake)}</select></label>
         <div class="row end"><button class="btn primary" id="saveAuto">Save</button></div></div>
       <h2>Models</h2>
       <div class="card"><ul class="list">${tiers.map(([k, t]) => `<li><b style="min-width:90px">${esc(k)}</b><code>${esc(t.model)}</code><span class="small muted grow">${esc(t.use || "")}</span></li>`).join("")}</ul>
@@ -663,7 +663,7 @@ function vSettings(el) {
         <div class="note blue small"><b>Phone setup (2 min):</b> install the free <b>ntfy</b> app (iPhone/Android) → tap <b>+</b> → subscribe to topic<br><code style="user-select:all">${esc(s.ntfy.topic)}</code><br>Keep it secret: anyone with the topic name can read your alerts. With "Headline only", details stay on this PC.</div>
         <div class="row end"><button class="btn" id="testNotify">Send test</button><button class="btn primary" id="saveNotify">Save</button></div></div>
       <h2>Start with Windows</h2>
-      <div class="card"><div class="row"><span class="dot ${s.startup ? "good" : "unknown"}"></span>${s.startup ? "HQ opens when you sign in to Windows." : "Not installed."}</div>
+      <div class="card"><div class="row"><span class="dot ${s.startup ? "good" : "unknown"}"></span>${s.startup ? "LUTHUR opens when you sign in to Windows." : "Not installed."}</div>
         <div class="small muted" style="margin-top:6px">Run <code>scripts\\INSTALL-STARTUP.cmd</code> to turn it on, or <code>scripts\\REMOVE-STARTUP.cmd</code> to turn it off.</div></div>
       <h2>Where things live</h2>
       <div class="card small"><ul class="list">
@@ -683,7 +683,7 @@ function vSettings(el) {
     else { b.disabled = false; b.textContent = "Connect"; }
   };
   if ($("#calSync")) $("#calSync").onclick = () => act(() => api("/calendar/sync", "POST").then(r => { calFeed.key = ""; return r; }), "Calendar synced");
-  $$("[data-calrm]", el).forEach(b => b.onclick = () => { if (confirm("Remove this calendar from HQ?")) act(() => api(`/calendar/feeds/${b.dataset.calrm}`, "DELETE"), "Calendar removed"); });
+  $$("[data-calrm]", el).forEach(b => b.onclick = () => { if (confirm("Remove this calendar from LUTHUR?")) act(() => api(`/calendar/feeds/${b.dataset.calrm}`, "DELETE"), "Calendar removed"); });
   connCardFill(false);
   $("#replayBoot").onclick = () => hudBoot(false);
   $("#powerDown").onclick = () => hudShutdown();

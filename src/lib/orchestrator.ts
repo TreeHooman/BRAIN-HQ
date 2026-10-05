@@ -539,7 +539,7 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
   const level = minLevel(cfg.chat?.permission || "plan", cfg.autonomy?.maxLevel || "build");
   chatBusy = true;
   const system = [
-    `You are ${cfg.assistant?.name || "JARVIS"}, the owner's AI chief of staff, talking with them in the HQ dashboard (they may be using voice). ${cfg.assistant?.persona || ""}`,
+    `You are ${cfg.assistant?.name || "LUTHUR"}, the owner's AI chief of staff, talking with them in the HQ dashboard (they may be using voice). ${cfg.assistant?.persona || ""}`,
     "Lead with the answer in one or two spoken-friendly sentences; put detail after, in short bullets.",
     "Be brief and concrete. Read brain context only as needed (hq_index first).",
     "Turn loose thoughts into structure: reminders (reminder_add), dates (milestone_add), decisions (decision_log), project facts (project_update/project_log), new projects (project_create).",
@@ -551,7 +551,7 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
   const opId = `chat-${c.id}-${c.messages.length}`;
   let opOk = false;
   try {
-    const onStep = opStart({ id: opId, kind: "chat", agent: cfg.assistant?.name || "JARVIS", title: text.length > 70 ? text.slice(0, 69) + "…" : text, project: c.project, model, level });
+    const onStep = opStart({ id: opId, kind: "chat", agent: cfg.assistant?.name || "LUTHUR", title: text.length > 70 ? text.slice(0, 69) + "…" : text, project: c.project, model, level });
     const res = await runClaude({ prompt: text, model, fallbackModel: fallback, effort: opts.effort || null, level, resume: c.sessionId, system, runId: `chat-${c.id}`,
       timeoutMs: (cfg.chat?.maxMinutes || 6) * 60e3, addDirs: proj?.paths || [], onStep });
     opOk = res.ok;

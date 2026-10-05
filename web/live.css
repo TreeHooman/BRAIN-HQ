@@ -505,3 +505,12 @@ label.f .wp-btn { width: 100%; }
 body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 .nv-l, .nv-r { display: flex; flex-direction: column; gap: 14px; } .nv-l > .card, .nv-r > .card { margin: 0 !important; }
 @media (prefers-reduced-motion: reduce) { .brief-s.reveal, .brief-t.reveal { animation: none; -webkit-mask-image: none; mask-image: none; } }
+/* drawer: no springy overshoot when closing (it used to flash back) */
+.lv-drawer:not(.on) .lv-dpanel { transition: transform .28s cubic-bezier(.4, 0, 1, 1) !important; }
+.lv-drawer:not(.on) .lv-dscrim { pointer-events: none; }
+/* long words / pasted blobs wrap instead of widening the page */
+.cd-msg, .cd-msg .md, .lv-tile .ln, .cv-log, .sp-log, .lv-report { overflow-wrap: anywhere; word-break: break-word; }
+.cd-msg pre, .cd-msg code { white-space: pre-wrap; overflow-wrap: anywhere; }
+html, body { overflow-x: hidden; }
+.lv-drawer > .lv-dpanel { position: absolute !important; left: auto !important; right: 12px !important; top: 12px !important; bottom: 12px !important; margin: 0 !important; }
+@media (max-width: 760px) { .lv-drawer > .lv-dpanel { inset: 0 !important; width: 100% !important; } }

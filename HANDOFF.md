@@ -155,3 +155,9 @@ The owner asked for (1) a cleaner, modern, easier-on-the-eyes UI with better fin
 - Phone: cards are stacked with no panning.
 - Codex/GPT agents (shown in Morphy) are not added. The engine stays Claude Code; adding another engine would be a separate, opt-in piece of work.
 - Follow-up: chat messages everywhere use a compact `codeMsgHTML` (override in canvas.js). Steps fold into "› N steps · last action · +a −r" and expand on click. The input bar has a model picker, a lock (`readOnly` → the session runs at "read" level for that message, enforced server-side in `code.send`) and a reactor send button; Enter sends. Canvas has Canvas / Columns modes (Columns = up to 3 chats filling the screen, `hq-cv-cols`). Stark layer: HUD corner brackets, a glowing dot, and a header shimmer plus scan line while an agent works.
+
+## 2026-10-05 handoff #12: renamed to LUTHUR, permission modes, usage readout, fixes
+- Product and assistant are now **LUTHUR**: `config/hq.json` assistant.name, title, brand, manifest and the user-visible strings. The wake word also matches luther/luthor/luthur. Folder names, the `X-HQ` header, the `hq-*` storage keys and internal prompts are unchanged.
+- Code chats: per-chat thinking level (disabled for Haiku). Permission mode `mode`: safe = allowlist; auto = acceptEdits plus Bash/Edit/Write; bypass = `--permission-mode bypassPermissions`. Bypass is not yet tested against the real CLI. HQ's alwaysDeny/hardDeny lists are passed in every mode.
+- Usage: `runStats()` reads context (the last assistant call's input + cache tokens), the context window (modelUsage), `total_cost_usd` and any `rate_limit_event`, and saves them as `session.usage`, shown under the chat header.
+- Fixes: raw stream-json/base64 no longer becomes reply text; the session drawer is pinned right (it sat left and swept across the screen on close); long text wraps.

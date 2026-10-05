@@ -57,7 +57,7 @@ function snapshot() {
     status: { ...orch.status(), awake: orch.awakeOn() },
     settings: {
       port: PORT, budget: c.budget?.preset, budgets: Object.keys(c.budget?.presets || {}), budgetNow: budget(c),
-      assistantName: c.assistant?.name || "JARVIS", keepAwake: c.keepAwake, autonomy: c.autonomy?.maxLevel, chatTier: c.chat?.tier,
+      assistantName: c.assistant?.name || "LUTHUR", keepAwake: c.keepAwake, autonomy: c.autonomy?.maxLevel, chatTier: c.chat?.tier,
       ntfy: { enabled: !!c.notifications?.ntfy?.enabled, topic: c.notifications?.ntfy?.topic, server: c.notifications?.ntfy?.server, detail: c.notifications?.ntfy?.detail },
       toast: c.notifications?.toast !== false, models: loadModels(), hqDir: ROOT,
       startup: fs.existsSync(path.join(process.env.APPDATA || "", "Microsoft", "Windows", "Start Menu", "Programs", "Startup", "HQ.lnk")),

@@ -401,7 +401,9 @@ codeMsgHTML = function (m) {
   const steps = (m.steps || []).filter(s => s.kind === "tool"), last = steps.at(-1);
   const sum = last ? `${esc(last.verb || last.tool || "")} ${esc(last.target || "")}` : "";
   const fold = steps.length ? `<details class="cm-fold"><summary><span class="cm-n">${steps.length} step${steps.length > 1 ? "s" : ""}</span><span class="cm-l">${sum}</span>${m.added || m.removed ? `<span class="cm-d"><span class="a">+${m.added || 0}</span> <span class="d">−${m.removed || 0}</span></span>` : ""}</summary><div class="cd-steps">${steps.map(x => stepLine(x)).join("")}</div></details>` : "";
-  return `<div class="cd-msg hq ${m.error ? "err" : ""}">${fold}<div class="md">${md(m.text || "")}</div>${m.ms ? `<div class="cm-t">${fmtDur(m.ms)}</div>` : ""}</div>`;
+  let txt = String(m.text || "");
+  if (/^\s*[\[{]?\s*"?(type|role|content|usage|id)"?\s*:/.test(txt) || /[A-Za-z0-9+/=]{200,}/.test(txt)) txt = txt.replace(/[A-Za-z0-9+/=]{200,}/g, "[…]").replace(/\{"[\s\S]*$/, "").trim() || "_The run ended without an answer. Ask again, or say “continue”._";
+  return `<div class="cd-msg hq ${m.error ? "err" : ""}">${fold}<div class="md">${md(txt)}</div>${m.ms ? `<div class="cm-t">${fmtDur(m.ms)}</div>` : ""}</div>`;
 };
 const cvFolder = sid => { const s = cvSess(sid), p = S.projects.find(x => x.slug === s?.project); const f = (p?.paths || [])[0] || ""; return f.split(/[\\/]/).filter(Boolean).pop() || s?.projectName || ""; };
 const cvModel = t => { const n = ({ fast: "Haiku", balanced: "Sonnet", deep: "Opus" })[t], m = String(tierModel(t) || ""); return m && m.toLowerCase() !== n.toLowerCase() ? `${n} · ${m}` : n; };

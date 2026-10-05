@@ -184,7 +184,11 @@ function interpret(out: string, err: string, timedOut: boolean, durationMs: numb
   }
   j ??= last?.type === "result" || last?.result !== undefined ? last : null;
   const plain = out.split(/\r?\n/).filter(l => l.trim() && !l.trim().startsWith("{")).join("\n").trim();
-  const text: string = j?.result ?? (plain || err.trim() || (j ? "" : out.trim().slice(-2000)));
+  // No final result (killed, crashed, limit…): use the assistant's last words, never raw JSON or base64.
+  let said = "";
+  if (j?.result == null) for (const l of lines) { if (!l.trim().startsWith("{")) continue; try { const x = JSON.parse(l); if (x?.type === "assistant") { const t = (x.message?.content || []).filter((c: any) => c?.type === "text").map((c: any) => c.text).join("\n").trim(); if (t) { said = t; break; } } } catch {} }
+  const clean = (t: string) => t.replace(/[A-Za-z0-9+/=]{200,}/g, "[…]").slice(0, 4000);
+  const text: string = j?.result ?? clean(said || plain || err.trim() || "");
   const sessionId: string | null = j?.session_id ?? null;
   const turns = j?.num_turns;
   const stats = runStats(lines, j);

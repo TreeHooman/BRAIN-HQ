@@ -146,7 +146,7 @@ function musicCard() {
   const st = Music.st || {}, here = onPC();
   const steps = `<ol class="mus-steps">
       <li>Open <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com/dashboard</a>, log in with your Spotify account and press <b>Create app</b>.</li>
-      <li>Name it <b>HQ</b> and type anything for the description. Under <b>Redirect URIs</b> paste this exactly, then press <b>Add</b>:<div class="mus-copy"><code id="musRedir">${esc(st.redirectUri || "")}</code><button type="button" class="btn sm" id="musCopy">Copy</button></div></li>
+      <li>Name it <b>LUTHUR</b> and type anything for the description. Under <b>Redirect URIs</b> paste this exactly, then press <b>Add</b>:<div class="mus-copy"><code id="musRedir">${esc(st.redirectUri || "")}</code><button type="button" class="btn sm" id="musCopy">Copy</button></div></li>
       <li>Tick <b>Web API</b>, agree to the terms, press <b>Save</b>.</li>
       <li>On the app page, open <b>Settings</b>, copy the <b>Client ID</b> and paste it below.</li></ol>`;
   return `<h2>Spotify</h2><div class="card form" id="musCard">
@@ -154,10 +154,10 @@ function musicCard() {
     : st.configured ? `<div class="row"><span class="dot unknown"></span><div class="grow"><b>One step left</b><div class="small muted">Client ID saved (${esc(st.clientId)}). Press Connect and approve on Spotify's page.</div></div></div>
         ${here ? "" : `<div class="note amber small">Do this step on the PC (at <b>http://127.0.0.1:8800</b>). After that it works on your phone too.</div>`}
         <div class="row end"><button type="button" class="btn ghost" id="musReset">Change Client ID</button><button type="button" class="btn primary" id="musGo" ${here ? "" : "disabled"}>Connect Spotify</button></div>`
-    : `<div class="small muted">Play, pause and skip from HQ and by voice. Takes about 3 minutes, once. Needs Spotify Premium to control playback.</div>${steps}
+    : `<div class="small muted">Play, pause and skip from LUTHUR and by voice. Takes about 3 minutes, once. Needs Spotify Premium to control playback.</div>${steps}
         <label class="f">Client ID<input id="musId" placeholder="32 letters and numbers" autocomplete="off" spellcheck="false" maxlength="40"></label>
         <div class="row end"><button type="button" class="btn primary" id="musSave">Save</button></div>`}
-    <div class="note blue small">Private: you sign in on Spotify's own page and HQ only gets permission to see and control playback (and read your playlist names). The sign-in key stays on this PC in <code>config/hq.local.json</code>. Disconnect any time, here or at spotify.com/account/apps.</div></div>`;
+    <div class="note blue small">Private: you sign in on Spotify's own page and LUTHUR only gets permission to see and control playback (and read your playlist names). The sign-in key stays on this PC in <code>config/hq.local.json</code>. Disconnect any time, here or at spotify.com/account/apps.</div></div>`;
 }
 const _vSettings = vSettings;
 vSettings = function (el) {
@@ -171,7 +171,7 @@ vSettings = function (el) {
     if ($m("musSave")) $m("musSave").onclick = async () => { try { await api("/spotify/client", "POST", { clientId: $m("musId").value }); toast("Saved. Now press Connect."); fill(); } catch (e) { toast(e.message, 5000); } };
     if ($m("musReset")) $m("musReset").onclick = () => { Music.st.configured = false; draw(); };
     if ($m("musGo")) $m("musGo").onclick = async () => { try { const { url } = await api("/spotify/login", "POST"); location.href = url; } catch (e) { toast(e.message, 5000); } };
-    if ($m("musOff")) $m("musOff").onclick = async () => { if (!confirm("Disconnect Spotify from HQ?")) return; await api("/spotify/disconnect", "POST").catch(() => {}); Music.now = null; toast("Spotify disconnected"); fill(); musicChrome(); };
+    if ($m("musOff")) $m("musOff").onclick = async () => { if (!confirm("Disconnect Spotify from LUTHUR?")) return; await api("/spotify/disconnect", "POST").catch(() => {}); Music.now = null; toast("Spotify disconnected"); fill(); musicChrome(); };
   };
   const fill = async () => { await musicStatus(); if (document.getElementById("musWrap")) draw(); };
   fill();

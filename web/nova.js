@@ -311,7 +311,7 @@ function hudAfterRender(el, background) {
 // ---------------- Command: core + orbiting projects ----------------
 const Orb = { raf: 0, th: 0, vel: 0, hover: null, drag: null, sats: [], last: 0, sig: "" };
 async function vCommand(el) {
-  const name = S.settings.assistantName || "JARVIS", now = new Date(), hr = now.getHours();
+  const name = S.settings.assistantName || "LUTHUR", now = new Date(), hr = now.getHours();
   el.innerHTML = `<div class="nv-head"><div><div class="nv-greet">${hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening"} · ${esc(DOW[now.getDay()])} ${now.getDate()} ${esc(MON[now.getMonth()])}</div><h1>Command</h1></div><div class="nv-vitals" id="nvVitals"></div></div>
     <div class="nv-cmd nv-desk">
       <div class="nv-l" id="cmdLeft"></div>

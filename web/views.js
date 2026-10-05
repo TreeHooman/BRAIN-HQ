@@ -86,7 +86,7 @@ const OB_ST = { draft: ["amber", "waiting for you"], sending: ["blue", "sending�
 const fmtDT = s => s ? s.length <= 10 ? fmtWhen(s) : fmtWhen(s.replace("T", " ").slice(0, 16)) : "";
 function obCard(x) {
   const p = x.payload, [cls, lbl] = OB_ST[x.status] || ["", x.status], editable = x.status === "draft" || x.status === "failed";
-  const by = x.by === "you" ? "you" : "JARVIS";
+  const by = x.by === "you" ? "you" : (S.settings.assistantName || "LUTHUR");
   const body = x.kind === "email"
     ? `<div class="ob-field"><span>To</span><div>${esc(p.to.join(", "))}</div></div>${p.cc?.length ? `<div class="ob-field"><span>Cc</span><div>${esc(p.cc.join(", "))}</div></div>` : ""}<div class="ob-field"><span>Subject</span><div><b>${esc(p.subject)}</b></div></div><div class="ob-body">${esc(p.body)}</div>`
     : `<div class="ob-field"><span>Action</span><div><b>${esc(cap(p.action))}</b> event</div></div><div class="ob-field"><span>Title</span><div><b>${esc(p.title)}</b></div></div>${p.start ? `<div class="ob-field"><span>When</span><div>${esc(fmtDT(p.start))}${p.end ? " → " + esc(fmtDT(p.end)) : ""}</div></div>` : ""}${p.location ? `<div class="ob-field"><span>Where</span><div>${esc(p.location)}</div></div>` : ""}${p.attendees?.length ? `<div class="ob-field"><span>Guests</span><div>${esc(p.attendees.join(", "))}</div></div>` : ""}${p.eventRef ? `<div class="ob-field"><span>Find</span><div>${esc(p.eventRef)}</div></div>` : ""}${p.description ? `<div class="ob-body">${esc(p.description)}</div>` : ""}`;
@@ -97,7 +97,7 @@ function obCard(x) {
 function vOutbox(el) {
   const all = S.outbox || [];
   const open = all.filter(x => ["draft", "failed", "sending"].includes(x.status)), done = all.filter(x => !open.includes(x));
-  el.innerHTML = `<div class="between"><div><h1>Outbox</h1><p class="sub">Emails and calendar changes wait here until you approve them. Nothing leaves HQ without your click.</p></div>
+  el.innerHTML = `<div class="between"><div><h1>Outbox</h1><p class="sub">Emails and calendar changes wait here until you approve them. Nothing leaves LUTHUR without your click.</p></div>
       <div class="row"><button class="btn" id="obEv" type="button">＋ Event</button><button class="btn primary" id="obEm" type="button">New email</button></div></div>
     ${open.length ? `<div class="ob-grid">${open.map(obCard).join("")}</div>` : `<div class="card"><div class="empty">Nothing waiting. Ask JARVIS “email Sam that…” or “move my dentist to Friday 3pm” and it lands here for your OK.</div></div>`}
     ${done.length ? `<h2>History</h2><div class="ob-grid">${done.slice(0, 20).map(obCard).join("")}</div>` : ""}`;
@@ -153,7 +153,7 @@ async function connCardFill(force) {
   if (!document.getElementById("connCard")) return;
   const row = (label, name) => { const it = c.list?.find(x => x.name === name); return `<div class="row"><span class="dot ${it?.ok ? "good" : name ? "unknown" : "risk"}"></span><b style="min-width:80px">${label}</b><span class="small ${name ? "" : "muted"}">${name ? esc(name) + (it ? ` · ${esc(it.status)}` : "") : "not found"}</span></div>`; };
   box.innerHTML = `${row("Gmail", c.email)}${row("Calendar", c.calendar)}${c.error ? `<div class="small muted">${esc(c.error)}</div>` : ""}
-    <div class="note blue small">Sending uses the <b>Gmail</b> and <b>Google Calendar</b> connectors on your Claude account (claude.ai → Settings → Connectors). Every email or calendar change waits in the <a href="#outbox">Outbox</a> until you press Approve. If Gmail's connector can only make drafts, HQ saves a draft for you to send.</div>
+    <div class="note blue small">Sending uses the <b>Gmail</b> and <b>Google Calendar</b> connectors on your Claude account (claude.ai → Settings → Connectors). Every email or calendar change waits in the <a href="#outbox">Outbox</a> until you press Approve. If Gmail's connector can only make drafts, LUTHUR saves a draft for you to send.</div>
     <div class="row end"><button type="button" class="btn" id="connCheck">Check connectors</button></div>`;
   document.getElementById("connCheck").onclick = () => connCardFill(true);
 }

@@ -69,7 +69,7 @@ function netUpdate(box, scope) {
   const running = nodes.filter(n => n.run).length;
   const cnt = document.getElementById("lvNetCount"); if (cnt) cnt.textContent = `${running} working · ${nodes.length} total`;
   const hub = box.querySelector(".lv-hub");
-  const name = S.settings.assistantName || "JARVIS";
+  const name = S.settings.assistantName || "LUTHUR";
   hub.innerHTML = `<div class="h"><i>◆</i><b>${esc(name.toLowerCase())}</b><em>orchestrator</em></div><div class="b"><span>${running ? `${running}/${nodes.length} agents` : "status?"}</span><span class="${running ? "on" : ""}">${running ? "● directing" : "○ waiting"}</span></div>`;
   const hx = tree ? 16 : W / 2, hy = tree ? 34 : H / 2;
   hub.style.transform = tree ? `translate(8px, 8px)` : `translate(${hx}px, ${hy}px) translate(-50%, -50%)`;
@@ -271,7 +271,7 @@ async function codeImportModal(slug) {
   const projs = codeProjects();
   if (!projs.length) { toast("Add a folder to a project first (project, then Setup)."); return; }
   slug = slug || (activeProject() && projs.some(p => p.slug === activeProject()) ? activeProject() : projs[0].slug);
-  modal(`<h2>Bring in a session</h2><p class="small muted" style="margin-top:-4px">Pick up a Claude Code conversation you started in the terminal or VS Code. HQ continues from a copy, so the original stays as it is.</p>
+  modal(`<h2>Bring in a session</h2><p class="small muted" style="margin-top:-4px">Pick up a Claude Code conversation you started in the terminal or VS Code. LUTHUR continues from a copy, so the original stays as it is.</p>
     <label class="f">Project<select id="ciProj">${projs.map(p => `<option value="${p.slug}" ${p.slug === slug ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label>
     <div class="ci-list" id="ciList"><div class="small muted">Looking…</div></div>
     <div class="row" style="justify-content:flex-end;margin-top:8px"><button type="button" class="btn" onclick="closeModal()">Close</button></div>`);
@@ -281,7 +281,7 @@ async function codeImportModal(slug) {
   if (list.error) { box.innerHTML = `<div class="small">${esc(list.error)}</div>`; return; }
   box.innerHTML = list.length ? list.map(x => `<button type="button" class="ci-row" data-ci="${esc(x.id)}" ${x.imported ? "disabled" : ""}>
       <b>${esc(x.title || x.ask.slice(0, 70))}</b><span>${x.title && x.ask ? esc(x.ask) : ""}</span>
-      <small>${esc(ago(x.updatedAt))}${x.folder ? " · " + esc(x.folder) : ""} · ${x.sizeKb > 1024 ? (x.sizeKb / 1024).toFixed(1) + " MB" : x.sizeKb + " KB"}${x.imported ? " · already in HQ" : ""}</small></button>`).join("")
+      <small>${esc(ago(x.updatedAt))}${x.folder ? " · " + esc(x.folder) : ""} · ${x.sizeKb > 1024 ? (x.sizeKb / 1024).toFixed(1) + " MB" : x.sizeKb + " KB"}${x.imported ? " · already in LUTHUR" : ""}</small></button>`).join("")
     : `<div class="small muted">No Claude Code sessions found for this project's folders on this PC.</div>`;
   box.querySelectorAll("[data-ci]").forEach(b => b.onclick = async () => {
     b.disabled = true;
@@ -377,7 +377,7 @@ async function codeSend() {
 const TK_ST = { queued: ["", "queued"], running: ["blue", "working"], paused: ["amber", "paused"], done: ["green", "done"], issue: ["red", "needs a look"], cancelled: ["", "cancelled"] };
 const CAN = [["read", "Just look and tell me"], ["plan", "Can update my notes"], ["build", "Can write code"]];
 async function vTasks(el) {
-  const can = hstore.get("hq-task-can", "plan"), name = esc(S.settings.assistantName || "JARVIS");
+  const can = hstore.get("hq-task-can", "plan"), name = esc(S.settings.assistantName || "LUTHUR");
   el.innerHTML = `<div class="between"><div><h1>Tasks</h1><p class="sub">Give ${name} a job. It works on it in the background and tells you here (and on your phone) when it's done.</p></div></div>
     <form class="card lv-ask" id="tkForm" autocomplete="off">
       <textarea id="tkText" rows="2" placeholder="What do you need done? e.g. Find 3 cheaper hosting options for Borrow Fast"></textarea>
@@ -387,7 +387,7 @@ async function vTasks(el) {
         <button class="btn primary lv-go">Send to ${name}</button>
       </div>
       <div class="tk-opts" id="tkOpts" hidden>
-        <label class="tk-o"><span>Which project?</span><select id="tkProj" aria-label="Project">${projOptions(activeProject(), "Any / all of HQ")}</select></label>
+        <label class="tk-o"><span>Which project?</span><select id="tkProj" aria-label="Project">${projOptions(activeProject(), "Any / all of LUTHUR")}</select></label>
         <div class="tk-o"><span>What's it allowed to do?</span><div class="tiers lv-can" role="group" aria-label="Allowed to">${CAN.map(([k, l]) => `<button type="button" data-can="${k}" class="${k === can ? "on" : ""}">${l}</button>`).join("")}</div></div>
         <div class="tk-o"><span>Speed and brain power</span>${tierSwitch()}</div>
         <p class="small muted" style="margin:0">Fast is quick and cheap. Opus is the smartest but uses your limit faster. Effort = how hard it thinks; Auto is fine for most jobs.</p>
@@ -397,7 +397,7 @@ async function vTasks(el) {
     <div class="lv-top" id="tkLive" hidden>${netShell("tasks")}</div>
     <div id="tkList"></div>`;
   bindTierSwitch(el);
-  const sum = () => { const c = CAN.find(x => x[0] === hstore.get("hq-task-can", "plan")) || CAN[1], pj = document.getElementById("tkProj"); document.getElementById("tkSum").textContent = `${pj?.value ? pj.selectedOptions[0].textContent : "All of HQ"} · ${c[1].replace(/^Can /, "")} · ${cap(currentTier() === "deep" ? "Opus" : currentTier())}`; };
+  const sum = () => { const c = CAN.find(x => x[0] === hstore.get("hq-task-can", "plan")) || CAN[1], pj = document.getElementById("tkProj"); document.getElementById("tkSum").textContent = `${pj?.value ? pj.selectedOptions[0].textContent : "All of LUTHUR"} · ${c[1].replace(/^Can /, "")} · ${cap(currentTier() === "deep" ? "Opus" : currentTier())}`; };
   el.querySelectorAll("[data-can]").forEach(b => b.onclick = () => { hstore.set("hq-task-can", b.dataset.can); el.querySelectorAll("[data-can]").forEach(x => x.classList.toggle("on", x === b)); sum(); });
   document.getElementById("tkProj").onchange = sum;
   el.querySelector("#tkOpts").addEventListener("click", () => setTimeout(sum, 50));
@@ -443,7 +443,7 @@ function taskList() {
   };
   const html = (open.length ? `<h2 class="lv-h">Working on</h2>${open.map(card).join("")}` : "")
     + (rest.length ? `<h2 class="lv-h">Reports</h2>${rest.slice(0, 3).map(card).join("")}${rest.length > 3 ? `<details class="lv-older"><summary>${rest.length - 3} older report${rest.length > 4 ? "s" : ""}</summary>${rest.slice(3, 20).map(card).join("")}</details>` : ""}` : "")
-    + (!ts.length ? `<div class="card lv-emptyt"><b>No tasks yet.</b> Type one above, tap the mic, or say “Hey ${esc(S.settings.assistantName || "JARVIS")}, …” with hands-free on.</div>` : "");
+    + (!ts.length ? `<div class="card lv-emptyt"><b>No tasks yet.</b> Type one above, tap the mic, or say “Hey ${esc(S.settings.assistantName || "LUTHUR")}, …” with hands-free on.</div>` : "");
   const lv = document.getElementById("tkLive"); if (lv) { const was = lv.hidden; lv.hidden = !open.length; if (was && !lv.hidden) netUpdate(document.getElementById("lvNet"), "tasks"); }
   const how = document.getElementById("tkHow"); if (how) how.hidden = ts.length > 2;
   const typing = box.contains(document.activeElement) && document.activeElement.tagName === "INPUT";
@@ -490,7 +490,7 @@ const Wake = {
   toggle() {
     if (!SR) { toast("Hands-free needs Safari, Chrome or Edge."); return; }
     this.on = !this.on; hstore.set("hq-wake", this.on ? "1" : "0"); this.btn();
-    if (this.on) { this.start(); toast(`Hands-free on. Say “Hey ${S.settings.assistantName || "JARVIS"}” then what you need.`, 4500); } else { this.stop(true); toast("Hands-free off"); }
+    if (this.on) { this.start(); toast(`Hands-free on. Say “Hey ${S.settings.assistantName || "LUTHUR"}” then what you need.`, 4500); } else { this.stop(true); toast("Hands-free off"); }
   },
   btn() { document.querySelectorAll(".wake-btn").forEach(b => { b.classList.toggle("on", this.on); b.setAttribute("aria-pressed", String(this.on)); b.title = this.on ? "Hands-free on: say “Hey JARVIS”" : "Turn on hands-free (“Hey JARVIS”)"; }); document.body.classList.toggle("wake-on", this.on); },
   pause() { this.paused = true; this.stop(true); },
@@ -511,8 +511,8 @@ const Wake = {
   },
   stop(hard) { const r = this.rec; this.rec = null; if (r) { r.onend = null; try { hard ? r.abort() : r.stop(); } catch {} } },
   heard(txt, final) {
-    const m = txt.match(/\b(?:hey|hi|ok|okay|yo)?\s*(?:jarvis|jervis|travis|service)\b[\s,.!?]*(.*)$/i);
-    const name = (S.settings.assistantName || "JARVIS").toLowerCase();
+    const m = txt.match(/\b(?:hey|hi|ok|okay|yo)?\s*(?:jarvis|jervis|travis|luthur|luther|luthor|lutha|lothar)\b[\s,.!?]*(.*)$/i);
+    const name = (S.settings.assistantName || "LUTHUR").toLowerCase();
     const m2 = name !== "jarvis" ? txt.toLowerCase().match(new RegExp(`\\b${name.replace(/[^a-z0-9 ]/g, "")}\\b[\\s,.!?]*(.*)$`)) : null;
     const hit = m || m2;
     if (Brief.on && !hit) { if (final) Brief.voice(txt); return; }
@@ -565,7 +565,7 @@ const SPK_SVG = on => `<svg viewBox="0 0 24 24" width="18" height="18" fill="non
 const Brief = {
   on: false, steps: [], i: 0, paused: false, t: 0, el: null,
   build(slug) {
-    const now = new Date(), name = S.settings.assistantName || "JARVIS";
+    const now = new Date(), name = S.settings.assistantName || "LUTHUR";
     const open = S.reminders.filter(r => !r.done), over = open.filter(r => toDate(r.due) < now);
     const drafts = (S.outbox || []).filter(x => x.status === "draft" || x.status === "failed");
     const pend = S.approvals.filter(a => a.status === "pending");
@@ -678,7 +678,7 @@ function liveChrome() {
   const top = document.querySelector(".top");
   if (top && !top.querySelector(".wake-btn")) {
     const w = document.createElement("button"); w.type = "button"; w.className = "wake-btn"; w.setAttribute("aria-label", "Hands-free");
-    w.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Hey ${esc(S?.settings?.assistantName || "JARVIS")}</span>`;
+    w.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Hey ${esc(S?.settings?.assistantName || "LUTHUR")}</span>`;
     w.onclick = () => Wake.toggle();
     const b = document.createElement("button"); b.type = "button"; b.className = "brief-btn"; b.title = "Guided briefing"; b.innerHTML = `▶<span> Brief me</span>`; b.onclick = () => Brief.start();
     top.querySelector("#openPal")?.after(w, b);
@@ -687,7 +687,7 @@ function liveChrome() {
     const t = document.createElement("nav"); t.id = "tabbar"; t.className = "tabbar"; t.setAttribute("aria-label", "Main");
     const ico = { code: `<path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/>`, tasks: `<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>`, home: `<rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4"/>`, menu: `<path d="M4 7h16M4 12h16M4 17h16"/>` };
     const a = (v, l) => `<a href="#${v}" data-tab="${v}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${ico[v]}</svg><span>${l}</span></a>`;
-    t.innerHTML = `${a("code", "Code")}${a("tasks", "Tasks")}<a href="#assistant" data-tab="assistant" class="tab-core"><i></i><span>${esc(S?.settings?.assistantName || "JARVIS")}</span></a>${a("home", "Today")}<button type="button" data-tab="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${ico.menu}</svg><span>More</span></button>`;
+    t.innerHTML = `${a("code", "Code")}${a("tasks", "Tasks")}<a href="#assistant" data-tab="assistant" class="tab-core"><i></i><span>${esc(S?.settings?.assistantName || "LUTHUR")}</span></a>${a("home", "Today")}<button type="button" data-tab="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${ico.menu}</svg><span>More</span></button>`;
     document.body.appendChild(t);
     t.querySelector('[data-tab="menu"]').onclick = () => sideSet(!document.body.classList.contains("side-open"));
     t.querySelector(".tab-core").addEventListener("dblclick", e => { e.preventDefault(); Wake.toggle(); });
@@ -810,7 +810,7 @@ const Cine = {
 hudBoot = function (short) {
   return new Promise(resolve => {
     const b = document.getElementById("boot"); if (!b) return resolve();
-    const name = (S?.settings?.assistantName || "JARVIS").toUpperCase();
+    const name = (S?.settings?.assistantName || "LUTHUR").toUpperCase();
     const lines = short ? ["REACTIVATING CORE", "RESTORING SESSION"] : ["OPTICS ONLINE", S ? `${S.projects.length} PROJECT MODULES` : "PROJECT MODULES", S ? "CLAUDE LINK " + (S.status?.auth === "ok" ? "ESTABLISHED" : "STANDBY") : "CLAUDE LINK", "SCANNING ENVIRONMENT"];
     b.className = "boot eyeboot"; b.hidden = false;
     b.innerHTML = `<canvas class="eye-cv"></canvas><div class="eye-txt"><div class="eye-name">${esc(name)}</div><div class="eye-lines">${lines.map((l, i) => `<div style="animation-delay:${(short ? 500 : 1300) + i * (short ? 220 : 380)}ms">${esc(l)}</div>`).join("")}</div><div class="eye-final" id="bootFinal"></div></div><div class="boot-skip">CLICK OR PRESS ANY KEY TO SKIP</div>`;
