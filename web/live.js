@@ -691,9 +691,11 @@ function liveChrome() {
     const t = document.createElement("nav"); t.id = "tabbar"; t.className = "tabbar"; t.setAttribute("aria-label", "Main");
     const ico = { code: `<path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/>`, tasks: `<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>`, home: `<rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4"/>`, menu: `<path d="M4 7h16M4 12h16M4 17h16"/>` };
     const a = (v, l) => `<a href="#${v}" data-tab="${v}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${ico[v]}</svg><span>${l}</span></a>`;
-    t.innerHTML = `${a("code", "Code")}${a("tasks", "Tasks")}<a href="#assistant" data-tab="assistant" class="tab-core"><i></i><span>${esc(S?.settings?.assistantName || "LUTHUR")}</span></a>${a("home", "Today")}<button type="button" data-tab="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${ico.menu}</svg><span>More</span></button>`;
+    t.innerHTML = `${a("code", "Code")}${a("tasks", "Tasks")}<a href="#command" data-tab="command" class="tab-core"><i></i><span>Command</span></a>${a("home", "Today")}<button type="button" data-tab="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${ico.menu}</svg><span>More</span></button>`;
     document.body.appendChild(t);
     t.querySelector('[data-tab="menu"]').onclick = () => sideSet(!document.body.classList.contains("side-open"));
+    // any other tab closes the menu (even when it's the page you're already on)
+    t.querySelectorAll('a[data-tab]').forEach(x => x.addEventListener("click", () => sideSet(false)));
     t.querySelector(".tab-core").addEventListener("dblclick", e => { e.preventDefault(); Wake.toggle(); });
   }
   const nt = document.getElementById("nTasks"); if (nt) nt.textContent = (S?.status?.active || []).length || "";
@@ -736,6 +738,8 @@ cmdFill = function (q) { _cmdFill(q); try { focusPanel(); } catch (e) { console.
 // ---------------- hooks into the existing app ----------------
 const _render = render;
 render = function () { _render(); document.body.dataset.view = route.view; liveChrome(); try { paintProjects(document.getElementById("view")); paintProjects(document.getElementById("nav")); } catch {} const pv = document.getElementById("view"); if (pv) { if (route.view === "project" && route.arg) pv.style.setProperty("--pc", projColor(route.arg)); else pv.style.removeProperty("--pc"); } if (route.view !== "code" && route.view !== "tasks") clearTimeout(Live.timer); if (route.view !== "code") clearTimeout(Code.poll); };
+// phones: changing page always closes the menu drawer
+addEventListener("hashchange", () => { if (phone() && document.body.classList.contains("side-open")) sideSet(false); });
 // the sidebar button: on phones it's always a drawer (never "unpins" the desktop setting)
 document.getElementById("sideBtn")?.addEventListener("click", e => { if (!phone()) return; e.stopImmediatePropagation(); sideSet(!document.body.classList.contains("side-open")); }, true);
 window.addEventListener("resize", () => { if (route.view === "code" || route.view === "tasks") netUpdate(document.getElementById("lvNet"), route.view); });
