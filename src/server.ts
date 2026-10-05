@@ -65,6 +65,7 @@ function snapshot() {
     status: { ...orch.status(), awake: orch.awakeOn() },
     settings: {
       port: PORT, budget: c.budget?.preset, budgets: Object.keys(c.budget?.presets || {}), budgetNow: budget(c),
+      taskApproval: c.assistant?.taskApproval !== false, voiceFull: c.assistant?.voiceFull !== false,
       assistantName: c.assistant?.name || "LUTHUR", keepAwake: c.keepAwake, autonomy: c.autonomy?.maxLevel, chatTier: c.chat?.tier,
       ntfy: { enabled: !!c.notifications?.ntfy?.enabled, topic: c.notifications?.ntfy?.topic, server: c.notifications?.ntfy?.server, detail: c.notifications?.ntfy?.detail },
       toast: c.notifications?.toast !== false, models: loadModels(), hqDir: ROOT,
@@ -141,7 +142,7 @@ const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/code\/external\/([a-z0-9-]+)$/, m => code.external(m[1])],
   ["POST", /^\/api\/code\/import$/, (_, b) => code.importSession(String(b.project || ""), String(b.session || ""), b.name)],
   ["GET", /^\/api\/code\/([a-z0-9-]+)$/, m => code.get(m[1])],
-  ["POST", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => { code.check(m[1], String(b.text || "")); void code.send(m[1], String(b.text || ""), b.tier, b.effort || null, b.readOnly === true, typeof b.mode === "string" ? b.mode : null).catch(() => {}); return { ok: true }; }],
+  ["POST", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => { code.check(m[1], String(b.text || "")); void code.send(m[1], String(b.text || ""), b.tier, b.effort || null, b.readOnly === true, b.voice === true && loadConfig().assistant?.voiceFull !== false ? "bypass" : typeof b.mode === "string" ? b.mode : null).catch(() => {}); return { ok: true }; }],
   ["PUT", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => code.rename(m[1], String(b.name || ""))],
   ["POST", /^\/api\/code\/([a-z0-9-]+)\/stop$/, m => { code.stop(m[1]); return { ok: true }; }],
   ["DELETE", /^\/api\/code\/([a-z0-9-]+)$/, m => { code.close(m[1]); return { ok: true }; }],
@@ -159,7 +160,7 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/tasks\/([\w-]+)\/cancel$/, m => { orch.cancelTask(m[1]); return { ok: true }; }],
   ["GET", /^\/api\/live$/, () => orch.liveOps()],
   ["GET", /^\/api\/chat$/, () => orch.chat()],
-  ["POST", /^\/api\/chat$/, (_, b) => { void orch.sendChat(String(b.text || ""), { project: b.project, tier: b.tier, effort: b.effort }).catch(() => {}); return { ok: true }; }],
+  ["POST", /^\/api\/chat$/, (_, b) => { void orch.sendChat(String(b.text || ""), { project: b.project, tier: b.tier, effort: b.effort, voice: b.voice === true }).catch(() => {}); return { ok: true }; }],
   ["POST", /^\/api\/chat\/new$/, () => { orch.newChat(); return { ok: true }; }],
 
   ["GET", /^\/api\/spotify$/, () => spotify.status(PORT)],
@@ -213,6 +214,7 @@ const routes: [string, RegExp, Handler][] = [
     if (b.keepAwake) patch.keepAwake = b.keepAwake;
     if (b.autonomy) patch.autonomy = { maxLevel: b.autonomy };
     if (b.chatTier) patch.chat = { tier: b.chatTier };
+    if (typeof b.taskApproval === "boolean" || typeof b.voiceFull === "boolean") patch.assistant = { ...(typeof b.taskApproval === "boolean" ? { taskApproval: b.taskApproval } : {}), ...(typeof b.voiceFull === "boolean" ? { voiceFull: b.voiceFull } : {}) };
     if (b.ntfy) patch.notifications = { ntfy: b.ntfy };
     if (typeof b.toast === "boolean") patch.notifications = { ...(patch.notifications || {}), toast: b.toast };
     saveLocal(patch);

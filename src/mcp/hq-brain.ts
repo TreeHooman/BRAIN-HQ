@@ -8,6 +8,7 @@ import readline from "node:readline";
 import { DATA, DROP, uid, writeJson } from "../lib/store.ts";
 import * as brain from "../lib/brain.ts";
 import * as cal from "../lib/calendar.ts";
+import * as google from "../lib/google.ts";
 import { validate as validateOut } from "../lib/outbox.ts";
 
 const LEVEL = process.env.HQ_LEVEL || "plan";
@@ -35,6 +36,26 @@ const tools: Tool[] = [
   { name: "list_reminders", description: "Open reminders, soonest first.",
     inputSchema: S({ days: { type: "number", description: "only those due within N days (default 30)" } }),
     run: a => { const lim = Date.now() + (a.days || 30) * 864e5; return JSON.stringify(brain.listReminders().filter(r => !r.done && brain.whenToDate(r.due).getTime() <= lim), null, 1); } },
+  // Google: metadata only (sender, subject, file name). Content stays out of the agent (it can carry hidden instructions);
+  // show_on_screen opens it for the owner and the dashboard reads it aloud / summarises it with a no-tools model.
+  { name: "google_mail_search", description: "Find emails in the owner's connected Gmail accounts. Returns id, account, date, sender and subject only (not the body). Gmail search syntax works (from:, subject:, newer_than:7d). Use show_on_screen to open one for the owner.",
+    inputSchema: S({ query: str("Gmail search, e.g. from:sam newer_than:7d"), account: str("optional account id (g-…)") }, ["query"]),
+    run: async a => { const r = await google.mailList(/^g-[a-f0-9]{10}$/.test(a.account || "") ? a.account : "all", String(a.query || "").slice(0, 200), "any");
+      return r.items.length ? r.items.slice(0, 15).map((m: any) => `${m.acct}/${m.id} · ${new Date(m.date).toLocaleString()} · ${m.from} · ${m.subject}`).join("\n") : (r.errors[0]?.error || "No emails found."); } },
+  { name: "google_drive_search", description: "Find Docs, Sheets, Slides, PDFs and files in the owner's connected Google Drives. Returns id, account, type and name only. Use show_on_screen to open one.",
+    inputSchema: S({ query: str("words in the file name"), kind: { type: "string", enum: ["", "docs", "sheets", "slides", "pdfs", "forms"], description: "optional type" } }, ["query"]),
+    run: async a => { const r = await google.driveList("all", { search: String(a.query || "").slice(0, 120), kind: a.kind || "" });
+      return r.items.length ? r.items.slice(0, 15).map((f: any) => `${f.acct}/${f.id} · ${String(f.mime).split(".").pop()} · ${f.name}`).join("\n") : (r.errors[0]?.error || "No files found."); } },
+  { name: "show_on_screen", description: "Open something on the owner's Command screen: a website, an email, a Drive file, a web search, a project or their calendar. Set read_aloud to have the dashboard read it out (emails, docs), or summarize for a spoken summary. Use this whenever the owner asks to see, open, pull up, read or go over something.",
+    inputSchema: S({ kind: { type: "string", enum: ["url", "email", "file", "search", "project", "calendar", "inbox"] }, url: str("for url"), ref: str("for email/file: the acct/id from the search tool"), query: str("for search/inbox"), slug: str("for project"),
+      read_aloud: { type: "boolean" }, summarize: { type: "boolean" } }, ["kind"]),
+    run: a => {
+      const ref = String(a.ref || ""); const [acct, id] = ref.split("/");
+      if ((a.kind === "email" || a.kind === "file") && !(/^g-[a-f0-9]{10}$/.test(acct) && /^[A-Za-z0-9_-]{8,200}$/.test(id || ""))) throw new Error("ref must be acct/id from the search tool");
+      if (a.kind === "url" && !/^https?:\/\/\S+$/i.test(String(a.url || ""))) throw new Error("url must start with http(s)://");
+      drop("screen", { kind: a.kind, url: a.url ? String(a.url).slice(0, 2000) : undefined, acct, id, query: a.query ? String(a.query).slice(0, 200) : undefined, slug: a.slug, read_aloud: a.read_aloud === true, summarize: a.summarize === true });
+      return `On the owner's screen${a.read_aloud ? "; the dashboard is reading it out" : a.summarize ? "; the dashboard will summarise it aloud" : ""}. Don't repeat its content.`;
+    } },
   { name: "history_search", description: "Search LUTHUR's saved past answers (chats, Code sessions, explanations, quest briefings, missions, email drafts). Use when the owner refers to something discussed before. Newest first.",
     inputSchema: S({ query: str("words to find (all must match)"), project: str("optional project slug"), limit: { type: "number", description: "max results (default 5, max 20)" } }, ["query"]),
     run: a => {
@@ -110,8 +131,9 @@ const tools: Tool[] = [
   { name: "brief_write", write: true, description: "Save today's morning brief (markdown). Shown on the dashboard home.",
     inputSchema: S({ text: str("the brief in markdown") }, ["text"]), run: a => { brain.writeBrief(a.text); return "Brief saved."; } },
   { name: "queue_followup", write: true, description: "Queue a background mission for later (one project, small and specific). It can't have more permission than you.",
-    inputSchema: S({ title: str("short title"), prompt: str("exact instructions for the next run"), project: str("project slug"), tier: TIER, permission: LEVELP }, ["title", "prompt"]),
-    run: a => { if (a.project && !brain.getProject(a.project)) throw new Error(`Unknown project ${a.project}`); drop("followup", a); return "Queued. HQ will run it within budget."; } },
+    inputSchema: S({ title: str("short title"), prompt: str("exact instructions for the next run"), project: str("project slug"), tier: TIER, permission: LEVELP,
+      owner_approved: { type: "boolean", description: "Chat only: true ONLY if the owner explicitly said in this conversation to run it without asking. Otherwise new tasks wait for their approval in HQ." } }, ["title", "prompt"]),
+    run: a => { if (a.project && !brain.getProject(a.project)) throw new Error(`Unknown project ${a.project}`); drop("followup", { ...a, owner_approved: a.owner_approved === true }); return a.owner_approved === true ? "Queued. HQ will run it within budget." : "Sent to the owner for approval in HQ (it runs once they approve)."; } },
   { name: "request_approval", write: true, description: "Ask the owner to approve something beyond your permission (deploy, push, publish, anything live, public or irreversible). Describe exactly what would be done.",
     inputSchema: S({ title: str("one-line ask"), detail: str("what, why, risks, exact commands/text"), project: str("optional project slug"),
       proposed_prompt: str("instructions for the run that executes it if approved"), proposed_permission: LEVELP,

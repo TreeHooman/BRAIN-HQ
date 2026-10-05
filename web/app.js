@@ -15,6 +15,7 @@ let projCache = {};      // slug -> /api/project/:slug
 
 // ---------------- api ----------------
 async function api(path, method = "GET", body) {
+  if (method === "POST" && body && (path === "/chat" || /^\/code\/[a-z0-9-]+$/.test(path)) && Date.now() - (window.hqVoiceAt || 0) < 6000) { body = { ...body, voice: true }; window.hqVoiceAt = 0; window.hqVoiceTurn = Date.now(); }
   const res = await fetch("/api" + path, { method, headers: { "Content-Type": "application/json", "X-HQ": "1" }, body: body === undefined ? undefined : JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || res.statusText);
@@ -468,7 +469,7 @@ function listen(onText, onState) {
   rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
   let final = "";
   rec.onresult = e => { let interim = ""; for (const r of e.results) (r.isFinal ? (final += r[0].transcript) : (interim += r[0].transcript)); onText(final + interim, false); };
-  rec.onend = () => { rec = null; onState(false); if (final.trim()) onText(final.trim(), true); };
+  rec.onend = () => { rec = null; onState(false); if (final.trim()) { window.hqVoiceAt = Date.now(); onText(final.trim(), true); } };
   rec.onerror = e => { if (e.error !== "no-speech" && e.error !== "aborted") toast("Mic: " + e.error); };
   speechSynthesis?.cancel();
   rec.start(); onState(true);
@@ -633,6 +634,9 @@ function vSettings(el) {
           <label class="f">Permission ceiling<select id="autonomy">${opts([["read", "read"], ["plan", "plan"], ["build", "build (dev only)"]], s.autonomy)}</select></label>
           <label class="f">Default chat model<select id="chatTier">${opts(TIER_OPTS(), s.chatTier)}</select></label></div>
         <div class="small muted">${esc(s.budget)}: up to ${s.budgetNow.maxRunsPerDay} missions/day, ${s.budgetNow.maxMinutesPerRun} min each, ${s.budgetNow.maxFollowupsPerRun} follow-ups per run. Chat doesn't count.</div>
+        <label class="row small"><input type="checkbox" id="taskApproval" ${s.taskApproval !== false ? "checked" : ""}> Ask me before LUTHUR starts a task on its own (unless I say “just do it”)</label>
+        <label class="row small"><input type="checkbox" id="voiceFull" ${s.voiceFull !== false ? "checked" : ""}> When I talk by voice, LUTHUR gets full permission (Code sessions run without asking). Typing stays on confirmations.</label>
+        <div class="small muted">Hard limits always apply: no pushing, deploying, posting publicly, sending email without the Outbox, or touching secrets.</div>
         <label class="f">Keep the PC awake<select id="keepAwake">${opts([["busy", "While missions are queued or running"], ["always", "Always while LUTHUR runs (multi-day autonomy)"], ["off", "Never"]], s.keepAwake)}</select></label>
         <div class="row end"><button class="btn primary" id="saveAuto">Save</button></div></div>
       <h2>Models</h2>
@@ -691,7 +695,7 @@ function vSettings(el) {
   $("#replayBoot").onclick = () => hudBoot(false);
   $("#powerDown").onclick = () => hudShutdown();
   $("#retry").onclick = () => act(() => api("/claude/retry", "POST"), "Retrying: watch the status");
-  $("#saveAuto").onclick = () => act(() => api("/settings", "POST", { budget: $("#budget").value, autonomy: $("#autonomy").value, keepAwake: $("#keepAwake").value, chatTier: $("#chatTier").value }), "Saved");
+  $("#saveAuto").onclick = () => act(() => api("/settings", "POST", { budget: $("#budget").value, autonomy: $("#autonomy").value, keepAwake: $("#keepAwake").value, chatTier: $("#chatTier").value, taskApproval: $("#taskApproval").checked, voiceFull: $("#voiceFull").checked }), "Saved");
   $("#saveNotify").onclick = () => act(() => api("/settings", "POST", { toast: $("#toastOn").checked, ntfy: { enabled: $("#ntfyOn").checked, detail: $("#ntfyDetail").value } }), "Saved");
   $("#testNotify").onclick = async () => { const r = await api("/notify/test", "POST").catch(e => ({ error: e.message })); toast(r.error ? r.error : `Sent. Windows pop-up${r.phone ? " + phone" : " (phone not reached: check the ntfy setting)"}`, 4000); };
 }

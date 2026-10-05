@@ -668,8 +668,10 @@ function cmdPollStart() {
     if (c.busy) return cmdPollStart();
     const was = Cmd.waiting; Cmd.waiting = false; coreState();
     if (route.view === "command") cmdShowReply(c, was);
+    if (was && typeof scrFromChat === "function") scrFromChat(c.screen);
     const last = c.messages[c.messages.length - 1];
-    if (was && last?.role === "hq") speak(last.text);
+    // spoken question → spoken answer (even with voice replies off); typed → the normal setting
+    if (was && last?.role === "hq") { if (Date.now() - (window.hqVoiceTurn || 0) < 10 * 60e3 && typeof speakAlways === "function") speakAlways(last.text.split(/\n\n/)[0]); else speak(last.text); }
     refresh();
   }, 1300);
 }

@@ -120,7 +120,7 @@ function starsDraw(t) {
 }
 function starsLoop(now) {
   Stars.raf = 0;
-  if (!Stars.c || !isHud() || document.hidden || HUD.asleep) return;
+  if (!Stars.c || !isHud() || document.hidden || HUD.asleep || window.hqBooting) return; // restarted when the opening scan ends
   const lp = typeof lowPower === "function" && lowPower();
   if (lp) { if (!Stars.still) { starsDraw(0); Stars.still = true; } return; } // saver: draw once, no twinkle loop
   Stars.still = false;

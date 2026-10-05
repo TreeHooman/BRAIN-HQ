@@ -105,8 +105,10 @@ function sceneDraw() {
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 function sceneLoop(now) {
-  Scene.raf = 0; perfTick(now);
+  Scene.raf = 0;
   if (!Scene.ok || !nvOn()) return;
+  if (window.hqBooting) { Scene.raf = requestAnimationFrame(sceneLoop); return; } // the opening scan gets the GPU to itself
+  perfTick(now);
   NV.sx = lerp(NV.sx || .5, NV.mx, .04); NV.sy = lerp(NV.sy ?? .5, NV.my, .04);
   NV.busy = lerp(NV.busy, NV.busyT, .03);
   const lp = lowPower(); if (lp && Scene.scale > .4) { Scene.scale = .35; sceneSize(); }
@@ -157,7 +159,7 @@ function coreSize() {
 function coreLoop(now = performance.now()) {
   Core.raf = 0;
   if (!Core.ok || !Core.c.isConnected) { Core.ok = false; Mic.want = false; micOff(); return; }
-  if (nvOn() && (lowPower() ? ++Core.skip % 3 === 0 : !Perf.lvl || ++Core.skip % 2 === 0)) coreDraw(now); // saver ~20 fps orb; ~30 when struggling
+  if (nvOn() && !window.hqBooting && (lowPower() ? ++Core.skip % 3 === 0 : !Perf.lvl || ++Core.skip % 2 === 0)) coreDraw(now); // saver ~20 fps orb; ~30 when struggling
   if (!reduced() || !Core.drawn) { Core.drawn = true; Core.raf = requestAnimationFrame(coreLoop); }
 }
 function coreDraw(now) {
@@ -578,7 +580,10 @@ function sidePin(pin) { hstore.set("hq-side", pin ? "pin" : "hide"); document.bo
 (function novaStart() {
   sideInit();
   const sw = document.createElement("div"); sw.id = "nova-sweep"; sw.setAttribute("aria-hidden", "true"); document.body.appendChild(sw);
-  sceneStart(); cursorStart();
+  // build the WebGL background after the opening scan (its shader compile would make the scan stutter)
+  const sceneWhenFree = () => window.hqBooting ? setTimeout(sceneWhenFree, 250) : sceneStart();
+  window.addEventListener("DOMContentLoaded", () => setTimeout(sceneWhenFree, 120));
+  cursorStart();
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { sceneKick(); if (Core.ok && !Core.raf) Core.raf = requestAnimationFrame(coreLoop); } });
   RM.addEventListener?.("change", () => sceneKick());
   // wake from power-down: restart loops

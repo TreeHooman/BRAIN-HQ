@@ -210,3 +210,10 @@ The owner asked for (1) a cleaner, modern, easier-on-the-eyes UI with better fin
 - **Desktop app** (ported): `scripts/INSTALL-APP.cmd` / `UNINSTALL-APP.cmd` (LUTHUR.lnk with `web/luthur.ico`); `start-hq.vbs` skips a second server, waits for `/api/live`, opens a Chrome→Edge app window with its own profile. `ADD-DESKTOP-ICON.cmd` calls INSTALL-APP.
 - **Update sequence** overlay: stages Download → Install → Restart → Online driven by real server state; red only for installer errors.
 - Not ported from fervent-feynman (by design): JARVIS→Luthor rename, `luthor` brain project, its `web/icon.ico`.
+
+## Handoff #18 (permissions, voice reading, smoother opening)
+- **Voice = full permission**: the dashboard marks a message as voice when it follows a spoken transcript (`window.hqVoiceAt`, api() adds `voice:true` for /chat and /code/*). Chat runs at the autonomy ceiling, Code runs in `bypass`. Off switch: Settings → Autonomy (`assistant.voiceFull`). Typed stays as configured. HQ deny lists apply in every mode.
+- **Task approval**: chat follow-ups (new Tasks) and follow-ups from scheduled missions become approvals ("Start task: …") unless `assistant.taskApproval` is off or the chat passed `owner_approved: true`. Sub-agents of an approved task run straight away. Approving a chat task enqueues it as a Task.
+- **Voice can open and read things**: hq-brain `google_mail_search` / `google_drive_search` (metadata only) and `show_on_screen` (drop type `screen`, accepted only from chat runs → `data/screen-cmd.json` → `chat().screen`). The dashboard opens it on the Command screen and reads it aloud (speech) or summarises via the no-tools briefing model; the agent never sees email/file bodies. Voice "read it out" / "summarise this" / "pull up …" are handled locally (`scrVoice`).
+- **Opening scan**: canvas at ≤1.25× DPR, no shadowBlur (stroked glow), iris pre-rendered once; WebGL scene, orb and stars wait until the scan ends (`window.hqBooting`).
+- App window opens maximized (`--start-maximized`).

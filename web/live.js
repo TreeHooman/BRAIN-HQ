@@ -540,8 +540,11 @@ function voiceCommand(cmd) {
     if (p) { location.hash = "project/" + p.slug; speakAlways(p.name); return; }
   }
   if (/^(stop|cancel|never ?mind|be quiet|shut up)$/.test(c)) { speechSynthesis?.cancel(); return; }
+  // "pull up …", "read it out", "brief me on this": the Command screen handles it directly (fast, no tokens)
+  if (typeof scrVoice === "function" && scrVoice(cmd)) return;
   toast(`Heard: “${cmd}”`);
-  api("/chat", "POST", { text: cmd, tier: currentTier() }).then(() => { opsKick?.(); jarvisReplyWatch(); }).catch(e => toast(e.message));
+  window.hqVoiceTurn = Date.now();
+  api("/chat", "POST", { text: cmd, tier: currentTier(), voice: true }).then(() => { opsKick?.(); jarvisReplyWatch(); }).catch(e => toast(e.message));
 }
 // speak JARVIS's chat answer when it lands (hands-free mode doesn't need the JARVIS screen open)
 async function jarvisReplyWatch() {
@@ -550,6 +553,7 @@ async function jarvisReplyWatch() {
     await new Promise(r => setTimeout(r, 2000));
     const c = await api("/chat").catch(() => null); if (!c) continue;
     if (!c.busy && c.messages.length > start) {
+      if (typeof scrFromChat === "function") scrFromChat(c.screen);
       const last = c.messages.at(-1); if (last?.role !== "hq") return;
       if (!voiceOn()) speakAlways(last.text.split(/\n\n/)[0]); // voiceOn() already reads it on the JARVIS screen
       else if (route.view !== "assistant") speakAlways(last.text.split(/\n\n/)[0]);
@@ -814,7 +818,8 @@ hudBoot = function (short) {
     const lines = short ? ["REACTIVATING CORE", "RESTORING SESSION"] : ["OPTICS ONLINE", S ? `${S.projects.length} PROJECT MODULES` : "PROJECT MODULES", S ? "CLAUDE LINK " + (S.status?.auth === "ok" ? "ESTABLISHED" : "STANDBY") : "CLAUDE LINK", "SCANNING ENVIRONMENT"];
     b.className = "boot eyeboot"; b.hidden = false;
     b.innerHTML = `<canvas class="eye-cv"></canvas><div class="eye-txt"><div class="eye-name">${esc(name)}</div><div class="eye-lines">${lines.map((l, i) => `<div style="animation-delay:${(short ? 500 : 1300) + i * (short ? 220 : 380)}ms">${esc(l)}</div>`).join("")}</div><div class="eye-final" id="bootFinal"></div></div><div class="boot-skip">CLICK OR PRESS ANY KEY TO SKIP</div>`;
-    const cv = b.querySelector("canvas"), x = cv.getContext("2d"), dpr = Math.min(2, devicePixelRatio || 1);
+    window.hqBooting = true; // background scene/orb/stars wait until the scan is done (smooth opening)
+    const cv = b.querySelector("canvas"), x = cv.getContext("2d", { alpha: true, desynchronized: true }), dpr = Math.min(1.25, devicePixelRatio || 1);
     const size = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; cv.style.width = innerWidth + "px"; cv.style.height = innerHeight + "px"; };
     size(); addEventListener("resize", size);
     const T = short ? { open: [150, 650], scan: [650, 1500], lock: [1500, 1900], dive: [1900, 2400] } : { open: [350, 1350], scan: [1350, 3000], lock: [3000, 3600], dive: [3600, 4200] };
@@ -851,34 +856,35 @@ hudBoot = function (short) {
         x.fillStyle = sg; x.fillRect(-ew, -R, ew * 2, R * 2);
         x.translate(gx, gy);
         const ri = R * .6, rp = ri * (.36 + .1 * (1 - scan) + Math.sin(t / 420) * .015 - lock * .12);
-        // iris: cyan → violet rim, slow-turning fibres, a ring of data nodes
-        const ig = x.createRadialGradient(0, 0, rp, 0, 0, ri); ig.addColorStop(0, "rgba(111,242,255,.95)"); ig.addColorStop(.55, "rgba(40,150,210,.75)"); ig.addColorStop(1, "rgba(150,110,255,.9)");
-        x.fillStyle = ig; x.beginPath(); x.arc(0, 0, ri, 0, Math.PI * 2); x.fill();
-        x.save(); x.rotate(t / 5200);
-        for (let i = 0; i < 96; i++) { const a = i / 96 * Math.PI * 2, k = (Math.sin(i * 12.9898) * 43758.5453) % 1, l = .55 + Math.abs(k) * .45;
-          x.strokeStyle = `rgba(${i % 3 ? "2,20,34" : "220,252,255"},${i % 3 ? .55 : .35})`; x.lineWidth = (i % 3 ? .9 : .7) * dpr;
-          x.beginPath(); x.moveTo(Math.cos(a) * rp * 1.08, Math.sin(a) * rp * 1.08); x.lineTo(Math.cos(a) * (rp + (ri - rp) * l), Math.sin(a) * (rp + (ri - rp) * l)); x.stroke(); }
-        x.fillStyle = Wt(.9); for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; x.fillRect(Math.cos(a) * ri * .8 - 1.2 * dpr, Math.sin(a) * ri * .8 - 1.2 * dpr, 2.4 * dpr, 2.4 * dpr); }
-        x.restore();
+        // the iris texture is drawn once to an offscreen canvas and just rotated each frame (cheap)
+        if (!cv._iris || cv._iris.r !== Math.round(ri)) {
+          const S2 = Math.ceil(ri * 2 + 4), ic = document.createElement("canvas"); ic.width = ic.height = S2; const y = ic.getContext("2d"); y.translate(S2 / 2, S2 / 2);
+          const rp0 = ri * .3, ig = y.createRadialGradient(0, 0, rp0, 0, 0, ri); ig.addColorStop(0, "rgba(111,242,255,.95)"); ig.addColorStop(.55, "rgba(40,150,210,.75)"); ig.addColorStop(1, "rgba(150,110,255,.9)");
+          y.fillStyle = ig; y.beginPath(); y.arc(0, 0, ri, 0, Math.PI * 2); y.fill();
+          for (let i = 0; i < 96; i++) { const a = i / 96 * Math.PI * 2, k = Math.abs((Math.sin(i * 12.9898) * 43758.5453) % 1), l = .55 + k * .45;
+            y.strokeStyle = `rgba(${i % 3 ? "2,20,34" : "220,252,255"},${i % 3 ? .55 : .35})`; y.lineWidth = (i % 3 ? .9 : .7) * dpr;
+            y.beginPath(); y.moveTo(Math.cos(a) * rp0 * 1.08, Math.sin(a) * rp0 * 1.08); y.lineTo(Math.cos(a) * (rp0 + (ri - rp0) * l), Math.sin(a) * (rp0 + (ri - rp0) * l)); y.stroke(); }
+          y.fillStyle = "rgba(220,252,255,.9)"; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; y.fillRect(Math.cos(a) * ri * .8 - 1.2 * dpr, Math.sin(a) * ri * .8 - 1.2 * dpr, 2.4 * dpr, 2.4 * dpr); }
+          ic.r = Math.round(ri); cv._iris = ic;
+        }
+        x.save(); x.rotate(t / 5200); x.drawImage(cv._iris, -cv._iris.width / 2, -cv._iris.height / 2); x.restore();
         x.strokeStyle = "rgba(2,14,24,.8)"; x.lineWidth = 3 * dpr; x.beginPath(); x.arc(0, 0, ri, 0, Math.PI * 2); x.stroke();
         x.strokeStyle = C(.5); x.lineWidth = dpr; x.beginPath(); x.arc(0, 0, ri * 1.06, 0, Math.PI * 2); x.stroke();
         x.fillStyle = C(.6); for (const a of dots) { x.beginPath(); x.arc(Math.cos(a - t / 3000) * ri * 1.18, Math.sin(a - t / 3000) * ri * 1.18, 1.1 * dpr, 0, Math.PI * 2); x.fill(); }
         if (scan > 0 && lock < 1) { const sa = t / 380; x.fillStyle = "rgba(220,252,255,.14)"; x.beginPath(); x.moveTo(0, 0); x.arc(0, 0, ri, sa - .6, sa); x.closePath(); x.fill(); }
         // pupil: deep black with a glowing hex lens ring
         x.fillStyle = "#00040a"; x.beginPath(); x.arc(0, 0, rp, 0, Math.PI * 2); x.fill();
-        x.shadowColor = "#6ff2ff"; x.shadowBlur = 22 * dpr;
+        x.strokeStyle = C(.25); x.lineWidth = 6 * dpr; poly(6, rp * .62, t / 1500); x.stroke(); // glow
         x.strokeStyle = lock > 0 ? Wt(1) : C(.95); x.lineWidth = 1.8 * dpr; poly(6, rp * .62, t / 1500); x.stroke();
         x.fillStyle = Wt(.9); x.beginPath(); x.arc(0, 0, rp * (.12 + lock * .1), 0, Math.PI * 2); x.fill();
-        x.shadowBlur = 0;
         x.fillStyle = "rgba(255,255,255,.75)"; x.beginPath(); x.ellipse(-ri * .34, -ri * .38, ri * .13, ri * .08, -.6, 0, Math.PI * 2); x.fill();
         x.restore();
       }
       // lid edges: bright lash line + a faint second contour
-      x.shadowColor = "#6ff2ff"; x.shadowBlur = 16 * dpr;
-      if (o > .02) { x.strokeStyle = Wt(.95); x.lineWidth = 2.2 * dpr; lids(); x.stroke(); x.shadowBlur = 0;
+      if (o > .02) { x.strokeStyle = C(.18); x.lineWidth = 9 * dpr; lids(); x.stroke(); x.strokeStyle = C(.3); x.lineWidth = 5 * dpr; lids(); x.stroke(); // glow
+        x.strokeStyle = Wt(.95); x.lineWidth = 2.2 * dpr; lids(); x.stroke();
         x.strokeStyle = C(.35); x.lineWidth = dpr; x.beginPath(); x.moveTo(-ew * 1.12, 0); x.quadraticCurveTo(0, -eh * 2.5 - R * .08, ew * 1.12, 0); x.stroke(); x.beginPath(); x.moveTo(-ew * 1.12, 0); x.quadraticCurveTo(0, eh * 2.4 + R * .06, ew * 1.12, 0); x.stroke(); }
-      else { x.strokeStyle = Wt(.95); x.lineWidth = 2.4 * dpr; x.beginPath(); x.moveTo(-ew * (.3 + t / 1400), 0); x.lineTo(ew * (.3 + t / 1400), 0); x.stroke(); }
-      x.shadowBlur = 0;
+      else { const L = ew * (.3 + t / 1400); x.strokeStyle = C(.3); x.lineWidth = 8 * dpr; x.beginPath(); x.moveTo(-L, 0); x.lineTo(L, 0); x.stroke(); x.strokeStyle = Wt(.95); x.lineWidth = 2.4 * dpr; x.stroke(); }
       x.restore();
       // scanning beam: a lit band sweeps the screen top → bottom with a grid in its wake
       if (scan > 0 && scan < 1) {
@@ -899,7 +905,7 @@ hudBoot = function (short) {
     };
     raf = requestAnimationFrame(draw);
     const finish = () => {
-      if (done) return; done = true; cancelAnimationFrame(raf); removeEventListener("resize", size);
+      if (done) return; done = true; cancelAnimationFrame(raf); removeEventListener("resize", size); window.hqBooting = false; try { sceneStart?.(); starsStart?.(); } catch {}
       document.removeEventListener("keydown", finish, true);
       b.classList.add("out");
       setTimeout(() => { b.hidden = true; b.className = "boot"; b.innerHTML = ""; delete b.dataset.locked; const v = document.getElementById("view"); v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in"); try { navGlide(); } catch {} resolve(); }, 420);

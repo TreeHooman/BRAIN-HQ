@@ -31,7 +31,7 @@ export type Run = {
 export type Approval = {
   id: string; createdAt: string; title: string; detail: string; project?: string | null;
   fromRun?: string | null; status: "pending" | "approved" | "rejected";
-  proposed?: { title: string; prompt: string; project?: string | null; tier?: string; permission?: string; extraAllow?: string[] } | null;
+  proposed?: { title: string; prompt: string; project?: string | null; tier?: string; permission?: string; extraAllow?: string[]; task?: boolean } | null;
 };
 type State = {
   pausedUntil: string | null; pauseReason?: string; auth: "ok" | "needs-login" | "unknown"; authCheckedAt?: string;
@@ -43,6 +43,7 @@ const F = {
   missions: path.join(DATA, "missions.json"),
   state: path.join(DATA, "state.json"),
   approvals: path.join(DATA, "approvals.json"),
+  screen: path.join(DATA, "screen-cmd.json"),
   activity: path.join(DATA, "activity.jsonl"),
   runs: path.join(DATA, "runs"),
   chat: path.join(DATA, "chat", "current.json"),
@@ -150,7 +151,7 @@ export function decideApproval(id: string, approve: boolean): Approval {
   activity(approve ? "approved" : "rejected", { approval: id, title: a.title });
   if (approve && a.proposed) {
     enqueue({ title: a.proposed.title, prompt: `${a.proposed.prompt}\n\n(The owner approved this in HQ: "${a.title}".)`, project: a.proposed.project, tier: a.proposed.tier || "balanced",
-      permission: minLevel(a.proposed.permission || "plan", "build"), extraAllow: a.proposed.extraAllow, parentRun: a.fromRun, priority: 1 }, "approval");
+      permission: minLevel(a.proposed.permission || "plan", "build"), extraAllow: a.proposed.extraAllow, parentRun: a.proposed.task ? null : a.fromRun, priority: 1, ...(a.proposed.task ? { taskId: "self", depth: 0 } : {}) }, a.proposed.task ? "task" : "approval");
   }
   return a;
 }
@@ -253,6 +254,20 @@ function ingestDrop() {
       // speaking directly, so its follow-ups may go up to the autonomy ceiling.
       const ceiling = parent?.level || (String(d.fromRun || "").startsWith("chat-") ? (loadConfig().autonomy?.maxLevel || "build") : "plan");
       const fromChat = String(d.fromRun || "").startsWith("chat-");
+      const perm = minLevel(d.permission || "plan", ceiling);
+      // New work LUTHUR starts on its own (a Task from the chat, or a follow-up from a scheduled mission) waits for the
+      // owner's OK unless they turned that off or explicitly said "just do it" in the chat. Sub-agents of a task that was
+      // already approved run straight away (they're part of that task).
+      const needsOk = loadConfig().assistant?.taskApproval !== false && !parent?.taskId && !(fromChat && d.owner_approved === true);
+      if (needsOk) {
+        const all = approvals();
+        all.unshift({ id: uid("ap"), createdAt: new Date().toISOString(), title: `Start task: ${String(d.title || "").slice(0, 120)}`, detail: String(d.prompt || "").slice(0, 2000), project: d.project, fromRun: d.fromRun, status: "pending",
+          proposed: { title: d.title, prompt: d.prompt, project: d.project, tier: d.tier || "balanced", permission: perm, task: fromChat } });
+        saveApprovals(all);
+        activity("approval-requested", { title: d.title });
+        notify({ title: "LUTHUR wants to start a task", body: String(d.title || ""), priority: 3, tags: "raised_hand" });
+        continue;
+      }
       // From the chat, delegated work becomes a Task (reports back); from a task, it's a sub-agent of that task.
       enqueue({ title: d.title, prompt: d.prompt, project: d.project, tier: d.tier || "balanced", permission: minLevel(d.permission || "plan", ceiling), parentRun: fromChat ? null : d.fromRun, depth: fromChat ? 0 : depth,
         priority: fromChat || parent?.taskId ? 1 : 2, taskId: fromChat ? "self" : parent?.taskId || null, effort: parent?.effort || null }, fromChat ? "task" : "followup");
@@ -262,6 +277,11 @@ function ingestDrop() {
       saveApprovals(all);
       activity("approval-requested", { title: d.title });
       notify({ title: "HQ needs your OK", body: d.title, priority: 4, tags: "raised_hand" });
+    } else if (d.type === "screen") {
+      // Only the chat (the owner's live conversation) may drive their screen.
+      if (!String(d.fromRun || "").startsWith("chat-")) continue;
+      const k = String(d.kind || ""); if (!["url", "email", "file", "search", "project", "calendar", "inbox"].includes(k)) continue;
+      writeJson(F.screen, { id: uid("scr"), at: Date.now(), kind: k, url: d.url, acct: d.acct, id2: d.id, query: d.query, slug: d.slug, read_aloud: !!d.read_aloud, summarize: !!d.summarize });
     } else if (d.type === "mission") {
       // Recurring missions can only be created from the chat (the owner), never by a background run.
       if (!String(d.fromRun || "").startsWith("chat-")) { activity("mission-dropped", { reason: "only the chat can schedule missions", title: d.title }); continue; }
@@ -516,8 +536,8 @@ export function tasks(limit = 30) {
 // ---------------- chat (the dashboard assistant) ----------------
 type ChatMsg = { role: "you" | "hq"; text: string; at: string; error?: boolean };
 type Chat = { id: string; sessionId: string | null; project?: string | null; tier?: string; messages: ChatMsg[] };
-export function chat(): Chat & { busy: boolean } {
-  return { ...readJson<Chat>(F.chat, { id: uid("chat"), sessionId: null, messages: [] }), busy: chatBusy };
+export function chat(): Chat & { busy: boolean; screen: any } {
+  return { ...readJson<Chat>(F.chat, { id: uid("chat"), sessionId: null, messages: [] }), busy: chatBusy, screen: readJson<any>(F.screen, null) };
 }
 export function newChat() {
   const c = readJson<Chat | null>(F.chat, null);
@@ -576,7 +596,7 @@ export function continueChat(id: string): Chat {
   writeJson(F.chat, next);
   return next;
 }
-export async function sendChat(text: string, opts: { project?: string | null; tier?: string; effort?: string } = {}): Promise<void> {
+export async function sendChat(text: string, opts: { project?: string | null; tier?: string; effort?: string; voice?: boolean } = {}): Promise<void> {
   if (chatBusy) throw new Error("The assistant is still answering.");
   const s = state();
   const c = readJson<Chat>(F.chat, { id: uid("chat"), sessionId: null, messages: [] });
@@ -591,10 +611,16 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
   const tier = opts.tier || cfg.chat?.tier || "balanced";
   const { model, fallback } = modelFor(tier);
   const proj = c.project ? brain.getProject(c.project) : null;
-  const level = minLevel(cfg.chat?.permission || "plan", cfg.autonomy?.maxLevel || "build");
+  // Typed: the chat's normal permission. Spoken: the most this agent may ever have (the autonomy ceiling), unless the
+  // owner turned that off. HQ's hard limits (no push/deploy/secrets/public posts) apply at every level.
+  const voiceMax = !!opts.voice && cfg.assistant?.voiceFull !== false;
+  const level = voiceMax ? minLevel(cfg.autonomy?.maxLevel || "build", "build") : minLevel(cfg.chat?.permission || "plan", cfg.autonomy?.maxLevel || "build");
   chatBusy = true;
   const system = [
     `You are ${cfg.assistant?.name || "LUTHUR"}, the owner's AI chief of staff, talking with them in the HQ dashboard (they may be using voice). ${cfg.assistant?.persona || ""}`,
+    "You can put things on the owner's Command screen with show_on_screen (websites, emails, Drive docs/sheets, web searches, their calendar) and find emails/files with google_mail_search / google_drive_search. You never see email or file contents: to read or go over one, call show_on_screen with read_aloud or summarize and the dashboard does it. Keep your own reply to one short spoken line then.",
+    voiceMax ? `The owner is speaking to you by voice: you have your full permission level (${level}) for this turn.` : "",
+    cfg.assistant?.taskApproval !== false ? "Tasks you delegate with queue_followup wait for the owner's approval in HQ before they run. Say that. Only if the owner explicitly told you in this conversation to just go ahead, set owner_approved: true." : "",
     "Lead with the answer in one or two spoken-friendly sentences; put detail after, in short bullets.",
     "Be brief and concrete. Read brain context only as needed (hq_index first).",
     "Turn loose thoughts into structure: reminders (reminder_add), dates (milestone_add), decisions (decision_log), project facts (project_update/project_log), new projects (project_create).",
@@ -622,7 +648,7 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
     if (res.ok) patchState(st => { st.auth = "ok"; });
     if (res.kind === "auth") patchState(st => { st.auth = "needs-login"; st.authCheckedAt = new Date().toISOString(); });
     activity("chat", { ok: res.ok, kind: res.kind });
-  } finally { chatBusy = false; opEnd(opId, opOk); kick(); }
+  } finally { try { ingestDrop(); } catch {} chatBusy = false; opEnd(opId, opOk); kick(); } // ingest now so screen commands are ready with the reply
 }
 
 onRunResult(r => {

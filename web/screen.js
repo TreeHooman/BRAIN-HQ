@@ -208,6 +208,41 @@ function scrLiveBind(box) {
   };
 }
 
+// ---------------- reading aloud + commands from LUTHUR's chat ----------------
+function scrSay(t) { if (typeof speakAlways === "function") speakAlways(String(t || "").replace(/\s+/g, " ").slice(0, 2400)); }
+async function scrReadAloud() {
+  let m = scrMaterial();
+  if (!m && Scr.cur?.k === "page") { try { const t = await api("/browser/text"); m = { title: t.title, text: t.text }; } catch {} }
+  if (!m || !(m.text || "").trim()) return scrSay("There's nothing on the screen to read.");
+  scrSay(`${m.title ? m.title + ". " : ""}${m.text}`);
+}
+async function scrSummary() {
+  await scrBrief("", "Summarise this for me out loud");
+  const q = Scr.quest; if (q && !q.error && !q.loading) scrSay(`${q.objective} ${q.intel.join(". ")}`);
+}
+// wait until the screen has loaded what it's showing (or ~12 s)
+const scrLoaded = async () => { for (let i = 0; i < 40 && Scr.cur && !Scr.data && !Scr.err; i++) await new Promise(r => setTimeout(r, 300)); };
+/** LUTHUR (the chat agent) asked to show something: open it here; optionally read it out or summarise it. */
+async function scrFromChat(c) {
+  if (!c?.id || c.id === Scr.lastCmd || Date.now() - c.at > 5 * 60e3) return;
+  Scr.lastCmd = c.id;
+  if (route.view !== "command") { location.hash = "command"; for (let i = 0; i < 20 && !document.getElementById("nvScreen"); i++) await new Promise(r => setTimeout(r, 150)); }
+  const v = c.kind === "url" ? (scrYT(c.url) ? { k: "yt", id: scrYT(c.url), url: c.url } : { k: "page", url: c.url }) : c.kind === "email" ? { k: "mailone", acct: c.acct, id: c.id2 } : c.kind === "file" ? { k: "file", acct: c.acct, id: c.id2 }
+    : c.kind === "search" ? { k: "search", q: c.query || "" } : c.kind === "project" ? { k: "project", slug: c.slug } : c.kind === "calendar" ? { k: "agenda", days: 7 } : { k: "mail", q: c.query || "" };
+  await scrGo(v); await scrLoaded();
+  if (c.read_aloud) await scrReadAloud(); else if (c.summarize) await scrSummary();
+}
+/** Hands-free sentences the screen can handle itself. Returns true if handled. */
+function scrVoice(cmd) {
+  const c = String(cmd || "").trim();
+  if (/^(read|say|speak)( it| this| that| the (email|doc|document|page|file|sheet))?( out| aloud| to me)?\.?$/i.test(c)) { scrReadAloud(); return true; }
+  if (/^(summari[sz]e|sum up)( it| this| that)?\.?$/i.test(c)) { scrSummary(); return true; }
+  if (!SCR_VERB.test(c) && !SCR_BRIEF.test(c)) return false;
+  const run = () => scrCommand(c);
+  if (route.view !== "command") { location.hash = "command"; setTimeout(run, 700); } else run();
+  return true;
+}
+
 // mount under the Command chat box; keep what's on screen across re-renders
 const _vCommandScr = vCommand;
 vCommand = async function (el) {
@@ -218,4 +253,4 @@ vCommand = async function (el) {
   scrPaint();
 };
 // typed or spoken "pull up …" / "brief me …" goes to the screen instead of chat
-if (typeof cmdSend === "function") { const _cmdSendScr = cmdSend; cmdSend = function (t) { if (route.view === "command" && scrCommand(t)) { const i = document.getElementById("cmdText"); if (i) i.value = ""; return; } return _cmdSendScr(t); }; }
+if (typeof cmdSend === "function") { const _cmdSendScr = cmdSend; cmdSend = function (t) { if (route.view === "command" && scrVoice(t)) { const i = document.getElementById("cmdText"); if (i) i.value = ""; return; } return _cmdSendScr(t); }; }

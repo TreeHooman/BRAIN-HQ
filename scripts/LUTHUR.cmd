@@ -22,7 +22,7 @@ if errorlevel 1 (
 rem Open as an app window: Chrome if installed, else Edge, else the default browser.
 set "URL=http://127.0.0.1:8800/"
 reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe" >nul 2>&1 || reg query "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\chrome.exe" >nul 2>&1
-if not errorlevel 1 ( start "" chrome --app=%URL% --window-size=1440,920 & exit /b 0 )
+if not errorlevel 1 ( start "" chrome --app=%URL% --start-maximized & exit /b 0 )
 reg query "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\msedge.exe" >nul 2>&1
-if not errorlevel 1 ( start "" msedge --app=%URL% --window-size=1440,920 & exit /b 0 )
+if not errorlevel 1 ( start "" msedge --app=%URL% --start-maximized & exit /b 0 )
 start "" %URL%

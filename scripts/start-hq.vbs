@@ -33,7 +33,7 @@ End If
 If openWin Then
   ' Own browser profile: keeps extensions and other sites away from HQ, and gives it its own window.
   prof = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\LUTHUR\window"
-  args = " --app=" & url & " --window-size=1440,920 --no-first-run --no-default-browser-check --user-data-dir=""" & prof & """"
+  args = " --app=" & url & " --start-maximized --no-first-run --no-default-browser-check --user-data-dir=""" & prof & """"
   On Error Resume Next
   sh.Run "chrome" & args, 1, False
   If Err.Number <> 0 Then
