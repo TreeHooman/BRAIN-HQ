@@ -716,6 +716,6 @@ $("#capture").onsubmit = async e => {
 window.addEventListener("DOMContentLoaded", async () => {
   parseHash();
   await refresh();
-  render();
+  try { render(); } finally { requestAnimationFrame(() => document.documentElement.classList.add("hq-ready")); }
   setInterval(async () => { if (HUD.asleep) return; await refresh(); render.background = true; if (!["assistant", "project", "command", "planner", "code", "tasks", "canvas"].includes(route.view) || route.view === "project" && editing === null && projTab === "work") render(); render.background = false; }, 6000);
 });

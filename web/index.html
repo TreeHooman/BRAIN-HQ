@@ -5,12 +5,19 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>LUTHUR</title>
-<script>try { document.documentElement.dataset.theme = localStorage.getItem("hq-theme") || "hud"; } catch {}</script>
+<script>try { document.documentElement.dataset.theme = localStorage.getItem("hq-theme") || "hud"; } catch {} setTimeout(() => document.documentElement.classList.add("hq-ready"), 6000);</script>
+<style>/* hide the half-built page until the first render (no flash of the raw sidebar) */
+html:not(.hq-ready) body > :not(#boot) { opacity: 0 !important; }
+html:not(.hq-ready) body:has(#boot:not([hidden]))::after { display: none; }
+html:not(.hq-ready) body { background: #04060c; }
+html:not(.hq-ready) body::after { content: ""; position: fixed; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; border: 2px solid rgba(111, 242, 255, .15); border-top-color: #6ff2ff; animation: hqspin .9s linear infinite; }
+@keyframes hqspin { to { transform: rotate(360deg); } }
+body > * { transition: opacity .25s; }</style>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=JetBrains+Mono:wght@400;500&display=swap" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="hud.css">
 <link rel="stylesheet" href="nova.css">
@@ -83,6 +90,7 @@
 <script src="canvas.js"></script>
 <script src="inbox.js"></script>
 <script src="workspace.js"></script>
+<script src="update.js"></script>
 <script src="space.js"></script>
 <script src="explain.js"></script>
 <script src="usage.js"></script>

@@ -122,7 +122,7 @@ vec3 s4(vec2 uv,vec2 m,float t){
 vec3 pick(float id,vec2 uv,vec2 m,float t){if(id>3.5)return s4(uv,vec2(m.x,-m.y),t);if(id<.5)return s0(uv,m,t);if(id<1.5)return s1(uv,m,t);if(id<2.5)return s2(uv,m,t);return s3(uv,m,t);}
 void main(){
  vec2 uv=(gl_FragCoord.xy-.5*uR)/uR.y; vec2 m=uM-.5; m.y=-m.y; float t=uT*.022*(1.+uB*2.);
- uv/=1.+uZ*.04; uv.y+=uS*.00004;
+ uv/=1.+uZ*.04; uv.y-=uS*.00004;
  vec3 col=pick(uA,uv,m,t); if(uX>0.001)col=mix(col,pick(uN,uv,m,t),uX);
  vec2 mp=m*vec2(uR.x/uR.y,1.);
  if(uA>3.5&&uX<.001){col+=vec3(.05,.25,.4)*.05/(length(uv-vec2(mp.x,-mp.y))+.25);}
@@ -130,7 +130,18 @@ void main(){
  gl_FragColor=vec4(col,1.);}`;
 const Scene = { c: null, gl: null, p: null, raf: 0, scale: .6, frame: 0, ok: false };
 /** Planets need full resolution to look sharp; the soft nebula is fine (and cheap) at 60%. */
-function sceneRes(sharp) { const sc = lowPower() ? .35 : sharp ? 1 : .6; if (Scene.scale !== sc) { Scene.scale = sc; sceneSize(); } }
+// Auto quality: watches the real frame rate; if this PC can't keep up it steps resolution/frame rate down, and back up when it can.
+const Perf = { ema: 16.7, lvl: 0, last: 0, bad: 0, good: 0 };
+function perfTick(now) {
+  if (Perf.last) {
+    Perf.ema += (Math.min(100, now - Perf.last) - Perf.ema) * .05;
+    if (Perf.ema > 24) { Perf.good = 0; if (++Perf.bad > 120 && Perf.lvl < 2) { Perf.lvl++; Perf.bad = 0; sceneRes(Scene.sharp); } }
+    else if (Perf.ema < 17.5) { Perf.bad = 0; if (++Perf.good > 1800 && Perf.lvl > 0) { Perf.lvl--; Perf.good = 0; sceneRes(Scene.sharp); } }
+  }
+  Perf.last = now;
+}
+/** Planets need full resolution to look sharp; the soft nebula is fine (and cheap) at half. */
+function sceneRes(sharp) { Scene.sharp = !!sharp; const sc = lowPower() ? .35 : (sharp ? 1 : .5) * [1, .75, .55][Perf.lvl]; if (Scene.scale !== sc) { Scene.scale = sc; sceneSize(); } }
 function sceneStart() {
   if (Scene.ok || Scene.failed) return sceneKick();
   const c = document.createElement("canvas"); c.id = "nova-bg"; c.setAttribute("aria-hidden", "true"); document.body.prepend(c);
@@ -143,7 +154,7 @@ function sceneStart() {
 }
 function sceneSize() {
   if (!Scene.ok) return;
-  const d = Math.min(1.5, devicePixelRatio || 1) * Scene.scale;
+  const d = Math.min(Scene.sharp ? 1.5 : 1, devicePixelRatio || 1) * Scene.scale;
   Scene.c.width = Math.round(innerWidth * d); Scene.c.height = Math.round(innerHeight * d);
   Scene.gl.viewport(0, 0, Scene.c.width, Scene.c.height);
   if (reduced()) sceneDraw();
@@ -156,16 +167,18 @@ function sceneDraw() {
   gl.uniform1f(p.u("uA"), v.a); gl.uniform1f(p.u("uN"), v.n); gl.uniform1f(p.u("uX"), v.x); gl.uniform1f(p.u("uZ"), v.z);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
-function sceneLoop() {
-  Scene.raf = 0;
+function sceneLoop(now) {
+  Scene.raf = 0; perfTick(now);
   if (!Scene.ok || !nvOn()) return;
   NV.sx = lerp(NV.sx || .5, NV.mx, .04); NV.sy = lerp(NV.sy ?? .5, NV.my, .04);
   NV.busy = lerp(NV.busy, NV.busyT, .03);
   const lp = lowPower(); if (lp && Scene.scale > .4) { Scene.scale = .35; sceneSize(); }
-  if (lp ? ++Scene.frame % 12 === 0 : (++Scene.frame % 2 === 0 || NV.busy > .05)) sceneDraw(); // saver: ~5 fps, a slow drift
+  // saver ~5 fps; nebula ~20 fps (it drifts slowly); planets ~30 fps; one step slower when the PC is struggling
+  const every = lp ? 12 : (Scene.sharp ? 2 : 3) + (Perf.lvl ? 1 : 0);
+  if (++Scene.frame % every === 0 || (!lp && NV.busy > .05 && Scene.frame % 2 === 0)) sceneDraw();
   if (!reduced()) Scene.raf = requestAnimationFrame(sceneLoop);
 }
-function sceneKick() { if (Scene.ok && !Scene.raf) { if (reduced()) { sceneDraw(); return; } Scene.raf = requestAnimationFrame(sceneLoop); } }
+function sceneKick() { if (Scene.ok && !Scene.raf) { Perf.last = 0; if (reduced()) { sceneDraw(); return; } Scene.raf = requestAnimationFrame(sceneLoop); } }
 
 // ---------------- the core: AI voice orb ----------------
 // Layered closed light-waves + a frequency ring around a small core. Idle: slow breathing.
@@ -199,7 +212,7 @@ function coreMount(host) {
 }
 function coreSize() {
   if (!Core.ok || !Core.c.isConnected) return;
-  const r = Core.c.getBoundingClientRect(), d = Math.min(3, Math.max(2, (devicePixelRatio || 1) * 1.5));
+  const r = Core.c.getBoundingClientRect(), d = Math.min(2, Math.max(1.5, (devicePixelRatio || 1) * 1.25));
   Core.w = r.width; Core.h = r.height;
   Core.c.width = Math.max(64, Math.round(r.width * d)); Core.c.height = Math.max(64, Math.round(r.height * d));
   Core.x.setTransform(d, 0, 0, d, 0, 0);
@@ -207,7 +220,7 @@ function coreSize() {
 function coreLoop(now = performance.now()) {
   Core.raf = 0;
   if (!Core.ok || !Core.c.isConnected) { Core.ok = false; Mic.want = false; micOff(); return; }
-  if (nvOn() && (!lowPower() || ++Core.skip % 3 === 0)) coreDraw(now); // saver: ~20 fps orb
+  if (nvOn() && (lowPower() ? ++Core.skip % 3 === 0 : !Perf.lvl || ++Core.skip % 2 === 0)) coreDraw(now); // saver ~20 fps orb; ~30 when struggling
   if (!reduced() || !Core.drawn) { Core.drawn = true; Core.raf = requestAnimationFrame(coreLoop); }
 }
 function coreDraw(now) {
@@ -449,8 +462,9 @@ function orbitBuild(fresh) {
   if (stage && !stage._drag) {
     stage._drag = 1;
     stage.addEventListener("pointerdown", e => { if (e.target.closest(".nv-core, .nv-tip")) return; Orb.drag = { x: e.clientX, th: Orb.th, t: performance.now() }; Orb.dragMoved = false; });
-    addEventListener("pointermove", e => { if (!Orb.drag) return; const dx = e.clientX - Orb.drag.x; if (Math.abs(dx) > 4) Orb.dragMoved = true; const nt = Orb.drag.th + dx / 260; Orb.vel = (nt - Orb.th) * 60; Orb.th = nt; orbitStart(); });
-    addEventListener("pointerup", () => { if (Orb.drag) { Orb.drag = null; setTimeout(() => { Orb.dragMoved = false; }, 30); } });
+    addEventListener("pointermove", e => { if (!Orb.drag) return; const dx = e.clientX - Orb.drag.x; if (Math.abs(dx) > 4) Orb.dragMoved = true; const nt = Orb.drag.th - dx / (innerWidth < 500 ? 160 : 260) /* front projects follow the finger */; Orb.vel = (nt - Orb.th) * 60; Orb.th = nt; orbitStart(); });
+    const end = () => { if (Orb.drag) { Orb.drag = null; setTimeout(() => { Orb.dragMoved = false; }, 30); } };
+    addEventListener("pointerup", end); addEventListener("pointercancel", end);
   }
 }
 // Stark-style radial HUD around the voice orb (vector, crisp): segmented rings, degree scale, brackets, live diagnostics fan

@@ -4,8 +4,10 @@
 const SPACE_SCENES = ["Ringed giant", "Planet sunrise", "Black hole", "Galaxy", "Nebula"];
 const Space = { list: [], i: 0, start: performance.now(), fade: 0, fadeFrom: null, walls: [], wallEl: null, timer: 0 };
 const SPACE_DEF = { every: 60, scenes: [4], walls: true }; // default: just the nebula
-const spacePref = () => { try { return { ...SPACE_DEF, ...JSON.parse(hstore.get("hq-space2", "{}")) }; } catch { return { ...SPACE_DEF }; } };
-const spaceSave = p => hstore.set("hq-space2", JSON.stringify(p));
+// Phones keep their own choice (default: nebula only, no planets), so a desktop pick never lands on the phone.
+const SPACE_KEY = matchMedia("(max-width: 760px), (pointer: coarse)").matches ? "hq-space2-phone" : "hq-space2";
+const spacePref = () => { try { return { ...SPACE_DEF, ...JSON.parse(hstore.get(SPACE_KEY, "{}")) }; } catch { return { ...SPACE_DEF }; } };
+const spaceSave = p => hstore.set(SPACE_KEY, JSON.stringify(p));
 
 function spaceBuild() {
   const p = spacePref();
@@ -122,7 +124,8 @@ function starsLoop(now) {
   const lp = typeof lowPower === "function" && lowPower();
   if (lp) { if (!Stars.still) { starsDraw(0); Stars.still = true; } return; } // saver: draw once, no twinkle loop
   Stars.still = false;
-  if (++Stars.f % 2 === 0) starsDraw(now / 1000);
+  // twinkle is slow: ~15 fps is plenty. Hidden behind a planet scene → don't draw at all (re-checked every few frames).
+  if (++Stars.f % 4 === 0 && Stars.c.style.opacity !== "0") starsDraw(now / 1000);
   if (!reduced()) Stars.raf = requestAnimationFrame(starsLoop);
 }
 function starsStart() {
@@ -164,7 +167,7 @@ vSettings = function (el) {
     h.onclick = () => { const on = !h.classList.contains("open"); set(on); on ? open.add(key) : open.delete(key); hstore.set("hq-set-open", JSON.stringify([...open])); };
     set(open.has(key));
   };
-  el.querySelectorAll("#musWrap, #spWrap").forEach(w => { foldWrap(w); new MutationObserver(() => foldWrap(w)).observe(w, { childList: true }); });
+  el.querySelectorAll("#musWrap, #spWrap, #upWrap").forEach(w => { foldWrap(w); new MutationObserver(() => foldWrap(w)).observe(w, { childList: true }); });
 };
 
 // Command desk panels lean slightly with the mouse (CSS reads --dx/--dy, -1..1)
