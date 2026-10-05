@@ -35,7 +35,8 @@ async function scrGo(v, push = true) {
   if (Scr.cur && push) Scr.stack.push(Scr.cur);
   Scr.cur = v; Scr.quest = null; Scr.data = null; Scr.err = ""; scrPaint();
   try {
-    if (v.k === "page") Scr.data = await api("/screen/read?url=" + encodeURIComponent(v.url));
+    if (v.k === "page" && !v.reader) { const u = /^https?:\/\//i.test(v.url) ? v.url : "https://" + v.url; Scr.data = await api("/browser/go", "POST", { url: u }); scrLiveStart(); }
+    else if (v.k === "page") Scr.data = await api("/screen/read?url=" + encodeURIComponent(v.url));
     else if (v.k === "search") Scr.data = await api("/screen/search?q=" + encodeURIComponent(v.q));
     else if (v.k === "mail") Scr.data = await api("/google/mail?acct=all&box=" + (v.q ? "any" : "inbox") + "&q=" + encodeURIComponent(v.q || ""));
     else if (v.k === "mailone") Scr.data = await api(`/google/mail/${v.acct}/${v.id}`);
@@ -49,7 +50,7 @@ async function scrGo(v, push = true) {
 }
 function scrTitle(v) {
   const d = Scr.cur === v ? Scr.data : null;
-  return v.k === "page" ? (d?.title || scrHost(v.url)) : v.k === "search" ? `Search: ${v.q}` : v.k === "mail" ? (v.q ? `Email: ${v.q}` : "Inbox") : v.k === "mailone" ? (d?.subject || "Email")
+  return v.k === "page" ? (d?.title && d.title !== "about:blank" ? d.title : scrHost(d?.url || v.url)) : v.k === "search" ? `Search: ${v.q}` : v.k === "mail" ? (v.q ? `Email: ${v.q}` : "Inbox") : v.k === "mailone" ? (d?.subject || "Email")
     : v.k === "drive" ? (v.q ? `Drive: ${v.q}` : "Drive") : v.k === "file" ? (d?.file?.name || "File") : v.k === "project" ? projName(v.slug) : v.k === "agenda" ? (v.days === 1 ? "Today" : "Next 7 days") : v.k === "yt" ? "YouTube" : "Screen";
 }
 function scrOpenUrl() {
@@ -60,6 +61,7 @@ function scrOpenUrl() {
 function scrMaterial() {
   const v = Scr.cur, d = Scr.data || {};
   if (!v) return null;
+  if (v.k === "page" && !v.reader) return null; // live page: text is fetched from the browser in scrBrief
   if (v.k === "page") return { kind: "web page", title: d.title, text: [d.desc, ...(d.blocks || []).map(b => (b.t === "h" ? "## " : b.t === "li" ? "- " : "") + b.x)].filter(Boolean).join("\n") };
   if (v.k === "mailone") return { kind: "email", title: d.subject, text: `From: ${d.from}\n\n${d.body || ""}` };
   if (v.k === "mail") return { kind: "inbox", title: scrTitle(v), text: (d.items || []).map(m => `${m.from}: ${m.subject} — ${m.snippet}`).join("\n") };
@@ -71,7 +73,9 @@ function scrMaterial() {
 }
 async function scrBrief(what, ask) {
   if (what) { await scrGo(scrResolve(what)); }
-  const m = scrMaterial(); if (!m || !(m.text || "").trim()) { hudNotify?.("Pull something up first, then say “brief me”."); return; }
+  let m = scrMaterial();
+  if (!m && Scr.cur?.k === "page") { try { const t = await api("/browser/text"); m = { kind: "web page", title: t.title, text: t.text }; } catch {} }
+  if (!m || !(m.text || "").trim()) { hudNotify?.("Pull something up first, then say “brief me”."); return; }
   Scr.quest = { loading: true }; scrPaint();
   try { const r = await api("/screen/brief", "POST", { ...m, ask, project: m.project || activeProject() || "" }); Scr.quest = r.quest; if (typeof speak === "function") speak(`${r.quest.title}. ${r.quest.objective} First step: ${r.quest.steps[0] || ""}`); }
   catch (e) { Scr.quest = { error: e.message }; }
@@ -92,6 +96,7 @@ function scrBody() {
   if (Scr.err) return `<div class="scr-msg bad">${esc(Scr.err)}</div>`;
   if (!d && v.k !== "agenda" && v.k !== "yt") return `<div class="scr-msg"><span class="scr-spin"></span>Pulling up ${esc(scrTitle(v))}…</div>`;
   if (v.k === "yt") return `<iframe class="scr-frame" src="https://www.youtube-nocookie.com/embed/${esc(v.id)}" title="YouTube" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
+  if (v.k === "page" && !v.reader) return `<div class="scr-cr" id="scrCr" tabindex="0" aria-label="Live browser: click, scroll and type here"><img id="scrImg" alt="" draggable="false" src="/api/browser/live?v=${Scr.liveN || 0}"><div class="scr-crload" id="scrCrLoad" ${d.loading === false ? "hidden" : ""}><span class="scr-spin"></span></div></div>`;
   if (v.k === "page") {
     if (Scr.live && d.frame) return `<iframe class="scr-frame" src="${esc(d.url)}" title="${esc(d.title)}" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" referrerpolicy="no-referrer"></iframe>`;
     return `<article class="scr-read"><div class="scr-src">${esc(d.host)}</div><h2>${esc(d.title)}</h2>${d.desc ? `<p class="scr-desc">${esc(d.desc)}</p>` : ""}
@@ -129,19 +134,27 @@ function scrQuest() {
 }
 function scrPaint() {
   const box = document.getElementById("nvScreen"); if (!box) return;
+  const oldImg = box.querySelector("#scrImg"); if (oldImg) oldImg.src = ""; // close the old live stream before redrawing
   const v = Scr.cur, open = scrOpenUrl();
   box.classList.toggle("on", !!v);
   box.innerHTML = `<div class="scr-bar"><span class="scr-tag">SCREEN</span>
       <button type="button" class="icon-btn" id="scrBack" ${Scr.stack.length ? "" : "disabled"} aria-label="Back">←</button>
       <form id="scrF" class="scr-go" autocomplete="off"><input id="scrQ" placeholder="${v ? esc(scrTitle(v)) : "Pull up a site, project, email, file…"}" aria-label="What to pull up"></form>
       ${v ? `<button type="button" class="btn sm" id="scrBrief" title="Turn this into a quest briefing">⚔ Brief me</button>` : ""}
-      ${v?.k === "page" && Scr.data?.frame ? `<button type="button" class="btn sm ghost" id="scrLive">${Scr.live ? "Reader" : "Live"}</button>` : ""}
+      ${v?.k === "page" && !v.reader ? `<button type="button" class="icon-btn" id="scrFwd" aria-label="Forward">→</button><button type="button" class="icon-btn" id="scrReload" aria-label="Reload">↻</button><button type="button" class="btn sm ghost" id="scrReader" title="Plain text version">Reader</button>` : ""}
+      ${v?.k === "page" && v.reader ? `<button type="button" class="btn sm ghost" id="scrToLive">Live</button>` : ""}
       ${open ? `<a class="btn sm ghost" href="${esc(open)}" ${open.startsWith("#") ? "" : 'target="_blank" rel="noopener"'}>${open.startsWith("#") ? "Open" : "Open in Chrome ↗"}</a>` : ""}
       ${v ? `<button type="button" class="icon-btn" id="scrX" aria-label="Clear screen">✕</button>` : ""}</div>
     ${scrQuest()}<div class="scr-body">${scrBody()}</div>`;
   box.querySelector("#scrF").onsubmit = e => { e.preventDefault(); const t = box.querySelector("#scrQ").value.trim(); if (!t) return; if (!scrCommand(t)) scrGo(scrResolve(t)); };
-  box.querySelector("#scrBack").onclick = () => { const p = Scr.stack.pop(); if (p) scrGo(p, false); };
-  const x = box.querySelector("#scrX"); if (x) x.onclick = () => { Scr.cur = null; Scr.stack = []; Scr.quest = null; scrPaint(); };
+  box.querySelector("#scrBack").disabled = !(Scr.stack.length || (v?.k === "page" && !v.reader));
+  box.querySelector("#scrBack").onclick = () => { if (v?.k === "page" && !v.reader) return api("/browser/input", "POST", { type: "back" }).catch(() => {}); const p = Scr.stack.pop(); if (p) scrGo(p, false); };
+  const fw = box.querySelector("#scrFwd"); if (fw) fw.onclick = () => api("/browser/input", "POST", { type: "forward" }).catch(() => {});
+  const rl = box.querySelector("#scrReload"); if (rl) rl.onclick = () => api("/browser/input", "POST", { type: "reload" }).catch(() => {});
+  const rd = box.querySelector("#scrReader"); if (rd) rd.onclick = () => scrGo({ k: "page", url: Scr.data?.url || v.url, reader: true });
+  const tl = box.querySelector("#scrToLive"); if (tl) tl.onclick = () => scrGo({ k: "page", url: Scr.data?.url || v.url });
+  scrLiveBind(box);
+  const x = box.querySelector("#scrX"); if (x) x.onclick = () => { if (v?.k === "page") api("/browser/stop", "POST").catch(() => {}); scrLiveStop(); Scr.cur = null; Scr.stack = []; Scr.quest = null; scrPaint(); };
   const br = box.querySelector("#scrBrief"); if (br) br.onclick = () => scrBrief("", "");
   const lv = box.querySelector("#scrLive"); if (lv) lv.onclick = () => { Scr.live = !Scr.live; scrPaint(); };
   const qx = box.querySelector("#scrQx"); if (qx) qx.onclick = () => { Scr.quest = null; scrPaint(); };
@@ -154,6 +167,45 @@ function scrPaint() {
   box.querySelectorAll("[data-scrurl]").forEach(b => b.onclick = () => { const u = b.dataset.scrurl; scrGo(scrYT(u) ? { k: "yt", id: scrYT(u), url: u } : { k: "page", url: u }); });
   box.querySelectorAll("[data-scrmail]").forEach(b => b.onclick = () => { const [acct, id] = b.dataset.scrmail.split("|"); scrGo({ k: "mailone", acct, id }); });
   box.querySelectorAll("[data-scrfile]").forEach(b => b.onclick = () => { const [acct, id] = b.dataset.scrfile.split("|"); scrGo({ k: "file", acct, id }); });
+}
+
+// ---------------- live Chrome view: input forwarding + state polling ----------------
+function scrLiveStart() {
+  clearInterval(Scr.poll);
+  Scr.poll = setInterval(async () => {
+    if (!document.getElementById("scrImg")) { if (!document.getElementById("nvScreen")) scrLiveStop(); return; }
+    const st = await api("/browser").catch(() => null); if (!st || Scr.cur?.k !== "page") return;
+    if (!st.running) { scrLiveStop(); return; }
+    // a YouTube video inside the browser → the normal player (with sound)
+    const yt = scrYT(st.url); if (yt) { scrGo({ k: "yt", id: yt, url: st.url }); return; }
+    const changed = st.url !== Scr.data?.url || st.title !== Scr.data?.title; Scr.data = st;
+    const ld = document.getElementById("scrCrLoad"); if (ld) ld.hidden = !st.loading;
+    if (changed) { const q = document.getElementById("scrQ"); if (q && document.activeElement !== q) q.placeholder = scrTitle(Scr.cur); const o = document.querySelector("#nvScreen a.btn[target]"); if (o) o.href = st.url; }
+  }, 1200);
+}
+function scrLiveStop() { clearInterval(Scr.poll); Scr.poll = 0; }
+function scrLiveBind(box) {
+  const cr = box.querySelector("#scrCr"), img = box.querySelector("#scrImg"); if (!cr || !img) return;
+  const fit = () => { const w = cr.clientWidth, h = cr.clientHeight; if (w > 50 && h > 50 && (Math.abs(w - (Scr.data?.w || 0)) > 4 || Math.abs(h - (Scr.data?.h || 0)) > 4)) api("/browser/resize", "POST", { w, h }).then(st => { Scr.data = { ...Scr.data, ...st }; }).catch(() => {}); };
+  fit(); if (!cr._ro) { cr._ro = new ResizeObserver(() => { clearTimeout(cr._rt); cr._rt = setTimeout(fit, 250); }); cr._ro.observe(cr); }
+  // the stream is drawn at panel width from the top (any extra strip at the bottom is cropped): scale is width-based
+  const pt = e => {
+    const r = img.getBoundingClientRect(), nw = img.naturalWidth || Scr.data?.dw || r.width, k = r.width / nw;
+    const W = Scr.data?.dw || nw, sx = W / nw;
+    return { x: Math.round((e.clientX - r.left) / k * sx), y: Math.round((e.clientY - r.top) / k * sx - (Scr.data?.top || 0)) };
+  };
+  const inp = b => api("/browser/input", "POST", b).catch(() => {});
+  img.onclick = e => { cr.focus({ preventScroll: true }); inp({ type: "click", ...pt(e), ctrl: e.ctrlKey, shift: e.shiftKey }); };
+  let mv = 0; img.onmousemove = e => { const n = Date.now(); if (n - mv < 90) return; mv = n; inp({ type: "move", ...pt(e) }); };
+  cr.addEventListener("wheel", e => { e.preventDefault(); inp({ type: "wheel", ...pt(e), dx: e.deltaX, dy: e.deltaY }); }, { passive: false });
+  // phones: swipe to scroll, tap to click
+  let ty = null; img.ontouchstart = e => { ty = e.touches[0].clientY; }; img.ontouchmove = e => { if (ty == null) return; const y = e.touches[0].clientY; e.preventDefault(); inp({ type: "wheel", ...pt(e.touches[0]), dy: (ty - y) * 2 }); ty = y; };
+  cr.onkeydown = e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") { e.preventDefault(); navigator.clipboard?.readText().then(t => t && inp({ type: "text", text: t })).catch(() => {}); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key.length === 1) { e.preventDefault(); inp({ type: "text", text: e.key }); }
+    else if (["Enter", "Backspace", "Tab", "Escape", "Delete", "ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown", "Home", "End", "PageUp", "PageDown"].includes(e.key)) { e.preventDefault(); inp({ type: "key", key: e.key, shift: e.shiftKey }); }
+  };
 }
 
 // mount under the Command chat box; keep what's on screen across re-renders

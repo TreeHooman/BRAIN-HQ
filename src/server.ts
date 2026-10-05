@@ -21,6 +21,7 @@ import * as usage from "./lib/usage.ts";
 import * as updater from "./lib/updater.ts";
 import * as screen from "./lib/screen.ts";
 import * as history from "./lib/history.ts";
+import * as browser from "./lib/browser.ts";
 import { killAll, sweepOrphans } from "./lib/claude.ts";
 
 ensureLocalConfig();
@@ -179,6 +180,12 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/google\/doc\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})\/replace$/, (m, b) => google.docReplace(m[1], m[2], b.find, b.replace, b.matchCase === true)],
   ["GET", /^\/api\/usage$/, () => usage.summary()],
   ["GET", /^\/api\/screen\/read$/, (_, __, u) => screen.read(u.searchParams.get("url") || "")],
+  ["GET", /^\/api\/browser$/, () => browser.stateFresh()],
+  ["GET", /^\/api\/browser\/text$/, () => browser.text()],
+  ["POST", /^\/api\/browser\/go$/, (_, b) => browser.navigate(String(b.url || ""))],
+  ["POST", /^\/api\/browser\/input$/, (_, b) => browser.input(b)],
+  ["POST", /^\/api\/browser\/resize$/, (_, b) => browser.resize(Number(b.w), Number(b.h))],
+  ["POST", /^\/api\/browser\/stop$/, () => browser.stop()],
   ["GET", /^\/api\/history$/, (_, __, u) => history.list({ q: u.searchParams.get("q") || "", kind: u.searchParams.get("kind") || "", project: u.searchParams.get("project") || "", before: u.searchParams.get("before") || "", limit: Number(u.searchParams.get("limit")) || 50 })],
   ["POST", /^\/api\/screen\/brief$/, (_, b) => screen.brief(b)],
   ["GET", /^\/api\/screen\/search$/, (_, __, u) => screen.search(u.searchParams.get("q") || "")],
@@ -240,6 +247,11 @@ const server = http.createServer(async (req, res) => {
       if (!hostOk(url.hostname)) return send(res, 403, { error: "Unknown host" });
       // Block cross-site requests: only the dashboard sends this header (custom headers force a CORS preflight we never allow).
       if (req.method !== "GET" && req.headers["x-hq"] !== "1") return send(res, 403, { error: "Missing X-HQ header" });
+      // Screen browser live view (MJPEG for an <img>). Same-site only: another site can't embed it.
+      if (url.pathname === "/api/browser/live" && req.method === "GET") {
+        if (req.headers["sec-fetch-site"] === "cross-site") return send(res, 403, { error: "Not allowed" });
+        return browser.stream(res);
+      }
       // Spotify sends the browser back here after sign-in (a plain GET, so it can't carry X-HQ; state + PKCE protect it).
       if (url.pathname === "/api/spotify/callback" && req.method === "GET") {
         let msg = "";
@@ -306,7 +318,7 @@ server.listen(PORT, HOST, () => {
   outbox.recover();
   if (!process.env.HQ_NO_ORCHESTRATOR) mail.startAuto();
 });
-const shutdown = () => { orch.stop(); killAll(); process.exit(0); };
-process.on("exit", () => killAll());
+const shutdown = () => { orch.stop(); killAll(); browser.stop(); process.exit(0); };
+process.on("exit", () => { killAll(); browser.stop(); });
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
