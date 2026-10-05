@@ -16,6 +16,7 @@ import * as canvas from "./lib/canvas.ts";
 import * as mail from "./lib/mail.ts";
 import * as google from "./lib/google.ts";
 import * as compose from "./lib/compose.ts";
+import * as explainer from "./lib/explain.ts";
 import { killAll, sweepOrphans } from "./lib/claude.ts";
 
 ensureLocalConfig();
@@ -172,6 +173,7 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/google\/sheet\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})$/, (m, b) => google.sheetSet(m[1], m[2], b.tab, b.cells)],
   ["POST", /^\/api\/google\/doc\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})\/append$/, (m, b) => google.docAppend(m[1], m[2], b.text)],
   ["POST", /^\/api\/google\/doc\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})\/replace$/, (m, b) => google.docReplace(m[1], m[2], b.find, b.replace, b.matchCase === true)],
+  ["POST", /^\/api\/explain$/, (_, b) => explainer.explain(b)],
   ["POST", /^\/api\/google\/write-ai$/, (_, b) => compose.writeAI(b)],
   ["PUT", /^\/api\/google\/acct\/(g-[a-f0-9]{10})$/, (m, b) => google.update(m[1], b)],
   ["DELETE", /^\/api\/google\/acct\/(g-[a-f0-9]{10})$/, m => google.remove(m[1])],
