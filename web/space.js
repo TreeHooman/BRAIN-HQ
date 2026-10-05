@@ -160,3 +160,6 @@ vSettings = function (el) {
   };
   el.querySelectorAll("#musWrap, #spWrap").forEach(w => { foldWrap(w); new MutationObserver(() => foldWrap(w)).observe(w, { childList: true }); });
 };
+
+// Command desk panels lean slightly with the mouse (CSS reads --dx/--dy, -1..1)
+addEventListener("mousemove", e => { const d = document.querySelector(".nv-desk"); if (!d) return; d.style.setProperty("--dx", ((e.clientX / innerWidth) * 2 - 1).toFixed(3)); d.style.setProperty("--dy", ((e.clientY / innerHeight) * 2 - 1).toFixed(3)); }, { passive: true });

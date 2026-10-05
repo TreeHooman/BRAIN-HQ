@@ -499,8 +499,19 @@ label.f .wp-btn { width: 100%; }
 @keyframes briefReveal { from { -webkit-mask-position: 100% 0; mask-position: 100% 0; opacity: .3; transform: translateY(3px); } to { -webkit-mask-position: 0 0; mask-position: 0 0; opacity: 1; transform: none; } }
 .brief-s { line-height: 1.6; letter-spacing: .005em; } .brief-t { letter-spacing: -.005em; }
 .cine-lit { position: relative; z-index: 81; filter: brightness(1.12); transition: filter .5s; }
-/* ---- crisp text: Command side panels sit flat (3D tilt made text soft); hover tilt off on text panels ---- */
-@media (min-width: 1100px) { [data-theme="hud"] .nv-desk .nv-l, [data-theme="hud"] .nv-desk .nv-r, [data-theme="hud"] .nv-desk .nv-l:hover, [data-theme="hud"] .nv-desk .nv-r:hover { transform: none !important; } }
+/* ---- immersive desk: side screens curl in around the orb (gentle angle keeps text sharp), follow the mouse a little,
+   and straighten when you point at them. Holo glare + edge light sell the "screen" look. ---- */
+@media (min-width: 1100px) and (prefers-reduced-motion: no-preference) {
+  [data-theme="hud"] .nv-desk { perspective: 1400px; perspective-origin: 50% 45%; }
+  [data-theme="hud"] .nv-desk .nv-l, [data-theme="hud"] .nv-desk .nv-r { transform-style: flat; backface-visibility: hidden; transition: transform .9s cubic-bezier(.2, .8, .2, 1); }
+  [data-theme="hud"] .nv-desk .nv-l { transform-origin: 100% 50%; transform: rotateY(calc(13deg + var(--dx, 0) * 3deg)) rotateX(calc(var(--dy, 0) * -1.5deg)); }
+  [data-theme="hud"] .nv-desk .nv-r { transform-origin: 0% 50%; transform: rotateY(calc(-13deg + var(--dx, 0) * 3deg)) rotateX(calc(var(--dy, 0) * -1.5deg)); }
+  [data-theme="hud"] .nv-desk .nv-l:hover, [data-theme="hud"] .nv-desk .nv-r:hover, [data-theme="hud"] .nv-desk .nv-l:focus-within, [data-theme="hud"] .nv-desk .nv-r:focus-within { transform: rotateY(0deg); }
+  [data-theme="hud"] .nv-desk .nv-l .nv-panel { box-shadow: inset -1px 0 0 rgba(120, 220, 255, .35), -18px 0 40px -30px rgba(0, 200, 255, .5); }
+  [data-theme="hud"] .nv-desk .nv-r .nv-panel { box-shadow: inset 1px 0 0 rgba(120, 220, 255, .35), 18px 0 40px -30px rgba(0, 200, 255, .5); }
+  [data-theme="hud"] .nv-desk .nv-panel::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 0;
+    background: linear-gradient(115deg, rgba(255,255,255,.06), transparent 28%, transparent 70%, rgba(120,220,255,.05)), repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px); }
+}
 [data-theme="hud"] .nv-panel.n3d, [data-theme="hud"] .card.n3d, [data-theme="hud"] .lv-tile.n3d { transform: none !important; }
 body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 .nv-l, .nv-r { display: flex; flex-direction: column; gap: 14px; } .nv-l > .card, .nv-r > .card { margin: 0 !important; }
