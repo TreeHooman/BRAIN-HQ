@@ -277,7 +277,7 @@ const TIER_OPTS = () => [["fast", `Fast · ${cap(tierModel("fast"))}`], ["balanc
 
 // ---------------- command palette (Ctrl+K) ----------------
 const Pal = { items: [], shown: [], sel: 0, remote: [], timer: 0, q: "" };
-const VIEWS = [["command", "Command", "◎"], ["home", "Today", "▦"], ["assistant", "LUTHUR", "✦"], ["projects", "Projects", "▣"], ["planner", "Mission Planner", "⬡"], ["calendar", "Calendar", "▤"], ["roadmap", "Roadmap", "≡"], ["inbox", "Inbox", "⇩"], ["missions", "Missions", "➤"], ["settings", "Settings", "⚙"]];
+const VIEWS = [["command", "War Room", "◎"], ["home", "Today", "▦"], ["assistant", "LUTHUR", "✦"], ["projects", "Projects", "▣"], ["planner", "Mission Planner", "⬡"], ["calendar", "Calendar", "▤"], ["roadmap", "Roadmap", "≡"], ["inbox", "Inbox", "⇩"], ["missions", "Missions", "➤"], ["settings", "Settings", "⚙"]];
 function palBase() {
   const go = h => () => { location.hash = h; };
   const it = [];
@@ -610,7 +610,7 @@ async function vCommand(el) {
   const name = S.settings.assistantName || "LUTHUR";
   const st = S.status;
   const health = st.auth === "needs-login" || !st.claudeBin ? ["red", "DEGRADED"] : st.pausedUntil && new Date(st.pausedUntil) > new Date() ? ["amber", "PAUSED"] : ["", "NOMINAL"];
-  el.innerHTML = `<div class="cmd-head"><div><h1 class="glitch">Command</h1><div class="sys">SYSTEMS <b class="${health[0]}">${health[1]}</b> · CLAUDE LINK <b class="${st.auth === "ok" ? "" : "amber"}">${st.auth === "ok" ? "ONLINE" : st.auth === "needs-login" ? "SIGN-IN NEEDED" : "STANDBY"}</b> · FOCUS <b>${esc(activeProject() ? projName(activeProject()).toUpperCase() : "ALL")}</b></div></div>
+  el.innerHTML = `<div class="cmd-head"><div><h1 class="glitch">War Room</h1><div class="sys">SYSTEMS <b class="${health[0]}">${health[1]}</b> · CLAUDE LINK <b class="${st.auth === "ok" ? "" : "amber"}">${st.auth === "ok" ? "ONLINE" : st.auth === "needs-login" ? "SIGN-IN NEEDED" : "STANDBY"}</b> · FOCUS <b>${esc(activeProject() ? projName(activeProject()).toUpperCase() : "ALL")}</b></div></div>
       <div class="row"><button class="btn sm" id="cmdPal" type="button">⌕ Search <kbd class="kbd">Ctrl K</kbd></button><button class="btn sm" id="cmdPower" type="button" title="Power-down sequence">Power down</button></div></div>
     <div class="cmd">
       <div class="cmd-col" id="cmdLeft"></div>

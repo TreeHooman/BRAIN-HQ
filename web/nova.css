@@ -135,12 +135,15 @@
   [data-theme="hud"] .assemble > *, [data-theme="hud"] .assemble .cols > * > *, [data-theme="hud"] .assemble .tiles > * {
     animation: novaIn .9s var(--ease) both; animation-delay: calc(var(--i, 0) * 55ms); }
   [data-theme="hud"] .view-in > * { animation: none; }
+  [data-theme="hud"] .assemble > .nv-desk, [data-theme="hud"] .assemble .nv-desk > * { animation-name: novaFade; }
 }
+/* translate/opacity only: animating transform or filter here flattened 3D panels (the War Room's curved side screens) and
+   they snapped back afterwards, which looked like a second bounce */
 @keyframes novaIn {
-  0% { opacity: 0; transform: perspective(1200px) translate3d(0, 26px, -120px) rotateX(10deg); filter: blur(10px) brightness(1.8); }
-  60% { filter: blur(0) brightness(1.15); }
-  100% { opacity: 1; transform: none; filter: none; }
+  0% { opacity: 0; translate: 0 22px; }
+  100% { opacity: 1; translate: 0 0; }
 }
+@keyframes novaFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes novaPop { 0% { opacity: 0; transform: translateY(18px) scale(.94); filter: blur(8px); } 100% { opacity: 1; transform: none; filter: none; } }
 @keyframes novaBreath { 0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(111, 242, 255, .6)); } 50% { transform: scale(1.08); filter: drop-shadow(0 0 16px rgba(111, 242, 255, .95)); } }
 /* page sweep: a thin light plane passes on view change */

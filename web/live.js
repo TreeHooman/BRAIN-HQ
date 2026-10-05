@@ -483,12 +483,20 @@ function voiceOnce(onInterim, onFinal, btn) {
   Wake.pause();
   listen((t, done) => done ? onFinal(t) : onInterim(t), on => { btn?.classList.toggle("live", on); if (!on) Wake.resume(); try { coreState(); } catch {} });
 }
+// Phones play a system beep every time speech recognition starts or stops, and their recognisers end after a few
+// seconds, so always-on listening would beep forever. On phones the hands-free button listens once per tap instead.
+const WAKE_PHONE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches);
 const Wake = {
   rec: null, on: false, paused: false, armed: 0, buf: "", t: 0, fails: 0,
   supported: () => !!SR,
-  init() { this.on = hstore.get("hq-wake", "0") === "1" && !!SR; this.btn(); if (this.on) this.start(); document.addEventListener("visibilitychange", () => { if (document.hidden) this.stop(true); else if (this.on) this.start(); }); },
+  init() { this.on = !WAKE_PHONE && hstore.get("hq-wake", "0") === "1" && !!SR; this.btn(); if (this.on) this.start(); document.addEventListener("visibilitychange", () => { if (document.hidden) this.stop(true); else if (this.on) this.start(); }); },
   toggle() {
     if (!SR) { toast("Hands-free needs Safari, Chrome or Edge."); return; }
+    if (WAKE_PHONE) { // one sentence per tap: no restart loop, so no repeated beeps
+      if (typeof listen !== "function") return;
+      return listen((t, done) => { if (done && t.trim()) { const m = t.match(/^\s*(?:hey|hi|ok|okay|yo)?\s*(?:jarvis|luthur|luther|luthor)\b[\s,.!?]*(.*)$/i); voiceCommand((m ? m[1] : t).trim() || t); } },
+        on => { document.querySelectorAll(".wake-btn").forEach(b => b.classList.toggle("on", on)); try { coreState(); if (on) corePing(); } catch {} });
+    }
     this.on = !this.on; hstore.set("hq-wake", this.on ? "1" : "0"); this.btn();
     if (this.on) { this.start(); toast(`Hands-free on. Say “Hey ${S.settings.assistantName || "LUTHUR"}” then what you need.`, 4500); } else { this.stop(true); toast("Hands-free off"); }
   },
@@ -496,7 +504,7 @@ const Wake = {
   pause() { this.paused = true; this.stop(true); },
   resume() { this.paused = false; if (this.on) setTimeout(() => this.start(), 400); },
   start() {
-    if (!SR || this.rec || this.paused || !this.on || document.hidden) return;
+    if (!SR || WAKE_PHONE || this.rec || this.paused || !this.on || document.hidden) return;
     const r = new SR(); this.rec = r;
     r.lang = "en-US"; r.continuous = true; r.interimResults = true;
     r.onresult = e => {
@@ -691,7 +699,7 @@ function liveChrome() {
     const t = document.createElement("nav"); t.id = "tabbar"; t.className = "tabbar"; t.setAttribute("aria-label", "Main");
     const ico = { code: `<path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/>`, tasks: `<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>`, home: `<rect x="3.5" y="4.5" width="17" height="16" rx="2.5"/><path d="M3.5 9.5h17M8 2.5v4M16 2.5v4"/>`, menu: `<path d="M4 7h16M4 12h16M4 17h16"/>` };
     const a = (v, l) => `<a href="#${v}" data-tab="${v}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${ico[v]}</svg><span>${l}</span></a>`;
-    t.innerHTML = `${a("code", "Code")}${a("tasks", "Tasks")}<a href="#command" data-tab="command" class="tab-core"><i></i><span>Command</span></a>${a("home", "Today")}<button type="button" data-tab="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${ico.menu}</svg><span>More</span></button>`;
+    t.innerHTML = `${a("code", "Code")}${a("tasks", "Tasks")}<a href="#command" data-tab="command" class="tab-core"><i></i><span>War Room</span></a>${a("home", "Today")}<button type="button" data-tab="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${ico.menu}</svg><span>More</span></button>`;
     document.body.appendChild(t);
     t.querySelector('[data-tab="menu"]').onclick = () => sideSet(!document.body.classList.contains("side-open"));
     // any other tab closes the menu (even when it's the page you're already on)

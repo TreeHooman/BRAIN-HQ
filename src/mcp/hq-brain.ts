@@ -9,6 +9,7 @@ import { DATA, DROP, uid, writeJson } from "../lib/store.ts";
 import * as brain from "../lib/brain.ts";
 import * as cal from "../lib/calendar.ts";
 import * as google from "../lib/google.ts";
+import * as today from "../lib/today.ts";
 import { validate as validateOut } from "../lib/outbox.ts";
 
 const LEVEL = process.env.HQ_LEVEL || "plan";
@@ -46,7 +47,7 @@ const tools: Tool[] = [
     inputSchema: S({ query: str("words in the file name"), kind: { type: "string", enum: ["", "docs", "sheets", "slides", "pdfs", "forms"], description: "optional type" } }, ["query"]),
     run: async a => { const r = await google.driveList("all", { search: String(a.query || "").slice(0, 120), kind: a.kind || "" });
       return r.items.length ? r.items.slice(0, 15).map((f: any) => `${f.acct}/${f.id} · ${String(f.mime).split(".").pop()} · ${f.name}`).join("\n") : (r.errors[0]?.error || "No files found."); } },
-  { name: "show_on_screen", description: "Open something on the owner's Command screen: a website, an email, a Drive file, a web search, a project or their calendar. Set read_aloud to have the dashboard read it out (emails, docs), or summarize for a spoken summary. Use this whenever the owner asks to see, open, pull up, read or go over something.",
+  { name: "show_on_screen", description: "Open something on the owner's War Room screen: a website, an email, a Drive file, a web search, a project or their calendar. Set read_aloud to have the dashboard read it out (emails, docs), or summarize for a spoken summary. Use this whenever the owner asks to see, open, pull up, read or go over something.",
     inputSchema: S({ kind: { type: "string", enum: ["url", "email", "file", "search", "project", "calendar", "inbox"] }, url: str("for url"), ref: str("for email/file: the acct/id from the search tool"), query: str("for search/inbox"), slug: str("for project"),
       read_aloud: { type: "boolean" }, summarize: { type: "boolean" } }, ["kind"]),
     run: a => {
@@ -55,6 +56,17 @@ const tools: Tool[] = [
       if (a.kind === "url" && !/^https?:\/\/\S+$/i.test(String(a.url || ""))) throw new Error("url must start with http(s)://");
       drop("screen", { kind: a.kind, url: a.url ? String(a.url).slice(0, 2000) : undefined, acct, id, query: a.query ? String(a.query).slice(0, 200) : undefined, slug: a.slug, read_aloud: a.read_aloud === true, summarize: a.summarize === true });
       return `On the owner's screen${a.read_aloud ? "; the dashboard is reading it out" : a.summarize ? "; the dashboard will summarise it aloud" : ""}. Don't repeat its content.`;
+    } },
+  { name: "today_list", description: "The owner's goals for today (the Today page): id, title, project, minutes, done. Check it when they ask what's next or say they finished something.",
+    inputSchema: S({}),
+    run: () => { const p = today.get(); return p.items.length ? `${p.date}${p.note ? " · " + p.note : ""}\n` + p.items.map(i => `${i.done ? "[x]" : "[ ]"} ${i.id} · ${i.title}${i.project ? ` (${i.project})` : ""} · ${i.mins || 30}m${i.why ? " · " + i.why : ""}`).join("\n") : "Nothing planned for today yet. The owner can press Plan my day on the Today page, or you can add goals with today_update."; } },
+  { name: "today_update", write: true, description: "Change today's goals: add one (small, finishable today; link goalId+stepId when it's a goal step), mark done/undo (done ticks the linked goal step, logs it, moves the project's next step on and adds the next step to today), or remove.",
+    inputSchema: S({ action: { type: "string", enum: ["add", "done", "undo", "remove"] }, id: str("item id for done/undo/remove"), title: str("for add"), project: str("optional project slug"), goalId: str("optional"), stepId: str("optional"), mins: { type: "number", description: "estimate in minutes" } }, ["action"]),
+    run: a => {
+      if (a.action === "add") { const i = today.add({ title: a.title, project: a.project, goalId: a.goalId, stepId: a.stepId, mins: a.mins }, "luthur"); return `Added to today: ${i.title} (${i.id}).`; }
+      if (!/^[\w-]{1,40}$/.test(a.id || "")) return "Give the item id from today_list.";
+      if (a.action === "remove") { today.remove(a.id); return "Removed from today."; }
+      const r = today.setDone(a.id, a.action === "done", "luthur"); return `${a.action === "done" ? "Done" : "Reopened"}: ${r.item.title}.${r.changed.length ? " Also: " + r.changed.join(", ") + "." : ""}`;
     } },
   { name: "hq_check", description: "Health check of HQ and the brain: Claude sign-in, running/failed missions, approvals waiting, HQ software update, Google/calendar connections, plus stale projects, missing next steps, overdue reminders and missed dates. Pass project to check one project. Use for 'do a check', 'status', 'what's broken'.",
     inputSchema: S({ project: str("optional project slug") }),

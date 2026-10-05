@@ -183,12 +183,12 @@ function scrPaint() {
   const v = Scr.cur, open = scrOpenUrl();
   box.classList.toggle("on", !!v);
   box.innerHTML = `<div class="scr-bar"><span class="scr-tag">SCREEN</span>
-      <button type="button" class="icon-btn" id="scrBack" ${Scr.stack.length ? "" : "disabled"} aria-label="Back">←</button>
+      ${v ? `<button type="button" class="btn sm scr-nav" id="scrBack" aria-label="Back">← Back</button><button type="button" class="btn sm ghost scr-nav" id="scrX" aria-label="Home" title="Home: all tiles">⌂</button>` : ""}
       <form id="scrF" class="scr-go" autocomplete="off"><input id="scrQ" placeholder="${v ? esc(scrTitle(v)) : "Search, or type a site, project, email, file…"}" aria-label="What to pull up"></form>
       ${v ? `<button type="button" class="btn sm" id="scrBrief" title="Turn this into a quest briefing">⚔ Brief me</button>` : ""}
       ${v?.k === "page" && !v.reader ? `<button type="button" class="icon-btn" id="scrFwd" aria-label="Forward">→</button><button type="button" class="icon-btn" id="scrReload" aria-label="Reload">↻</button><button type="button" class="btn sm ghost" id="scrReader" title="Plain text version">Reader</button>` : ""}
       ${open ? `<a class="btn sm ghost" href="${esc(open)}" ${open.startsWith("#") ? "" : 'target="_blank" rel="noopener"'}>${open.startsWith("#") ? "Open" : "Open in Chrome ↗"}</a>` : ""}
-      ${v ? `<button type="button" class="icon-btn" id="scrX" aria-label="Home" title="Home">⌂</button>` : ""}</div>
+      </div>
     ${scrQuest()}<div class="scr-body">${scrBody()}</div>`;
   // the bar also takes commands: "update next step to X", "check this", "mark it done" go to LUTHUR about what's on screen
   box.querySelector("#scrF").onsubmit = e => { e.preventDefault(); const q = box.querySelector("#scrQ"), t = q.value.trim(); if (!t) return;
@@ -201,8 +201,7 @@ function scrPaint() {
     const note = prompt(`Log note for ${p.name}`); if (!note?.trim()) return;
     try { await api(`/project/${p.slug}/log`, "POST", { text: note.trim() }); hudNotify("Logged to " + p.name); scrGo(v, false); } catch (e) { hudNotify("⚠ " + e.message); }
   });
-  box.querySelector("#scrBack").disabled = !(Scr.stack.length || (v?.k === "page" && !v.reader));
-  box.querySelector("#scrBack").onclick = () => { if (v?.k === "page" && !v.reader) return api("/browser/input", "POST", { type: "back" }).catch(() => {}); const p = Scr.stack.pop(); if (p) scrGo(p, false); };
+  const bk = box.querySelector("#scrBack"); if (bk) bk.onclick = () => { const p = Scr.stack.pop(); if (p) scrGo(p, false); else { Scr.cur = null; Scr.quest = null; scrPaint(); } }; // nothing earlier → the tiles
   const fw = box.querySelector("#scrFwd"); if (fw) fw.onclick = () => api("/browser/input", "POST", { type: "forward" }).catch(() => {});
   const rl = box.querySelector("#scrReload"); if (rl) rl.onclick = () => api("/browser/input", "POST", { type: "reload" }).catch(() => {});
   const rd = box.querySelector("#scrReader"); if (rd) rd.onclick = () => scrGo({ k: "page", url: Scr.data?.url || v.url, reader: true });

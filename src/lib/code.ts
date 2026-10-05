@@ -242,3 +242,70 @@ export function importSession(slug: string, sid: string, name?: string) {
   save(id, s);
   return { id };
 }
+
+// ---------------- Claude Code sessions run outside HQ ----------------
+// The owner also works in Claude Code directly (terminal, desktop app) inside a project's folders. Those transcripts are
+// read here once a minute; each finished turn goes to brain-sync, so LUTHUR records what was done, moves the next step on
+// and ticks Today's goals. Only text, edited file names and line counts are passed on (as data). History isn't replayed:
+// the first scan only notes where each file ends.
+const WATCH = path.join(DATA, "session-watch.json");
+let watchT: ReturnType<typeof setInterval> | null = null;
+export function watchStart() {
+  if (watchT || process.env.HQ_NO_WATCH) return;
+  const tick = () => { try { watchScan(); } catch {} };
+  watchT = setInterval(tick, 60e3); watchT.unref?.(); setTimeout(tick, 15e3).unref?.();
+}
+function readFrom(file: string, from: number, max: number): Buffer {
+  let fd: number | null = null;
+  try { fd = fs.openSync(file, "r"); const buf = Buffer.alloc(max); const n = fs.readSync(fd, buf, 0, max, from); return buf.subarray(0, n); }
+  catch { return Buffer.alloc(0); } finally { if (fd !== null) try { fs.closeSync(fd); } catch {} }
+}
+type WTurn = { ask: string; reply: string; files: string[]; added: number; removed: number; at: string };
+function turnsOf(rows: any[]): WTurn[] {
+  const out: WTurn[] = []; let t: WTurn | null = null;
+  const nl = (s: unknown) => typeof s === "string" && s ? s.split("\n").length : 0;
+  for (const r of rows) {
+    if (r?.isSidechain) continue;
+    const c = r?.message?.content;
+    if (r.type === "user") {
+      const isResult = Array.isArray(c) && c.some((x: any) => x?.type === "tool_result");
+      const txt = textOf(r);
+      if (!isResult && human(txt)) { t = { ask: txt.slice(0, 2000), reply: "", files: [], added: 0, removed: 0, at: String(r.timestamp || new Date().toISOString()) }; out.push(t); }
+      continue;
+    }
+    if (r.type !== "assistant" || !Array.isArray(c)) continue;
+    if (!t) { t = { ask: "", reply: "", files: [], added: 0, removed: 0, at: String(r.timestamp || new Date().toISOString()) }; out.push(t); }
+    for (const b of c) {
+      if (b?.type === "text" && b.text) t.reply = (t.reply + "\n" + b.text).slice(-4000);
+      if (b?.type === "tool_use" && /^(Edit|MultiEdit|Write|NotebookEdit)$/.test(b.name)) {
+        const i = b.input || {}, f = String(i.file_path || i.notebook_path || "");
+        if (f && !t.files.includes(f) && t.files.length < 30) t.files.push(path.basename(f));
+        if (b.name === "Write") t.added += nl(i.content);
+        else for (const e of b.name === "MultiEdit" ? (i.edits || []) : [i]) { t.added += nl(e?.new_string); t.removed += nl(e?.old_string); }
+      }
+    }
+  }
+  return out.filter(x => x.reply || x.files.length);
+}
+function watchScan() {
+  const st = readJson<{ off: Record<string, number>; init?: boolean }>(WATCH, { off: {} });
+  const first = !st.init, now = Date.now();
+  const mine = new Set(keys().map(k => readJson<Session | null>(path.join(DIR, `${k}.json`), null)?.sessionId).filter(Boolean)); // HQ's own Code sessions sync themselves
+  for (const p of brain.listProjects()) {
+    if (!p.paths?.length || p.stage === "done") continue;
+    let files: ReturnType<typeof sessionFiles> = []; try { files = sessionFiles(p.slug); } catch { continue; }
+    for (const f of files.slice(0, 20)) {
+      const was = st.off[f.id];
+      if (first || (was === undefined && now - f.mtime > 6 * 3600e3) || mine.has(f.id)) { st.off[f.id] = f.size; continue; }
+      const from = was ?? 0;
+      if (f.size <= from || now - f.mtime < 45e3) continue; // nothing new, or Claude is still mid-turn
+      const buf = readFrom(f.file, from, Math.min(f.size - from, 4e6)), cut = buf.lastIndexOf(10);
+      if (cut < 0) continue;
+      st.off[f.id] = from + cut + 1;
+      for (const t of turnsOf(lines(buf.subarray(0, cut + 1).toString("utf8")))) brainSync.afterTurn("ext-" + f.id, p.slug, t);
+    }
+  }
+  st.init = true;
+  const ids = Object.keys(st.off); if (ids.length > 500) for (const k of ids.slice(0, ids.length - 500)) delete st.off[k];
+  writeJson(WATCH, st);
+}
