@@ -134,7 +134,7 @@ function coreDraw(now) {
   const el = Core.el, busy = el.classList.contains("busy") ? 1 : 0, lis = el.classList.contains("listening") ? 1 : 0;
   const speaking = !!window.speechSynthesis?.speaking;
   // mic follows the listening state
-  Mic.want = !!lis; if (lis && !Mic.stream) micOn(); else if (!lis && Mic.stream) micOff();
+  Mic.want = !!lis; if (lis && !Mic.stream && !matchMedia("(pointer: coarse)").matches) micOn(); else if (!lis && Mic.stream) micOff();
   Core.b = lerp(Core.b, busy, .05); NV.listen = lerp(NV.listen, lis, .08); NV.pulse = Math.max(0, NV.pulse - dt * .9);
   Core.spk = lerp(Core.spk, speaking ? 1 : 0, .08);
   // target amplitude per state

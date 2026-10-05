@@ -859,5 +859,6 @@ function hudChrome() {
   opsTick();
   RM.addEventListener?.("change", () => { bgStart(); });
   let booted = false; try { booted = sessionStorage.getItem("hq-booted") === "1"; sessionStorage.setItem("hq-booted", "1"); } catch {}
-  if (isHud() && !booted && !reduced()) setTimeout(() => hudBoot(false), 0);
+  // wait for every script (live.js replaces hudBoot with the eye sequence)
+  if (isHud() && !booted && !reduced()) window.addEventListener("DOMContentLoaded", () => hudBoot(false));
 })();

@@ -57,12 +57,18 @@ export type RunOptions = {
   system?: string; runId?: string; onSpawn?: (pid: number) => void; onStep?: (s: Step) => void;
   /** Outbox executor: no built-in tools, no hq-brain, no agent rules; only these MCP tool prefixes (account connectors). */
   act?: { allow: string[] };
+  /** Thinking effort (Claude Code --effort). Omitted = the model default. */
+  effort?: string | null;
 };
 export type RunResult = {
   ok: boolean; text: string; sessionId: string | null; durationMs: number;
   kind: "ok" | "error" | "limit" | "auth" | "timeout" | "missing";
   resetAt?: number | null; turns?: number;
 };
+
+export const EFFORTS = ["low", "medium", "high"];
+/** Only known levels, and not for Haiku (it has no effort setting). */
+export function effortArg(e: unknown, model: string): string | null { return typeof e === "string" && EFFORTS.includes(e) && !/haiku/i.test(model) ? e : null; }
 
 export function buildArgs(o: RunOptions): string[] {
   const perms = loadPermissions();
@@ -88,6 +94,7 @@ export function buildArgs(o: RunOptions): string[] {
     "--append-system-prompt", [agentRules(), o.system || ""].join("\n\n"),
   ];
   if (o.fallbackModel && o.fallbackModel !== o.model) args.push("--fallback-model", o.fallbackModel);
+  const eff = effortArg(o.effort, o.model); if (eff) args.push("--effort", eff);
   if (lv.permissionMode) args.push("--permission-mode", lv.permissionMode);
   for (const d of o.addDirs || []) if (fs.existsSync(d)) args.push("--add-dir", d);
   if (o.resume) args.push("--resume", o.resume);

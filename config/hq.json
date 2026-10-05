@@ -51,5 +51,16 @@
     "tier": "balanced",
     "permission": "plan",
     "maxMinutes": 6
+  },
+
+  "tasks": {
+    "maxParallel": 3,
+    "comment": "How many delegated tasks / sub-agents (and manual runs) may run at once. Scheduled missions use one extra lane. Two runs never work on the same project at the same time."
+  },
+
+  "code": {
+    "maxParallel": 4,
+    "maxMinutes": 20,
+    "comment": "Code screen: how many sessions may run at once, and the time limit per message."
   }
 }

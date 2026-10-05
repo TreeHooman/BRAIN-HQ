@@ -4,7 +4,8 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 let S = null;            // latest /api/state snapshot
-let route = { view: "command", arg: null };
+let route = { view: "code", arg: null };
+const homeView = () => matchMedia("(max-width: 760px)").matches ? "assistant" : "code";
 let calMonth = null;     // Date for the calendar view
 let calFeed = { key: "", events: [], at: 0 }; // calendar-feed events for the shown month
 let projTab = "summary";
@@ -111,7 +112,7 @@ function renderChrome() {
   const pills = [];
   if (st.auth === "needs-login" || !st.claudeBin) pills.push(`<a class="pill red" href="#settings">Claude not signed in</a>`);
   if (st.pausedUntil && new Date(st.pausedUntil) > new Date()) pills.push(`<a class="pill amber" href="#missions">Paused until ${fmtWhen(st.pausedUntil)}</a>`);
-  if (st.running) pills.push(`<a class="pill blue" href="#missions"><span class="dot pulse" style="background:var(--blue)"></span> ${esc(st.running.title)}</a>`);
+  if (st.running) pills.push(`<a class="pill blue" href="#tasks"><span class="dot pulse" style="background:var(--blue)"></span> ${(st.active || []).length > 1 ? `${st.active.length} agents working` : esc(st.running.title)}</a>`);
   if (st.chatBusy) pills.push(`<a class="pill blue" href="#assistant">Assistant thinking…</a>`);
   if (st.queued) pills.push(`<a class="pill" href="#missions">${st.queued} queued</a>`);
   if (st.pendingApprovals) pills.push(`<a class="pill amber" href="#missions">${st.pendingApprovals} need your OK</a>`);
@@ -128,13 +129,13 @@ function renderChrome() {
 
 // ---------------- router ----------------
 function parseHash() {
-  const [view, ...rest] = (location.hash.slice(1) || "command").split("/");
+  const [view, ...rest] = (location.hash.slice(1) || homeView()).split("/");
   route = { view, arg: rest.length ? decodeURIComponent(rest.join("/")) : null };
 }
 function render() {
   if (!S) return;
   $$("#nav a").forEach(a => a.classList.toggle("on", a.dataset.view === (route.view === "project" ? "projects" : route.view)));
-  const views = { command: vCommand, planner: vPlanner, home: vHome, projects: vProjects, project: vProject, calendar: vCalendar, roadmap: vRoadmap, inbox: vInbox, assistant: vAssistant, missions: vMissions, settings: vSettings, code: vCode, outbox: vOutbox };
+  const views = { command: vCommand, planner: vPlanner, home: vHome, projects: vProjects, project: vProject, calendar: vCalendar, roadmap: vRoadmap, inbox: vInbox, assistant: vAssistant, missions: vMissions, settings: vSettings, code: vCode, outbox: vOutbox, tasks: vTasks };
   const fn = views[route.view] || vCommand;
   // Don't clobber a field the user is typing in during background refreshes.
   const active = document.activeElement;
@@ -708,5 +709,5 @@ window.addEventListener("DOMContentLoaded", async () => {
   parseHash();
   await refresh();
   render();
-  setInterval(async () => { if (HUD.asleep) return; await refresh(); render.background = true; if (!["assistant", "project", "command", "planner", "code"].includes(route.view) || route.view === "project" && editing === null && projTab === "work") render(); render.background = false; }, 6000);
+  setInterval(async () => { if (HUD.asleep) return; await refresh(); render.background = true; if (!["assistant", "project", "command", "planner", "code", "tasks"].includes(route.view) || route.view === "project" && editing === null && projTab === "work") render(); render.background = false; }, 6000);
 });

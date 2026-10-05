@@ -1,6 +1,6 @@
 # HQ index
 
-_Auto-generated 2026-10-05 01:36. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-05 11:10. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
@@ -30,6 +30,6 @@ _Auto-generated 2026-10-05 01:36. Don't edit; change project.json files instead.
 - 2027-01-12 Unregistered Reddit apps lose access (we're registered) [reddit]
 
 ## Goals (Mission Planner)
-- none
+- Survive the Reddit API shutdown [loancentral]: 0/7 steps, due 2027-03-31
 
 Per project: brain/projects/<slug>/SUMMARY.md (short) → plan.md → log.md. Decisions: brain/decisions.md.

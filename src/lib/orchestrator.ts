@@ -25,6 +25,7 @@ export type Run = {
   output?: string; error?: string; model?: string; durationMs?: number; maxMinutes?: number;
   extraAllow?: string[]; parentRun?: string | null; depth: number; followups?: number;
   watch?: string[]; skipIfUnchanged?: boolean;
+  taskId?: string | null; reply?: boolean; reportedAt?: string; effort?: string | null;
 };
 export type Approval = {
   id: string; createdAt: string; title: string; detail: string; project?: string | null;
@@ -115,7 +116,9 @@ export function enqueue(spec: Partial<Run> & { title: string; prompt: string }, 
     tier: spec.tier || "balanced", permission: spec.permission || "plan", trigger, priority: spec.priority ?? 2,
     status: "queued", createdAt: new Date().toISOString(), maxMinutes: spec.maxMinutes, extraAllow: spec.extraAllow,
     parentRun: spec.parentRun ?? null, depth: spec.depth ?? 0, watch: spec.watch, skipIfUnchanged: spec.skipIfUnchanged,
+    taskId: spec.taskId ?? null, reply: spec.reply, sessionId: spec.sessionId ?? null, effort: spec.effort ?? null,
   };
+  if (r.taskId === "self") r.taskId = r.id;
   saveRun(r);
   activity("queued", { run: r.id, title: r.title, trigger });
   kick();
@@ -132,7 +135,8 @@ function fromMission(m: Mission): Partial<Run> & { title: string; prompt: string
 export function cancelRun(id: string) {
   const r = runCache.get(id);
   if (!r) return;
-  if (r.status === "running" && current?.run.id === id) { killTree(current.pid); current.cancelled = true; return; }
+  const a = active.get(id);
+  if (r.status === "running" && a) { killTree(a.pid); a.cancelled = true; return; }
   if (r.status === "queued" || r.status === "paused") { r.status = "cancelled"; r.endedAt = new Date().toISOString(); saveRun(r); }
 }
 
@@ -151,14 +155,18 @@ export function decideApproval(id: string, approve: boolean): Approval {
 }
 
 // ---------------- status ----------------
-let current: { run: Run; pid?: number; cancelled?: boolean } | null = null;
+type Slot = { run: Run; pid?: number; cancelled?: boolean };
+const active = new Map<string, Slot>();
+const ownerRun = (r: Run) => !!r.taskId || r.trigger === "manual" || r.trigger === "approval";
+const maxTasks = () => Math.max(1, Math.min(6, Number(loadConfig().tasks?.maxParallel) || 3));
 let chatBusy = false;
 export function status() {
   const s = state(); const b = budget();
   const queued = [...runCache.values()].filter(r => r.status === "queued").length;
   return {
     pausedUntil: s.pausedUntil, pauseReason: s.pauseReason, auth: s.auth, claudeBin: findClaude(),
-    running: current ? { id: current.run.id, title: current.run.title, startedAt: current.run.startedAt } : null,
+    running: (r => r ? { id: r.id, title: r.title, startedAt: r.startedAt } : null)([...active.values()][0]?.run),
+    active: [...active.values()].map(({ run: r }) => ({ id: r.id, title: r.title, startedAt: r.startedAt, taskId: r.taskId || null, project: r.project })), maxParallel: maxTasks() + 1,
     chatBusy, queued, today: s.day.date === localDate() ? s.day.runs : 0, maxRunsPerDay: b.maxRunsPerDay, budget: b.preset,
     pendingApprovals: approvals().filter(a => a.status === "pending").length,
   };
@@ -167,6 +175,7 @@ export function status() {
 // ---------------- live operations (in memory, for the dashboard's ops feed) ----------------
 export type Op = {
   id: string; kind: "chat" | "mission" | "code"; title: string; project?: string | null; model: string; level?: string;
+  agent?: string; task?: string | null; parent?: string | null;
   startedAt: number; endedAt?: number; status: "running" | "done" | "failed";
   steps: Step[]; calls: number; added: number; removed: number;
 };
@@ -217,7 +226,7 @@ async function tick() {
     scheduleMissions();
     resumeIfReady();
     manageAwake();
-    if (!current) await runNext();
+    runNext();
   } catch (e) {
     activity("error", { where: "tick", error: String(e) });
   } finally { ticking = false; }
@@ -241,7 +250,10 @@ function ingestDrop() {
       // A follow-up never gets more permission than the run that created it. The chat is the owner
       // speaking directly, so its follow-ups may go up to the autonomy ceiling.
       const ceiling = parent?.level || (String(d.fromRun || "").startsWith("chat-") ? (loadConfig().autonomy?.maxLevel || "build") : "plan");
-      enqueue({ title: d.title, prompt: d.prompt, project: d.project, tier: d.tier || "balanced", permission: minLevel(d.permission || "plan", ceiling), parentRun: d.fromRun, depth, priority: 2 }, "followup");
+      const fromChat = String(d.fromRun || "").startsWith("chat-");
+      // From the chat, delegated work becomes a Task (reports back); from a task, it's a sub-agent of that task.
+      enqueue({ title: d.title, prompt: d.prompt, project: d.project, tier: d.tier || "balanced", permission: minLevel(d.permission || "plan", ceiling), parentRun: fromChat ? null : d.fromRun, depth: fromChat ? 0 : depth,
+        priority: fromChat || parent?.taskId ? 1 : 2, taskId: fromChat ? "self" : parent?.taskId || null, effort: parent?.effort || null }, fromChat ? "task" : "followup");
     } else if (d.type === "approval") {
       const all = approvals();
       all.unshift({ id: uid("ap"), createdAt: new Date().toISOString(), title: d.title, detail: d.detail || "", project: d.project, fromRun: d.fromRun, status: "pending", proposed: d.proposed || null });
@@ -304,7 +316,9 @@ function resumeIfReady() {
   if (n) notify({ title: "HQ resumed", body: `Usage reset. Continuing ${n} paused mission${n > 1 ? "s" : ""}.`, priority: 2, phone: false });
 }
 
-async function runNext() {
+/** Starts queued runs while slots are free: one background lane, plus up to tasks.maxParallel owner runs
+ *  (tasks, manual runs, approvals). Two runs never work on the same project at once. */
+function runNext() {
   const s = state();
   if (s.pausedUntil && new Date(s.pausedUntil) > new Date()) return;
   // After a sign-in problem, retry at most every 30 minutes.
@@ -313,17 +327,24 @@ async function runNext() {
   if (!queue.length) return;
   const b = budget();
   const today = localDate();
-  const used = s.day.date === today ? s.day.runs : 0;
-  const run = queue.find(r => r.trigger === "manual" || r.trigger === "approval") || (used < b.maxRunsPerDay ? queue[0] : undefined);
-  if (!run) {
-    if (s.notified.cap !== today) {
-      patchState(x => { x.notified.cap = today; });
-      notify({ title: "HQ daily budget reached", body: `${queue.length} mission(s) wait until tomorrow. Raise the budget in Settings if you want more.`, priority: 2, phone: false });
-    }
-    return;
+  let capped = 0;
+  for (const run of queue) {
+    const running = [...active.values()].map(x => x.run);
+    if (run.project && running.some(r => r.project === run.project)) continue;
+    const owner = ownerRun(run);
+    if (owner ? running.filter(ownerRun).length >= maxTasks() : running.some(r => !ownerRun(r))) continue;
+    const st = state();
+    if (!owner && (st.day.date === today ? st.day.runs : 0) >= b.maxRunsPerDay) { capped++; continue; }
+    void execute(run).catch(e => {
+      activity("error", { where: "execute", run: run.id, error: String(e) });
+      Object.assign(run, { status: "failed", endedAt: new Date().toISOString(), error: String(e) }); saveRun(run); opEnd(run.id, false);
+      if (run.taskId) taskCheck(run);
+    }).finally(kick);
   }
-  await execute(run);
-  kick();
+  if (capped && s.notified.cap !== today) {
+    patchState(x => { x.notified.cap = today; });
+    notify({ title: "HQ daily budget reached", body: `${capped} mission(s) wait until tomorrow. Raise the budget in Settings if you want more.`, priority: 2, phone: false });
+  }
 }
 
 function missionPrompt(run: Run, level: Level, minutes: number): string {
@@ -339,8 +360,15 @@ function missionPrompt(run: Run, level: Level, minutes: number): string {
     "## Task",
     run.prompt.trim(),
     "",
+    ...(run.taskId ? [
+      "## This is a delegated task",
+      "The owner gave you this task from HQ's Tasks screen and is watching it live. Before each group of actions, say in one short line what you're doing and why.",
+      run.depth ? `You are a sub-agent of task ${run.taskId}. Do only your part.` : "If it splits into independent parts, hand each one to a sub-agent with queue_followup (they run in parallel and report into this task). Do the rest yourself.",
+      "",
+    ] : []),
     "## Finish",
-    "Patch the brain if facts changed (project_update / project_log / decision_log / reminder_add). End with a 3-6 line summary.",
+    "Patch the brain if facts changed (project_update / project_log / decision_log / reminder_add).",
+    run.taskId ? "End with a short report for the owner: **Result** (1-2 lines), **What I did** (bullets), **Needs you** (approvals, outbox drafts, decisions; or \"Nothing\")." : "End with a 3-6 line summary.",
   ].join("\n");
 }
 
@@ -362,23 +390,28 @@ async function execute(run: Run) {
 
   const { model, fallback } = modelFor(run.tier);
   const resuming = !!run.sessionId;
+  const reply = run.reply && !run.startedAt;
   Object.assign(run, { status: "running", startedAt: new Date().toISOString(), level, model });
   saveRun(run);
-  current = { run };
+  const slot: Slot = { run };
+  active.set(run.id, slot);
   activity("started", { run: run.id, title: run.title, model, level });
   setAwake(true);
-  patchState(s => { const t = localDate(); if (s.day.date !== t) s.day = { date: t, runs: 0 }; if (!resuming) s.day.runs++; });
+  patchState(s => { const t = localDate(); if (s.day.date !== t) s.day = { date: t, runs: 0 }; if (!resuming || reply) s.day.runs++; });
 
-  const onStep = opStart({ id: run.id, kind: "mission", title: run.title, project: run.project, model, level });
-  const res: RunResult = await runClaude({
-    prompt: resuming ? "Continue the mission where you left off (you were paused by a usage limit or restart). Then finish as instructed." : missionPrompt(run, level, minutes),
-    model, fallbackModel: fallback, level, runId: run.id, resume: run.sessionId || null,
+  const onStep = opStart({ id: run.id, kind: "mission", title: run.title, project: run.project, model, level, task: run.taskId || null, parent: run.parentRun || null });
+  let res: RunResult;
+  try {
+  res = await runClaude({
+    prompt: reply ? `The owner replied on this task:\n\n${run.prompt.trim()}\n\nAct on it within your permission (${level}), then end with the same short report format.`
+      : resuming ? "Continue the mission where you left off (you were paused by a usage limit or restart). Then finish as instructed." : missionPrompt(run, level, minutes),
+    model, fallbackModel: fallback, effort: run.effort, level, runId: run.id, resume: run.sessionId || null,
     addDirs: level === "build" || level === "read" || level === "plan" ? (proj?.paths || []) : [],
     extraAllow: run.extraAllow, timeoutMs: minutes * 60e3,
-    onSpawn: pid => { if (current) current.pid = pid; }, onStep,
+    onSpawn: pid => { slot.pid = pid; }, onStep,
   });
-  const cancelled = current?.cancelled;
-  current = null;
+  } finally { active.delete(run.id); }
+  const cancelled = slot.cancelled;
   opEnd(run.id, res.ok && !cancelled);
   handleResult(run, res, !!cancelled);
 }
@@ -387,7 +420,7 @@ function handleResult(run: Run, res: RunResult, cancelled: boolean) {
   run.sessionId = res.sessionId || run.sessionId;
   run.durationMs = (run.durationMs || 0) + res.durationMs;
   const now = new Date().toISOString();
-  if (cancelled) { Object.assign(run, { status: "cancelled", endedAt: now, output: res.text }); saveRun(run); activity("cancelled", { run: run.id }); return; }
+  if (cancelled) { Object.assign(run, { status: "cancelled", endedAt: now, output: res.text }); saveRun(run); activity("cancelled", { run: run.id }); taskCheck(run); return; }
   if (res.kind === "limit") {
     const cfg = loadConfig();
     const until = new Date(res.resetAt || Date.now() + (cfg.usageLimit?.fallbackPauseMinutes || 60) * 60e3);
@@ -420,7 +453,61 @@ function handleResult(run: Run, res: RunResult, cancelled: boolean) {
   pruneRuns();
   activity(run.status, { run: run.id, title: run.title, minutes: Math.round((run.durationMs || 0) / 6e4) });
   const body = (run.output || run.error || "").replace(/[#*_`]/g, "").trim().slice(0, 300);
+  if (run.taskId) { taskCheck(run); return; }
   notify({ title: `${run.status === "done" ? "✅" : "⚠️"} ${run.title}`, body: body || run.status, priority: run.status === "done" ? 2 : 3, phone: run.status !== "done" || run.trigger === "schedule" });
+}
+
+// ---------------- tasks (owner-delegated work, may fan out into parallel sub-agents) ----------------
+const OPEN = new Set(["queued", "running", "paused"]);
+const taskRuns = (taskId: string) => [...runCache.values()].filter(r => r.taskId === taskId).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+function taskStatus(rs: Run[]): string {
+  if (rs.some(r => r.status === "running")) return "running";
+  if (rs.some(r => r.status === "paused")) return "paused";
+  if (rs.some(r => r.status === "queued")) return "queued";
+  const root = rs[0];
+  if (rs.every(r => r.status === "cancelled")) return "cancelled";
+  return rs.some(r => r.status === "failed" || r.status === "timeout") || root?.status !== "done" ? "issue" : "done";
+}
+/** When the last run of a task finishes, report back once (phone + desktop). */
+function taskCheck(run: Run) {
+  const rs = taskRuns(run.taskId!); const root = rs.find(r => r.id === run.taskId);
+  if (!root || rs.some(r => OPEN.has(r.status))) return;
+  const st = taskStatus(rs);
+  const last = [...rs].reverse().find(r => r.output) || root;
+  root.reportedAt = new Date().toISOString(); saveRun(root);
+  activity("task-" + st, { task: root.id, title: root.title, agents: rs.length });
+  if (st === "cancelled") return;
+  const body = (last.output || last.error || "").replace(/[#*_`]/g, "").replace(/\s+/g, " ").trim().slice(0, 300);
+  notify({ title: `${st === "done" ? "✅ Task done" : "⚠️ Task needs a look"}: ${root.title}`, body: body || st, priority: st === "done" ? 3 : 4, tags: st === "done" ? "white_check_mark" : "warning" });
+}
+export function createTask(input: { text?: string; project?: string | null; tier?: string; permission?: string; effort?: string }): Run {
+  const text = String(input.text || "").trim().slice(0, 8000);
+  if (!text) throw new Error("Say what you want done.");
+  if (input.project && !brain.getProject(input.project)) throw new Error(`Unknown project ${input.project}`);
+  const first = text.split("\n")[0];
+  return enqueue({ title: first.length > 80 ? first.slice(0, 79) + "…" : first, prompt: text, project: input.project || null, tier: ["fast", "balanced", "deep"].includes(String(input.tier)) ? input.tier : "balanced",
+    permission: minLevel(input.permission || "plan", loadConfig().autonomy?.maxLevel || "build"), priority: 1, taskId: "self", effort: input.effort || null }, "task");
+}
+export function replyTask(id: string, text: string): Run {
+  const rs = taskRuns(id); const root = rs.find(r => r.id === id);
+  if (!root) throw Object.assign(new Error("No such task"), { code: 404 });
+  if (rs.some(r => OPEN.has(r.status))) throw new Error("The task is still working. Reply when it reports back.");
+  text = String(text || "").trim().slice(0, 8000);
+  if (!text) throw new Error("Type a reply.");
+  const lead = [...rs].reverse().find(r => r.depth === 0 && r.sessionId) || root;
+  root.reportedAt = undefined; saveRun(root);
+  return enqueue({ title: "↳ " + (text.length > 70 ? text.slice(0, 69) + "…" : text), prompt: text, project: root.project, tier: root.tier, permission: root.permission,
+    taskId: id, parentRun: lead.id, depth: 0, sessionId: lead.sessionId || null, reply: !!lead.sessionId, priority: 1, effort: root.effort }, "task");
+}
+export function cancelTask(id: string) { for (const r of taskRuns(id)) if (OPEN.has(r.status)) cancelRun(r.id); }
+export function tasks(limit = 30) {
+  const roots = [...runCache.values()].filter(r => r.taskId && r.taskId === r.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
+  return roots.map(root => {
+    const rs = taskRuns(root.id);
+    return { id: root.id, title: root.title, prompt: root.prompt.slice(0, 2000), project: root.project, createdAt: root.createdAt, status: taskStatus(rs), reportedAt: root.reportedAt || null,
+      runs: rs.map(r => ({ id: r.id, title: r.title, status: r.status, parent: r.parentRun, depth: r.depth, reply: !!r.reply, prompt: r.reply ? r.prompt.slice(0, 600) : undefined, level: r.level || r.permission, model: r.model || r.tier,
+        startedAt: r.startedAt, endedAt: r.endedAt, durationMs: r.durationMs, output: r.output?.slice(0, 6000), error: r.error?.slice(0, 800) })) };
+  });
 }
 
 // ---------------- chat (the dashboard assistant) ----------------
@@ -434,7 +521,7 @@ export function newChat() {
   if (c?.messages?.length) writeJson(path.join(F.chatArchive, `${c.id}.json`), c);
   writeJson(F.chat, { id: uid("chat"), sessionId: null, messages: [] });
 }
-export async function sendChat(text: string, opts: { project?: string | null; tier?: string } = {}): Promise<void> {
+export async function sendChat(text: string, opts: { project?: string | null; tier?: string; effort?: string } = {}): Promise<void> {
   if (chatBusy) throw new Error("The assistant is still answering.");
   const s = state();
   const c = readJson<Chat>(F.chat, { id: uid("chat"), sessionId: null, messages: [] });
@@ -455,7 +542,8 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
     `You are ${cfg.assistant?.name || "JARVIS"}, the owner's AI chief of staff, talking with them in the HQ dashboard (they may be using voice). ${cfg.assistant?.persona || ""}`,
     "Lead with the answer in one or two spoken-friendly sentences; put detail after, in short bullets.",
     "Be brief and concrete. Read brain context only as needed (hq_index first).",
-    "Turn loose thoughts into structure: reminders (reminder_add), dates (milestone_add), decisions (decision_log), project facts (project_update/project_log), new projects (project_create), and work to do later (queue_followup: it runs as a background mission).",
+    "Turn loose thoughts into structure: reminders (reminder_add), dates (milestone_add), decisions (decision_log), project facts (project_update/project_log), new projects (project_create).",
+    "Delegate anything that takes more than a minute (research, building, multi-step work) with queue_followup: it becomes a Task that runs in parallel and reports back to the owner. Say it's delegated; don't do long work in the chat.",
     "Say exactly what you changed in the brain. Ask one short question if something is ambiguous.",
     `Today is ${new Date().toDateString()}.`,
     proj ? `The chat is focused on project "${proj.slug}".` : "",
@@ -463,8 +551,8 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
   const opId = `chat-${c.id}-${c.messages.length}`;
   let opOk = false;
   try {
-    const onStep = opStart({ id: opId, kind: "chat", title: text.length > 70 ? text.slice(0, 69) + "…" : text, project: c.project, model, level });
-    const res = await runClaude({ prompt: text, model, fallbackModel: fallback, level, resume: c.sessionId, system, runId: `chat-${c.id}`,
+    const onStep = opStart({ id: opId, kind: "chat", agent: cfg.assistant?.name || "JARVIS", title: text.length > 70 ? text.slice(0, 69) + "…" : text, project: c.project, model, level });
+    const res = await runClaude({ prompt: text, model, fallbackModel: fallback, effort: opts.effort || null, level, resume: c.sessionId, system, runId: `chat-${c.id}`,
       timeoutMs: (cfg.chat?.maxMinutes || 6) * 60e3, addDirs: proj?.paths || [], onStep });
     opOk = res.ok;
     const latest = readJson<Chat>(F.chat, c);
@@ -490,7 +578,7 @@ export function clearPause() { patchState(s => { s.pausedUntil = new Date(0).toI
 let awake: ChildProcess | null = null;
 function manageAwake() {
   const mode = loadConfig().keepAwake || "busy";
-  const busy = !!current || [...runCache.values()].some(r => r.status === "queued" || r.status === "paused");
+  const busy = active.size > 0 || [...runCache.values()].some(r => r.status === "queued" || r.status === "paused");
   setAwake(mode === "always" || (mode === "busy" && busy));
 }
 function setAwake(on: boolean) {

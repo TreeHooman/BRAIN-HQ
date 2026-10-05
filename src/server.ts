@@ -124,13 +124,20 @@ const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/connectors$/, (_m, _b, url) => outbox.discover(url.searchParams.get("force") === "1")],
   ["POST", /^\/api\/connectors$/, (_, b) => { for (const k of ["email", "calendar"] as const) if (k in b) outbox.setConnector(k, b[k] ? String(b[k]).slice(0, 100) : null); return outbox.discover(); }],
 
+  ["GET", /^\/api\/code$/, () => code.list()],
+  ["POST", /^\/api\/code$/, (_, b) => code.create(String(b.project || ""), b.name)],
   ["GET", /^\/api\/code\/([a-z0-9-]+)$/, m => code.get(m[1])],
-  ["POST", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => { code.check(m[1], String(b.text || "")); void code.send(m[1], String(b.text || ""), b.tier).catch(() => {}); return { ok: true }; }],
+  ["POST", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => { code.check(m[1], String(b.text || "")); void code.send(m[1], String(b.text || ""), b.tier, b.effort || null).catch(() => {}); return { ok: true }; }],
+  ["PUT", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => code.rename(m[1], String(b.name || ""))],
   ["POST", /^\/api\/code\/([a-z0-9-]+)\/stop$/, m => { code.stop(m[1]); return { ok: true }; }],
-  ["POST", /^\/api\/code\/([a-z0-9-]+)\/new$/, m => { code.reset(m[1]); return { ok: true }; }],
+  ["DELETE", /^\/api\/code\/([a-z0-9-]+)$/, m => { code.close(m[1]); return { ok: true }; }],
+  ["GET", /^\/api\/tasks$/, () => ({ tasks: orch.tasks(), status: orch.status() })],
+  ["POST", /^\/api\/tasks$/, (_, b) => orch.createTask(b)],
+  ["POST", /^\/api\/tasks\/([\w-]+)\/reply$/, (m, b) => orch.replyTask(m[1], String(b.text || ""))],
+  ["POST", /^\/api\/tasks\/([\w-]+)\/cancel$/, m => { orch.cancelTask(m[1]); return { ok: true }; }],
   ["GET", /^\/api\/live$/, () => orch.liveOps()],
   ["GET", /^\/api\/chat$/, () => orch.chat()],
-  ["POST", /^\/api\/chat$/, (_, b) => { void orch.sendChat(String(b.text || ""), { project: b.project, tier: b.tier }).catch(() => {}); return { ok: true }; }],
+  ["POST", /^\/api\/chat$/, (_, b) => { void orch.sendChat(String(b.text || ""), { project: b.project, tier: b.tier, effort: b.effort }).catch(() => {}); return { ok: true }; }],
   ["POST", /^\/api\/chat\/new$/, () => { orch.newChat(); return { ok: true }; }],
 
   ["POST", /^\/api\/settings$/, (_, b) => {
