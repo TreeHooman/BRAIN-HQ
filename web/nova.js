@@ -86,67 +86,134 @@ function sceneLoop() {
 }
 function sceneKick() { if (Scene.ok && !Scene.raf) { if (reduced()) { sceneDraw(); return; } Scene.raf = requestAnimationFrame(sceneLoop); } }
 
-// ---------------- the core: plasma sphere with corona (shader) ----------------
-const CORE_FS = `precision highp float;
-uniform vec2 uR;uniform float uT,uB,uL,uP;uniform vec2 uM;
-${GLSL_NOISE}
-mat3 rotY(float a){float c=cos(a),s=sin(a);return mat3(c,0.,-s,0.,1.,0.,s,0.,c);}
-mat3 rotX(float a){float c=cos(a),s=sin(a);return mat3(1.,0.,0.,0.,c,s,0.,-s,c);}
-void main(){
- vec2 p=(gl_FragCoord.xy/uR)*2.-1.; float r=length(p), R=.4; float t=uT*(.35+uB*.9);
- vec3 cA=mix(vec3(.35,.95,1.),vec3(.72,.55,1.),uB), cB=mix(vec3(.55,.45,1.),vec3(1.,.42,.85),uB);
- vec3 col=vec3(0.); float a=0.;
- if(r<R){
-  float z=sqrt(R*R-r*r)/R; vec3 n=vec3(p/R,z);
-  vec3 q=rotX(.35+(uM.y-.5)*.6)*rotY(t*.35+(uM.x-.5)*.9)*n;
-  float f=fbm3(q*2.4+vec3(0.,0.,t*.6)); float f2=fbm3(q*5.+f*2.5-vec3(t*.4));
-  float fil=pow(1.-abs(f2-.5)*2.,6.);
-  float fr=pow(1.-z,2.2);
-  col=mix(cA*.25,cB*.6,f)+fil*mix(cA,vec3(1.),.5)*1.1+cA*fr*1.6;
-  col+=vec3(1.)*pow(z,10.)*.55;
-  vec3 L=normalize(vec3((uM.x-.5)*1.4,(.5-uM.y)*1.4,1.)); col+=vec3(.9,.98,1.)*pow(max(dot(n,L),0.),28.)*.6;
-  a=1.;
- }
- float d=max(r-R,0.); float ang=atan(p.y,p.x);
- float rays=fbm(vec2(ang*2.5+t*.2,d*6.-t*.8)); float cor=exp(-d*(9.-uB*3.))*(.45+rays*.9);
- col+=cA*cor*(r>=R?1.:.25); a=max(a,clamp(cor*1.2,0.,1.));
- float rip=uL*exp(-d*3.)*pow(max(0.,sin((d*28.-uT*6.))),8.)*.6; col+=cA*rip; a=max(a,rip);
- float pr=uP*exp(-abs(d-(1.-uP)*.55)*60.)*.9; col+=vec3(.8,.95,1.)*pr; a=max(a,pr);
- col+=cA*.05*exp(-d*2.);
- gl_FragColor=vec4(col*a, a);}`;
-const Core = { el: null, c: null, gl: null, p: null, raf: 0, ok: false };
+// ---------------- the core: holographic neuron (hollow wireframe soma, dendrites, firing signals) ----------------
+// Canvas 2D with additive light. Built once (seeded), rotated in 3D and projected each frame.
+const Core = { el: null, c: null, x: null, raf: 0, ok: false, w: 0, h: 0, net: null, pulses: [], b: 0, last: 0, spawn: 0 };
+function neuronBuild() {
+  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const N = [], E = []; // nodes {x,y,z,d (path distance from soma), p (parent), tip}, edges [a,b,kind]
+  const add = (x, y, z, d, p, k) => { N.push({ x, y, z, d, p, tip: false, k }); return N.length - 1; };
+  // soma: hollow geodesic shell (fibonacci points, linked to near neighbours)
+  const S = 46, R = .17, shell = [];
+  for (let i = 0; i < S; i++) { const y = 1 - (i + .5) / S * 2, r = Math.sqrt(1 - y * y), a = i * 2.39996; shell.push(add(Math.cos(a) * r * R, y * R, Math.sin(a) * r * R, 0, -1, "soma")); }
+  for (const i of shell) {
+    const near = shell.filter(j => j !== i).map(j => [j, (N[i].x - N[j].x) ** 2 + (N[i].y - N[j].y) ** 2 + (N[i].z - N[j].z) ** 2]).sort((a, b) => a[1] - b[1]).slice(0, 3);
+    for (const [j] of near) if (i < j) E.push([i, j, "soma"]);
+  }
+  // dendrites + one long axon, grown as branching random walks from the shell
+  const grow = (from, dir, len, depth, kind) => {
+    let cur = from, d = [...dir];
+    for (let s = 0; s < len; s++) {
+      d = d.map(v => v + (rnd() - .5) * .55); const m = Math.hypot(...d); d = d.map(v => v / m);
+      const n = N[cur], step = kind === "axon" ? .062 : .055 * (1 - depth * .12);
+      const nx = n.x + d[0] * step, ny = n.y + d[1] * step, nz = n.z + d[2] * step;
+      if (Math.hypot(nx, ny, nz) > .93) break;
+      const id = add(nx, ny, nz, n.d + 1, cur, kind); E.push([cur, id, kind]); cur = id;
+      if (depth < 3 && rnd() < (kind === "axon" ? .12 : .26)) grow(cur, d.map(v => v + (rnd() - .5) * 1.4), Math.max(2, len - s - 1 - Math.floor(rnd() * 3)), depth + 1, kind === "axon" ? "axon" : "dend");
+    }
+    N[cur].tip = true;
+  };
+  const roots = 9;
+  for (let i = 0; i < roots; i++) {
+    const y = 1 - (i + .5) / roots * 2, r = Math.sqrt(1 - y * y), a = i * 2.39996 + .4, dir = [Math.cos(a) * r, y, Math.sin(a) * r];
+    const s = shell.reduce((b, j) => { const q = N[j]; const dd = q.x * dir[0] + q.y * dir[1] + q.z * dir[2]; return dd > b[1] ? [j, dd] : b; }, [shell[0], -9])[0];
+    grow(s, dir, 7 + Math.floor(rnd() * 4), 0, "dend");
+  }
+  grow(shell[S - 3], [.15, -1, .25], 15, 0, "axon");
+  // synaptic field: faint free-floating nodes wired to the nearest tips
+  const tips = N.map((n, i) => n.tip ? i : -1).filter(i => i >= 0);
+  for (let i = 0; i < 26; i++) {
+    const u = rnd() * 2 - 1, a = rnd() * 6.283, r = .78 + rnd() * .2, q = Math.sqrt(1 - u * u);
+    const id = add(Math.cos(a) * q * r, u * r, Math.sin(a) * q * r, 99, -1, "field");
+    const t = tips.map(j => [j, (N[j].x - N[id].x) ** 2 + (N[j].y - N[id].y) ** 2 + (N[j].z - N[id].z) ** 2]).sort((a, b) => a[1] - b[1])[0];
+    if (t && t[1] < .09) E.push([t[0], id, "syn"]);
+  }
+  return { N, E, tips, P: N.map(() => ({ x: 0, y: 0, s: 1, z: 0 })) };
+}
 function coreMount(host) {
   Core.el = host;
   const c = document.createElement("canvas"); c.setAttribute("aria-hidden", "true"); host.prepend(c);
-  const gl = c.getContext("webgl", { premultipliedAlpha: true, alpha: true, antialias: true });
-  if (!gl) { host.classList.add("no-gl"); return; }
-  try { Core.p = glProgram(gl, CORE_FS); } catch (e) { console.warn("nova core", e); host.classList.add("no-gl"); return; }
-  Object.assign(Core, { c, gl, ok: true });
-  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  Core.c = c; Core.x = c.getContext("2d"); Core.ok = !!Core.x;
+  Core.net ||= neuronBuild(); Core.pulses = [];
   coreSize();
-  if (!Core.raf) Core.raf = requestAnimationFrame(coreLoop);
+  if (Core.ok && !Core.raf) Core.raf = requestAnimationFrame(coreLoop);
 }
 function coreSize() {
-  if (!Core.ok) return;
-  const r = Core.c.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1) * .8;
+  if (!Core.ok || !Core.c.isConnected) return;
+  const r = Core.c.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1);
+  Core.w = r.width; Core.h = r.height;
   Core.c.width = Math.max(64, Math.round(r.width * d)); Core.c.height = Math.max(64, Math.round(r.height * d));
-  Core.gl.viewport(0, 0, Core.c.width, Core.c.height);
+  Core.x.setTransform(d, 0, 0, d, 0, 0);
 }
-function coreLoop() {
+function corePath(tip) { const out = []; for (let i = tip; i >= 0 && out.length < 40; i = Core.net.N[i].p) out.push(i); return out; } // tip → soma
+function coreLoop(now = performance.now()) {
   Core.raf = 0;
   if (!Core.ok || !Core.c.isConnected) { Core.ok = false; return; }
-  if (nvOn()) {
-    const { gl, p } = Core, t = (performance.now() - NV.t0) / 1000;
-    const w = Core.el, busy = w.classList.contains("busy") ? 1 : 0, lis = w.classList.contains("listening") ? 1 : 0;
-    NV.listen = lerp(NV.listen, lis, .06); NV.pulse = Math.max(0, NV.pulse - .012);
-    Core.b = lerp(Core.b || 0, busy, .04);
-    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.uniform2f(p.u("uR"), Core.c.width, Core.c.height); gl.uniform1f(p.u("uT"), reduced() ? 4 : t);
-    gl.uniform1f(p.u("uB"), Core.b); gl.uniform1f(p.u("uL"), NV.listen); gl.uniform1f(p.u("uP"), NV.pulse);
-    gl.uniform2f(p.u("uM"), NV.sx || .5, NV.sy ?? .5);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-  }
+  if (nvOn()) coreDraw(now);
   if (!reduced() || !Core.drawn) { Core.drawn = true; Core.raf = requestAnimationFrame(coreLoop); }
+}
+function coreDraw(now) {
+  const { x, w, h, net } = Core, t = (now - NV.t0) / 1000, dt = Math.min(.05, (now - (Core.last || now)) / 1000); Core.last = now;
+  const el = Core.el, busy = el.classList.contains("busy") ? 1 : 0, lis = el.classList.contains("listening") ? 1 : 0;
+  Core.b = lerp(Core.b, busy, .04); NV.listen = lerp(NV.listen, lis, .06); NV.pulse = Math.max(0, NV.pulse - dt * .8);
+  const B = Core.b, L = NV.listen;
+  // colour: cyan → violet when busy
+  const col = (a, hot = 0) => { const r = Math.round(lerp(110, 180, B) + hot * 120), g = Math.round(lerp(240, 150, B) + hot * 15), bl = 255; return `rgba(${Math.min(255, r)},${Math.min(255, g)},${bl},${a.toFixed(3)})`; };
+  x.clearRect(0, 0, w, h);
+  x.globalCompositeOperation = "lighter";
+  // projection: slow spin + pointer tilt + gentle breathing
+  const ry = (reduced() ? .6 : t * (.12 + B * .25)) + ((NV.sx ?? .5) - .5) * .9, rx = -.25 + ((NV.sy ?? .5) - .5) * .6;
+  const cy = Math.cos(ry), sy = Math.sin(ry), cx = Math.cos(rx), sx = Math.sin(rx);
+  const S = Math.min(w, h) * .5 * .98, ox = w / 2, oy = h / 2, breathe = 1 + Math.sin(t * 1.3) * .012 + L * Math.sin(t * 6) * .02;
+  for (let i = 0; i < net.N.length; i++) {
+    const n = net.N[i]; let X = n.x * breathe, Y = n.y * breathe, Z = n.z * breathe;
+    const x1 = X * cy - Z * sy, z1 = X * sy + Z * cy; const y1 = Y * cx - z1 * sx, z2 = Y * sx + z1 * cx;
+    const k = 1.6 / (1.6 + z2); const P = net.P[i]; P.x = ox + x1 * S * k; P.y = oy + y1 * S * k; P.s = k; P.z = z2;
+  }
+  // faint core glow (small, not a ball)
+  const g = x.createRadialGradient(ox, oy, 0, ox, oy, S * .5);
+  g.addColorStop(0, col(.16 + B * .1 + NV.pulse * .25)); g.addColorStop(.4, col(.04)); g.addColorStop(1, col(0));
+  x.fillStyle = g; x.fillRect(ox - S, oy - S, S * 2, S * 2);
+  // signal waves: listening ripples outward along branches; ping = one expanding burst
+  const wave = d => L * Math.max(0, Math.sin(d * .9 - t * 7)) ** 6 + NV.pulse * Math.exp(-((d - (1 - NV.pulse) * 16) ** 2) * .15);
+  // scan band sweeping vertically (hologram)
+  const scanY = oy - S + ((t * .25) % 1) * S * 2;
+  x.lineCap = "round";
+  for (const [a, b, kind] of net.E) {
+    const A = net.P[a], Bp = net.P[b], na = net.N[a], nb = net.N[b];
+    const depth = (A.z + Bp.z) / 2, fade = .35 + (1 - (depth + 1) / 2) * .65;
+    const d = Math.min(na.d, nb.d);
+    const base = kind === "soma" ? .7 : kind === "syn" ? .16 : kind === "axon" ? .6 : .58 * (1 - Math.min(d, 12) / 20);
+    const scan = Math.exp(-(((A.y + Bp.y) / 2 - scanY) ** 2) / 300) * .5;
+    const a1 = Math.min(1, (base + wave(d) * .8 + scan * base) * fade);
+    x.strokeStyle = col(a1 * .25); x.lineWidth = (kind === "soma" ? 3.2 : 4) * A.s; x.beginPath(); x.moveTo(A.x, A.y); x.lineTo(Bp.x, Bp.y); x.stroke();
+    x.strokeStyle = col(a1, kind === "soma" ? .1 : 0); x.lineWidth = (kind === "syn" ? .6 : kind === "soma" ? .9 : 1.1) * A.s; x.stroke();
+  }
+  // nodes: soma vertices, branch joints, glowing terminal boutons, field neurons
+  for (let i = 0; i < net.N.length; i++) {
+    const n = net.N[i], P = net.P[i]; if (!n.tip && n.k !== "soma" && n.k !== "field") continue;
+    const fade = .35 + (1 - (P.z + 1) / 2) * .65, tw = .6 + .4 * Math.sin(t * 2 + i * 1.7);
+    const r = (n.k === "soma" ? 1.1 : n.k === "field" ? 1.3 : 1.8) * P.s, a = (n.k === "field" ? .35 * tw : .8) * fade;
+    x.fillStyle = col(a * .3); x.beginPath(); x.arc(P.x, P.y, r * 3.2, 0, 6.283); x.fill();
+    x.fillStyle = col(a, .3); x.beginPath(); x.arc(P.x, P.y, r, 0, 6.283); x.fill();
+  }
+  // action potentials: signals travel tip → soma (more and faster when busy)
+  if (!reduced()) {
+    Core.spawn += dt * (1.2 + B * 7 + L * 3);
+    while (Core.spawn > 1) { Core.spawn--; const tip = net.tips[Math.floor(Math.random() * net.tips.length)]; const out = Math.random() < (.15 + B * .3); const p = corePath(tip); Core.pulses.push({ path: out ? p.reverse() : p, u: 0, v: (2.6 + Math.random() * 2) * (1 + B * .8) }); }
+    for (const p of Core.pulses) p.u += p.v * dt;
+    Core.pulses = Core.pulses.filter(p => p.u < p.path.length - 1).slice(-60);
+    for (const p of Core.pulses) {
+      const i = Math.floor(p.u), f = p.u - i, A = net.P[p.path[i]], Bp = net.P[p.path[i + 1]]; if (!A || !Bp) continue;
+      const px = lerp(A.x, Bp.x, f), py = lerp(A.y, Bp.y, f), s = lerp(A.s, Bp.s, f);
+      // short comet trail
+      const T = net.P[p.path[Math.max(0, i - 1)]];
+      x.strokeStyle = col(.5, .5); x.lineWidth = 1.6 * s; x.beginPath(); x.moveTo(lerp(T.x, A.x, f), lerp(T.y, A.y, f)); x.lineTo(px, py); x.stroke();
+      x.fillStyle = col(.25, .6); x.beginPath(); x.arc(px, py, 6 * s, 0, 6.283); x.fill();
+      x.fillStyle = "rgba(255,255,255,.95)"; x.beginPath(); x.arc(px, py, 1.6 * s, 0, 6.283); x.fill();
+    }
+  }
+  x.globalCompositeOperation = "source-over";
 }
 addEventListener("resize", () => coreSize());
 

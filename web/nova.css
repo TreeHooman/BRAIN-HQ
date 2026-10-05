@@ -181,7 +181,7 @@
 .nv-core .gyro { position: absolute; inset: -4%; transform-style: preserve-3d; pointer-events: none; }
 .nv-core .gyro i { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(140, 240, 255, .28); box-shadow: 0 0 14px rgba(111, 242, 255, .12); }
 .nv-core .gyro i:nth-child(1) { animation: gyroA 22s linear infinite; border-top-color: rgba(140, 240, 255, .8); }
-.nv-core .gyro i:nth-child(2) { inset: 7%; animation: gyroB 31s linear infinite; border-color: rgba(169, 139, 255, .22); border-left-color: rgba(190, 170, 255, .75); }
+.nv-core .gyro i:nth-child(2) { display: none; }
 .nv-core .gyro i:nth-child(3) { inset: -10%; animation: gyroC 47s linear infinite; border-style: dashed; border-color: rgba(140, 240, 255, .13); }
 @keyframes gyroA { from { transform: rotateX(68deg) rotateZ(0); } to { transform: rotateX(68deg) rotateZ(360deg); } }
 @keyframes gyroB { from { transform: rotateY(62deg) rotateZ(0); } to { transform: rotateY(62deg) rotateZ(-360deg); } }
