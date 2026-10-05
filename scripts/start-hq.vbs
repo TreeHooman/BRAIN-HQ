@@ -14,7 +14,11 @@ End If
 If openWin Then
   WScript.Sleep 2500
   On Error Resume Next
-  sh.Run "msedge --app=http://localhost:8800/ --window-size=1440,920", 1, False
+  sh.Run "chrome --app=http://localhost:8800/ --window-size=1440,920", 1, False
+  If Err.Number <> 0 Then
+    Err.Clear
+    sh.Run "msedge --app=http://localhost:8800/ --window-size=1440,920", 1, False
+  End If
   If Err.Number <> 0 Then
     Err.Clear
     sh.Run "http://localhost:8800/", 1, False
