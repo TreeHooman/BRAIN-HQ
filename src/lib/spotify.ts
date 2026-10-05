@@ -163,7 +163,9 @@ const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(
 
 /** "play gym playlist", "play Drake", "play Blinding Lights by The Weeknd": your playlists first, then search. */
 export async function play(query: string) {
-  let q = norm(String(query || "").slice(0, 200)).replace(/^(play|put on|start)\s+/, "").replace(/\s+(on spotify|please)$/, "");
+  let q = norm(String(query || "").slice(0, 200));
+  const queueOnly = /^(queue|add)\b/.test(q) || /\b(to|in) (the |my )?queue$/.test(q);
+  q = q.replace(/^(play|put on|start|queue up|queue|add)\s+/, "").replace(/\s+(to|in) (the |my )?queue$/, "").replace(/\s+(on spotify|please)$/, "");
   if (!q) throw err("Say what to play.");
   if (/^(music|something|spotify|my music)$/.test(q)) { await control("play"); return { ok: true, playing: "your music" }; }
   const kind = /\b(playlist)\b/.test(q) ? "playlist" : /\b(album)\b/.test(q) ? "album" : /\b(artist|songs by)\b/.test(q) ? "artist" : null;
@@ -183,7 +185,19 @@ export async function play(query: string) {
   if (kind === "album" && album) { await call("PUT", "/me/player/play" + dq, { context_uri: album.uri }); return { ok: true, playing: album.name, type: "album" }; }
   if ((kind === "artist" || artist) && (artist || r?.artists?.items?.[0])) { const a = artist || r.artists.items[0]; await call("PUT", "/me/player/play" + dq, { context_uri: a.uri }); return { ok: true, playing: a.name, type: "artist" }; }
   if (kind === "playlist" && playlist) { await call("PUT", "/me/player/play" + dq, { context_uri: playlist.uri }); return { ok: true, playing: playlist.name, type: "playlist" }; }
-  if (track) { await call("PUT", "/me/player/play" + dq, { uris: [track.uri] }); return { ok: true, playing: `${track.name} by ${(track.artists || []).map((a: any) => a.name).join(", ")}`, type: "track" }; }
+  if (track) {
+    const name = `${track.name} by ${(track.artists || []).map((a: any) => a.name).join(", ")}`;
+    // A single song goes into the queue so your playlist/album keeps going after it. "Play" also skips to it now.
+    const cur = await call("GET", "/me/player").catch(() => null);
+    if (cur?.device && (cur.context || cur.item)) {
+      await call("POST", `/me/player/queue?uri=${encodeURIComponent(track.uri)}`);
+      if (queueOnly) return { ok: true, playing: name, type: "queued", queued: true };
+      await call("POST", "/me/player/next");
+      if (!cur.is_playing) await call("PUT", "/me/player/play").catch(() => {});
+      return { ok: true, playing: name, type: "track" };
+    }
+    await call("PUT", "/me/player/play" + dq, { uris: [track.uri] }); return { ok: true, playing: name, type: "track" };
+  }
   if (playlist) { await call("PUT", "/me/player/play" + dq, { context_uri: playlist.uri }); return { ok: true, playing: playlist.name, type: "playlist" }; }
   throw err(`Couldn't find “${query}” on Spotify.`);
 }

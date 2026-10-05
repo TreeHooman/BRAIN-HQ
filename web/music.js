@@ -28,7 +28,7 @@ async function musicDo(action, value) {
   finally { Music.busy = false; setTimeout(musicPoll, 350); }
 }
 async function musicPlay(query) {
-  try { const r = await api("/spotify/play", "POST", { query }); toast(`Playing ${r.playing}`); speakAlways?.(`Playing ${r.playing}`); setTimeout(musicPoll, 600); return true; }
+  try { const r = await api("/spotify/play", "POST", { query }); const say = r.queued ? `Queued ${r.playing}` : `Playing ${r.playing}`; toast(say); speakAlways?.(say); setTimeout(musicPoll, 600); return true; }
   catch (e) { toast(e.message, 5000); speakAlways?.(e.message); return true; }
 }
 
@@ -125,7 +125,7 @@ async function musicPopFill(full) {
       <div class="mp-bar mus-seek" id="mpBar"><i id="mpP"></i><b class="ms-knob"></b></div><div class="ms-time"><span id="mpE"></span><span id="mpL"></span></div>
       <div class="mp-ctl"><button type="button" data-m="previous" aria-label="Previous">${MI.prev}</button><button type="button" class="mp-play" data-m="toggle" aria-label="Play or pause"></button><button type="button" data-m="next" aria-label="Next">${MI.next}</button></div>
       <label class="mp-vol"><span>Volume</span><input type="range" min="0" max="100" step="5" id="mpVol" aria-label="Volume"></label>
-      <form class="mp-ask" id="mpAsk"><input id="mpQ" placeholder="Play… a song, artist or playlist" aria-label="What to play" autocomplete="off"><button class="btn sm primary">Play</button></form>
+      <form class="mp-ask" id="mpAsk"><input id="mpQ" placeholder="Play a song (your playlist keeps going), or “queue …”" aria-label="What to play" autocomplete="off"><button class="btn sm primary">Play</button></form>
       <div class="mp-dev" id="mpDev"></div>`;
     p.querySelectorAll("[data-m]").forEach(x => x.onclick = () => musicDo(x.dataset.m));
     musicSeekBar(p.querySelector("#mpBar"));
@@ -152,7 +152,7 @@ async function musicDevices() {
 // typed or spoken commands. Returns true when handled (so it doesn't go to JARVIS as a chat message).
 function musicCommand(raw) {
   if (!Music.st?.connected) return false;
-  const c = String(raw || "").toLowerCase().replace(/[.!?]+$/, "").replace(/^(can you|could you|please|jarvis,?)\s+/, "").trim();
+  const c = String(raw || "").toLowerCase().replace(/[.!?]+$/, "").replace(/^(can you|could you|please|(hey )?(luthur|luther|luthor|jarvis),?)\s+/, "").trim();
   if (/^(pause|stop|stop the music|pause the music|pause music|stop music|mute the music)$/.test(c)) { if (c === "stop" && !Music.now?.playing) return false; musicDo("pause"); return true; }
   if (/^(resume|unpause|play|play music|resume music|keep playing)$/.test(c)) { musicDo("play"); return true; }
   if (/^(skip|next|next song|next track|skip (this )?(song|track))$/.test(c)) { musicDo("next"); return true; }
@@ -166,6 +166,8 @@ function musicCommand(raw) {
     const n = Music.now; const say = n?.active ? `${n.track} by ${n.artist}` : "Nothing is playing right now.";
     toast(say, 5000); speakAlways?.(say); return true;
   }
+  const qm = c.match(/^(?:queue|queue up|add)\s+(.+?)(?:\s+(?:to|in) (?:the |my )?queue)?$/);
+  if (qm && (/^queue/.test(c) || /queue$/.test(c))) { musicPlay("queue " + qm[1]); return true; }
   const m = c.match(/^(?:play|put on|start playing|throw on)\s+(.+?)(?:\s+on spotify)?$/);
   if (m && !/\b(game|video|movie|reel|round)\b/.test(m[1])) { musicPlay(m[1]); return true; }
   return false;
