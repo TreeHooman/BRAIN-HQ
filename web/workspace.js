@@ -241,14 +241,19 @@ inboxHTML = function () {
   if (!WS.st?.accounts?.length) return _inboxHTMLws();
   const m = WS.cmd;
   if (!m) return `<div class="card nv-panel" id="nvMail"><div class="ttl">Inbox</div><div class="nv-empty">Loading…</div></div>`;
-  const unread = m.items.filter(x => x.unread).length;
+  const accts = WS.st.accounts, sel = accts.some(a => a.id === WS.cmdAcct) ? WS.cmdAcct : "all";
+  const items = sel === "all" ? m.items : m.items.filter(x => x.acct === sel);
+  const unread = items.filter(x => x.unread).length;
   const ph = matchMedia("(max-width: 760px)").matches;
-  const rows = m.items.slice(0, ph ? 3 : 7).map(x => `<a class="nv-row ml-row ${x.unread ? "unread" : ""}" href="#workspace/mail/${esc(x.acct)}/${esc(x.id)}" style="--c:${esc(wsAcc(x.acct)?.color || "#888")}">${wsDot(x.acct)}<div style="min-width:0"><div class="t"><b>${esc(wsFrom(x.from)).slice(0, 40)}</b>${esc(x.subject)}</div><small>${esc(wsAcc(x.acct)?.label || "")} · ${esc(x.snippet).slice(0, 90)} · ${esc(wsWhen(x.date))}</small></div></a>`).join("");
-  return `<div class="card nv-panel" id="nvMail"><div class="ttl">Inbox <b>${unread ? unread + " unread" : m.items.length ? "read" : ""}</b></div>
-    ${(m.errors || []).length ? `<div class="nv-empty" style="color:var(--amber)">${esc(m.errors.map(e => (wsAcc(e.acct)?.label ? wsAcc(e.acct).label + ": " : "") + e.error).join(" · ")).slice(0, 220)}</div>` : ""}
+  const pick = accts.length > 1 ? `<select id="nvMailAcct" class="ml-pick" aria-label="Which inbox">${[["all", "All inboxes"], ...accts.map(a => [a.id, a.label || a.email])].map(([v, t]) => `<option value="${esc(v)}" ${v === sel ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>` : "";
+  const rows = items.slice(0, ph ? 3 : 7).map(x => `<a class="nv-row ml-row ${x.unread ? "unread" : ""}" href="#workspace/mail/${esc(x.acct)}/${esc(x.id)}" style="--c:${esc(wsAcc(x.acct)?.color || "#888")}">${wsDot(x.acct)}<div style="min-width:0"><div class="t"><b>${esc(wsFrom(x.from)).slice(0, 40)}</b>${esc(x.subject)}</div><small>${esc(wsAcc(x.acct)?.label || "")} · ${esc(x.snippet).slice(0, 90)} · ${esc(wsWhen(x.date))}</small></div></a>`).join("");
+  return `<div class="card nv-panel" id="nvMail"><div class="ttl">Inbox <span class="ml-ttl-r">${pick}<b>${unread ? unread + " unread" : items.length ? "read" : ""}</b></span></div>
+    ${(m.errors || []).filter(e => sel === "all" || e.acct === sel || e.acct === "all").length ? `<div class="nv-empty" style="color:var(--amber)">${esc(m.errors.filter(e => sel === "all" || e.acct === sel || e.acct === "all").map(e => (wsAcc(e.acct)?.label ? wsAcc(e.acct).label + ": " : "") + e.error).join(" · ")).slice(0, 220)}</div>` : ""}
     ${rows || `<div class="nv-empty">Inbox clear.</div>`}
     <div class="ml-foot"><span>${WS.st.accounts.length} account${WS.st.accounts.length > 1 ? "s" : ""}</span><a class="btn sm ghost" href="#workspace">Open Workspace</a></div></div>`;
 };
+try { WS.cmdAcct = localStorage.getItem("hq-inbox-acct") || "all"; } catch { WS.cmdAcct = "all"; }
+document.addEventListener("change", e => { if (e.target?.id !== "nvMailAcct") return; WS.cmdAcct = e.target.value; try { localStorage.setItem("hq-inbox-acct", WS.cmdAcct); } catch {} cmdExtras(); });
 const _cmdFillWs = cmdFill;
 cmdFill = function (q) {
   _cmdFillWs(q);

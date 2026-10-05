@@ -215,3 +215,7 @@ body[data-view="projects"] .pgroup .grid { grid-template-columns: repeat(auto-fi
 .mind-list small { display: block; color: var(--text3); font-size: 11px; margin-top: 2px; }
 .mind-dec li { font-size: 12.5px; color: var(--text2); border-left: 2px solid var(--border2); padding-left: 8px; } .mind-dec p { margin: 0; }
 @media (max-width: 980px) { .mind-wrap { grid-template-columns: 1fr; } .mind { position: static; max-height: none; } }
+/* War Room inbox: account filter */
+#nvMail .ttl, #nvUp .ttl { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ml-ttl-r { display: flex; align-items: center; gap: 8px; }
+#nvMail select.ml-pick, #nvUp select.ml-pick { height: auto; min-height: 0; line-height: 1.3; width: auto; max-width: 150px; padding: 3px 24px 3px 8px; font: 600 11px var(--mono, monospace); letter-spacing: .04em; text-transform: uppercase; border-radius: 99px; background-color: rgba(120, 200, 255, .06); border: 1px solid var(--border); color: var(--text2); cursor: pointer; }

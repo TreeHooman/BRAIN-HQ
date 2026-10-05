@@ -6,13 +6,22 @@ const PHONE = () => matchMedia("(max-width: 760px)").matches;
 const mailGet = async () => { Mail.st = await api("/mail").catch(() => Mail.st); return Mail.st; };
 const fromName = f => String(f || "").replace(/<[^>]*>/g, "").replace(/"/g, "").trim() || String(f || "").replace(/[<>]/g, "");
 
+const Up = { sel: "all" };
+try { Up.sel = localStorage.getItem("hq-up-filter") || "all"; } catch {}
+document.addEventListener("change", e => { if (e.target?.id !== "nvUpPick") return; Up.sel = e.target.value; try { localStorage.setItem("hq-up-filter", Up.sel); } catch {} cmdExtras(); });
 function upcomingHTML() {
   const now = new Date(), start = new Date(now); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() + 2); // after today + tomorrow (the Today panel)
   const end = new Date(start); end.setDate(end.getDate() + 6);
-  const items = [];
-  (S.calendar?.upcoming || []).forEach(e => { const s = e.allDay ? toDate(e.start + "T00:00") : new Date(e.start); if (s >= start && s < end) items.push({ s, t: e.title, k: "ev", all: e.allDay, sub: e.location || "" }); });
+  let items = [];
+  (S.calendar?.upcoming || []).forEach(e => { const s = e.allDay ? toDate(e.start + "T00:00") : new Date(e.start); if (s >= start && s < end) items.push({ s, t: e.title, k: "ev", all: e.allDay, sub: e.location || "", f: e.feed }); });
   S.reminders.filter(r => !r.done).forEach(r => { const s = toDate(r.due); if (s >= start && s < end) items.push({ s, t: r.title, k: "rem", all: String(r.due).length <= 10, sub: r.project ? projName(r.project) : "", p: r.project }); });
   S.milestones.filter(m => !m.done).forEach(m => { const s = toDate(m.date + "T09:00"); if (s >= start && s < end) items.push({ s, t: m.title, k: m.kind === "deadline" ? "dl" : "ms", all: true, sub: m.project ? projName(m.project) : "", p: m.project }); });
+  // filter: a calendar (Personal, hockey, LoanCentral…) or a project
+  const cals = (S.calendar?.feeds || []).filter(f => items.some(x => x.f === f.id)), projs = [...new Set(items.map(x => x.p).filter(Boolean))];
+  const opts = [["all", "Everything"], ...cals.map(f => ["f:" + f.id, f.name || f.host || "Calendar"]), ...projs.map(p => ["p:" + p, projName(p)])];
+  const sel = opts.some(o => o[0] === Up.sel) ? Up.sel : "all";
+  if (sel.startsWith("f:")) items = items.filter(x => x.f === sel.slice(2)); else if (sel.startsWith("p:")) items = items.filter(x => x.p === sel.slice(2));
+  const pick = opts.length > 2 ? `<select id="nvUpPick" class="ml-pick" aria-label="Filter upcoming">${opts.map(([v, t]) => `<option value="${esc(v)}" ${v === sel ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>` : "";
   items.sort((a, b) => a.s - b.s);
   let html = "", day = "";
   for (const x of items.slice(0, PHONE() ? 3 : 6)) {
@@ -21,7 +30,7 @@ function upcomingHTML() {
     html += `<a class="nv-row ${x.k === "ev" ? "t-ev" : x.k === "dl" ? "sev-red" : "t-rem"}" href="${x.p ? "#project/" + esc(x.p) : x.k === "ev" ? "#calendar" : "#roadmap"}"><span class="tm">${x.all ? "all day" : `${pad(x.s.getHours())}:${pad(x.s.getMinutes())}`}</span><div style="min-width:0"><div class="t">${esc(x.t)}</div><small>${x.k === "ev" ? "CALENDAR" : x.k === "dl" ? "DEADLINE" : x.k === "ms" ? "MILESTONE" : "REMINDER"}${x.sub ? " · " + esc(x.sub).slice(0, 40) : ""}</small></div></a>`;
   }
   const feeds = (S.calendar?.feeds || []).length;
-  return `<div class="card nv-panel" id="nvUp"><div class="ttl">Upcoming <b>${items.length ? items.length + " this week" : "clear"}</b></div>${html}${items.length > (PHONE() ? 3 : 6) ? `<a class="nv-empty" href="#calendar" style="display:block;margin-top:6px">+${items.length - (PHONE() ? 3 : 6)} more in Calendar</a>` : ""}${html ? "" : `<div class="nv-empty">Nothing in the next 7 days.${feeds ? "" : ` <a href="#settings">Connect your calendar</a>`}</div>`}</div>`;
+  return `<div class="card nv-panel" id="nvUp"><div class="ttl">Upcoming <span class="ml-ttl-r">${pick}<b>${items.length ? items.length + " this week" : "clear"}</b></span></div>${html}${items.length > (PHONE() ? 3 : 6) ? `<a class="nv-empty" href="#calendar" style="display:block;margin-top:6px">+${items.length - (PHONE() ? 3 : 6)} more in Calendar</a>` : ""}${html ? "" : `<div class="nv-empty">Nothing in the next 7 days.${feeds ? "" : ` <a href="#settings">Connect your calendar</a>`}</div>`}</div>`;
 }
 
 function inboxHTML() {
