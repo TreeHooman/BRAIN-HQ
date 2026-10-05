@@ -135,3 +135,9 @@ The owner asked for (1) a cleaner, modern, easier-on-the-eyes UI with better fin
 - **Command focus panel**: when a project is in focus, it shows that project's next step, reminders and milestones in the next 30/60 days, approvals and outbox drafts, goals, and live work.
 - **Tasks** simplified: one box plus "Send"; project, permission (plain words), model and effort sit behind an options summary; a 3-step "how it works" strip; the agent map shows only while something runs.
 - Phone: subtitles and Brief button hidden, project page shows a summary card (the edit form is behind Edit), and the tabs scroll. Colourful emoji were replaced with SVG icons or text; `font-variant-emoji: text` is set globally.
+
+## 2026-10-05 handoff #10: wheel picker, form drafts, now-playing HUD, Code side by side
+- `web/picker.js`: every date, time and date-time input gets a scrolling wheel picker with quick picks. The native input stays, hidden, so FormData is unchanged. Wheels snap to the centre band using `scroll-padding-top: 80px`; don't remove it, or AM/PM snaps wrong.
+- Drafts: unfinished form fields are saved to sessionStorage per view, form and name, and restored after re-renders; they're cleared on submit. Background refresh now skips while an input in `#view` is focused or the picker is open. This fixes the reminder time resetting.
+- `musicHud()` (music.js): floating HUD "now playing" at the top-left of the Command stage, desktop only.
+- Code layout "Side by side" (desktop): up to 3 sessions as full chat columns, each with its own input, live steps and project tint. Pins are in `hq-code-split`. A tile's ⇥ button or the drawer's "Open side by side" adds a session.

@@ -146,14 +146,16 @@ async function vCode(el) {
     <div class="tui-head"><div><h1>Code</h1><p class="sub">Several Claude Code sessions at once. Click a box to talk to it. Commits, pushes and deploys stay blocked.</p></div>
       <div class="tui-acts"><span class="tui-cap" id="lvCap"></span><button class="btn" id="lvImport" type="button">Bring in session</button><button class="btn primary" id="lvNew" type="button">+ New session</button></div></div>
     <div class="tui-bar"><div class="tui-chips" role="group" aria-label="Show">${[["all", "All"], ["run", "Working"], ["bad", "Needs a look"]].map(([k, l]) => `<button type="button" data-cf="${k}" class="${filt === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <div class="tui-chips" role="group" aria-label="Layout"><button type="button" data-lay="grid" class="${codeLayout() === "grid" ? "on" : ""}">Grid</button><button type="button" data-lay="split" class="${codeLayout() === "split" ? "on" : ""}">Side by side</button></div>
       <button type="button" class="tui-tog" id="lvNetTog" aria-pressed="${net}">${net ? "Hide" : "Show"} agent map</button></div>
     <div class="lv-top" id="lvTop" ${net ? "" : "hidden"}>${netShell("code")}</div>
-    <div class="lv-grid" id="lvGrid"></div></div>
+    <div class="lv-grid" id="lvGrid"></div><div class="sp-wrap" id="lvSplit" hidden></div></div>
     <div class="lv-drawer" id="lvDrawer" hidden><div class="lv-dscrim" data-close></div><div class="card lv-dpanel tui-d"><div class="cd-main" id="cdMain"></div></div></div>`;
   document.getElementById("lvNew").onclick = codeNewModal;
   document.getElementById("lvImport").onclick = () => codeImportModal();
   el.querySelectorAll("[data-cf]").forEach(b => b.onclick = () => { hstore.set("hq-code-filter", b.dataset.cf); el.querySelectorAll("[data-cf]").forEach(x => x.classList.toggle("on", x === b)); codeGrid(); });
   document.getElementById("lvNetTog").onclick = e => { const on = hstore.get("hq-code-net", phone() ? "0" : "1") !== "1"; hstore.set("hq-code-net", on ? "1" : "0"); document.getElementById("lvTop").hidden = !on; e.target.textContent = `${on ? "Hide" : "Show"} agent map`; e.target.setAttribute("aria-pressed", String(on)); if (on) netUpdate(document.getElementById("lvNet"), "code"); };
+  el.querySelectorAll("[data-lay]").forEach(b => b.onclick = () => { hstore.set("hq-code-layout", b.dataset.lay); el.querySelectorAll("[data-lay]").forEach(x => x.classList.toggle("on", x === b)); codeGrid(); });
   el.querySelector("[data-close]").onclick = codeClose;
   if (!Live.code) Live.code = await api("/code").catch(() => ({ sessions: [], max: 4, running: 0 }));
   codeGrid(); livePoll();
@@ -163,6 +165,9 @@ function codeGrid() {
   const g = document.getElementById("lvGrid"); if (!g || !Live.code) return;
   const { sessions, max, running } = Live.code;
   const cap = document.getElementById("lvCap"); if (cap) { cap.innerHTML = `<i class="${running ? "on" : ""}"></i>${running}/${max} running`; }
+  const split = codeLayout() === "split";
+  g.hidden = split; const sp = document.getElementById("lvSplit"); if (sp) { sp.hidden = !split; if (split) splitRender(); }
+  if (split) return;
   const filt = hstore.get("hq-code-filter", "all");
   const shown = sessions.filter(s => filt === "run" ? s.busy : filt === "bad" ? s.error && !s.busy : true);
   const tile = s => {
@@ -173,7 +178,7 @@ function codeGrid() {
     const foot = s.busy ? `<span class="run">✱ Working ${fmtDur(Live.now - (op?.startedAt || Live.now))}</span><span>${op ? `${op.calls} steps · <span class="a">+${op.added}</span> <span class="d">−${op.removed}</span>` : ""}</span>`
       : s.messages ? `<span class="${s.error ? "bad" : "ok"}">${s.error ? "✕ Needs a look" : "✓ Done"}${s.ms ? ` (${fmtDur(s.ms)})` : ""}</span><span>${s.added || s.removed ? `<span class="a">+${s.added}</span> <span class="d">−${s.removed}</span>` : ""}</span>` : `<span>○ Ready</span><span></span>`;
     return `<div class="lv-tile ${s.busy ? "run" : s.error ? "bad" : ""}" style="--pc:${projColor(s.project)}" data-open-s="${esc(s.id)}" tabindex="0" role="button" aria-label="Open ${esc(s.name)}">
-      <div class="h"><i>✱</i><b>${esc(s.name)}</b><span class="pj">${esc(s.projectName)}</span><span class="rule"></span>${s.busy ? `<button class="x" data-stop="${esc(s.id)}" title="Stop" aria-label="Stop" type="button">■</button>` : `<button class="x" data-closes="${esc(s.id)}" title="Close session" aria-label="Close session" type="button">✕</button>`}</div>
+      <div class="h"><i>✱</i><b>${esc(s.name)}</b><span class="pj">${esc(s.projectName)}</span><span class="rule"></span><button class="x" data-side="${esc(s.id)}" title="Open side by side" aria-label="Open side by side" type="button">⇥</button>${s.busy ? `<button class="x" data-stop="${esc(s.id)}" title="Stop" aria-label="Stop" type="button">■</button>` : `<button class="x" data-closes="${esc(s.id)}" title="Close session" aria-label="Close session" type="button">✕</button>`}</div>
       ${s.task ? `<div class="task">↳ ${esc(s.task)}</div>` : ""}
       <div class="lines">${lines || `<div class="ln dim">${s.reply ? esc(s.reply) : "Click to give it a job."}</div>`}</div>
       <div class="f">${foot}</div></div>`;
@@ -185,10 +190,82 @@ function codeGrid() {
     g.querySelectorAll("[data-open-s]").forEach(t => { t.onclick = e => { if (!e.target.closest("button")) codeOpen(t.dataset.openS); }; t.onkeydown = e => { if (e.key === "Enter") codeOpen(t.dataset.openS); }; });
     g.querySelectorAll("[data-stop]").forEach(b => b.onclick = () => api(`/code/${b.dataset.stop}/stop`, "POST").then(liveKick).catch(x => toast(x.message)));
     g.querySelectorAll("[data-closes]").forEach(b => b.onclick = async () => { if (!confirm("Close this session? Its history is archived.")) return; await api(`/code/${b.dataset.closes}`, "DELETE").catch(x => toast(x.message)); Live.code = await api("/code").catch(() => Live.code); codeGrid(); });
+    g.querySelectorAll("[data-side]").forEach(b => b.onclick = () => splitAdd(b.dataset.side));
     g.querySelector("[data-cf-all]")?.addEventListener("click", () => document.querySelector('[data-cf="all"]')?.click());
     document.getElementById("lvAdd").onclick = codeNewModal;
   }
 }
+// ---------------- side by side: several sessions as full chat columns, each with its own box ----------------
+const Split = { data: new Map(), seen: new Map(), busy: new Set() };
+function codeLayout() { return phone() ? "grid" : hstore.get("hq-code-layout", "grid") === "split" ? "split" : "grid"; }
+function splitIds() {
+  let ids = []; try { ids = JSON.parse(hstore.get("hq-code-split", "[]")); } catch {}
+  const have = new Set((Live.code?.sessions || []).map(s => s.id));
+  ids = ids.filter(id => have.has(id));
+  if (!ids.length) ids = (Live.code?.sessions || []).slice(0, 2).map(s => s.id);
+  return ids.slice(0, 3);
+}
+function splitAdd(id) {
+  const ids = splitIds().filter(x => x !== id); ids.push(id);
+  hstore.set("hq-code-split", JSON.stringify(ids.slice(-3))); hstore.set("hq-code-layout", "split");
+  document.querySelectorAll("[data-lay]").forEach(x => x.classList.toggle("on", x.dataset.lay === "split"));
+  codeGrid();
+}
+function splitDrop(id) { hstore.set("hq-code-split", JSON.stringify(splitIds().filter(x => x !== id))); Split.data.delete(id); splitRender(); }
+function splitRender() {
+  const wrap = document.getElementById("lvSplit"); if (!wrap) return;
+  const ids = splitIds(), sess = id => (Live.code?.sessions || []).find(s => s.id === id);
+  if (!ids.length) { wrap.innerHTML = `<div class="tui-empty"><b>No sessions yet.</b><span>Start one with + New session.</span></div>`; return; }
+  const keyNow = ids.join(",") + "|" + (Live.code?.sessions || []).filter(s => ids.includes(s.id)).length;
+  if (wrap.dataset.k !== keyNow) {
+    wrap.dataset.k = keyNow;
+    const others = (Live.code?.sessions || []).filter(s => !ids.includes(s.id));
+    wrap.innerHTML = ids.map(id => { const s = sess(id); return `<section class="sp-col" data-sp="${esc(id)}" style="--pc:${projColor(s.project)}">
+        <header><i></i><b>${esc(s.name)}</b><span>${esc(s.projectName)}</span><button type="button" class="x" data-sp-open="${esc(id)}" title="Open full" aria-label="Open full">⤢</button><button type="button" class="x" data-sp-drop="${esc(id)}" title="Remove from side by side" aria-label="Remove">✕</button></header>
+        <div class="sp-log" id="spLog-${esc(id)}"><div class="cd-empty"><b>Loading…</b></div></div>
+        <form class="sp-in" data-sp-form="${esc(id)}"><textarea rows="2" placeholder="Ask ${esc(s.name)}… (Ctrl+Enter)"></textarea><div class="sp-row"><span class="sp-st" id="spSt-${esc(id)}"></span><button type="button" class="btn sm" data-sp-stop="${esc(id)}" hidden>■ Stop</button><button class="btn sm primary">Run</button></div></form></section>`; }).join("")
+      + (ids.length < 3 && others.length ? `<div class="sp-add"><span>Add a session</span>${others.slice(0, 8).map(o => `<button type="button" data-sp-add="${esc(o.id)}" style="--pc:${projColor(o.project)}"><i></i>${esc(o.name)}</button>`).join("")}</div>` : "");
+    wrap.querySelectorAll("[data-sp-drop]").forEach(b => b.onclick = () => splitDrop(b.dataset.spDrop));
+    wrap.querySelectorAll("[data-sp-open]").forEach(b => b.onclick = () => codeOpen(b.dataset.spOpen));
+    wrap.querySelectorAll("[data-sp-add]").forEach(b => b.onclick = () => splitAdd(b.dataset.spAdd));
+    wrap.querySelectorAll("[data-sp-stop]").forEach(b => b.onclick = () => api(`/code/${b.dataset.spStop}/stop`, "POST").then(liveKick).catch(x => toast(x.message)));
+    wrap.querySelectorAll("[data-sp-form]").forEach(f => {
+      const id = f.dataset.spForm, ta = f.querySelector("textarea");
+      const go = async () => {
+        const text = ta.value.trim(); if (!text) return;
+        try { await api(`/code/${id}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort() }); ta.value = ""; Split.seen.delete(id); Snd.blip(980, .06); liveKick(); splitLoad(id); }
+        catch (e) { toast(e.message, 5000); }
+      };
+      f.onsubmit = e => { e.preventDefault(); go(); };
+      ta.onkeydown = e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go(); } };
+    });
+    Split.seen.clear();
+  }
+  for (const id of ids) { const s = sess(id); if (s && (s.busy || Split.seen.get(id) !== s.messages)) splitLoad(id); else splitLive(id); }
+}
+async function splitLoad(id) {
+  if (Split.busy.has(id)) return; Split.busy.add(id);
+  try {
+    const d = await api(`/code/${id}`).catch(() => null); if (!d) return;
+    Split.data.set(id, d); Split.seen.set(id, (Live.code?.sessions || []).find(s => s.id === id)?.messages);
+    const log = document.getElementById("spLog-" + id); if (!log) return;
+    const stick = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+    const html = d.messages.length ? d.messages.slice(-30).map(codeMsgHTML).join("") : `<div class="cd-empty"><b>${esc(d.name)}</b>Ask for a feature, a fix or an explanation.</div>`;
+    if (log.dataset.n !== String(d.messages.length)) { log.innerHTML = html + `<div class="sp-live" id="spLive-${esc(id)}"></div>`; log.dataset.n = String(d.messages.length); log.scrollTop = log.scrollHeight; }
+    else if (stick) log.scrollTop = log.scrollHeight;
+    splitLive(id);
+  } finally { Split.busy.delete(id); }
+}
+function splitLive(id) {
+  const d = Split.data.get(id), s = (Live.code?.sessions || []).find(x => x.id === id); if (!d || !s) return;
+  const op = s.busy ? Live.ops.find(o => o.id === s.opId) : null;
+  const live = document.getElementById("spLive-" + id), st = document.getElementById("spSt-" + id), stop = document.querySelector(`[data-sp-stop="${CSS.escape(id)}"]`);
+  if (live) live.innerHTML = s.busy ? `<div class="cd-msg hq"><div class="cd-steps">${(op?.steps || []).filter(x => x.kind === "tool" || x.kind === "text").slice(-10).map(x => stepLine(x, true)).join("")}<div class="s run"><b>${op ? "Working" : "Starting"}</b><span>${op ? `${op.calls} steps · ${fmtDur(Date.now() - op.startedAt)}` : ""}</span></div></div></div>` : "";
+  if (st) st.innerHTML = s.busy ? `<span class="run">✱ working</span>` : s.error ? `<span class="bad">needs a look</span>` : d.level === "build" ? "can edit" : "read-only";
+  if (stop) stop.hidden = !s.busy;
+  const log = document.getElementById("spLog-" + id); if (s.busy && log && log.scrollHeight - log.scrollTop - log.clientHeight < 120) log.scrollTop = log.scrollHeight;
+}
+
 // Bring in a Claude Code session started elsewhere (terminal, VS Code) for one of the project's folders.
 async function codeImportModal(slug) {
   const projs = codeProjects();
@@ -253,7 +330,7 @@ async function codeLoad(full) {
   if (full || !main.querySelector(".cd-log")) {
     const ro = d.level !== "build";
     main.innerHTML = `<div class="cd-bar"><button class="btn sm ghost" type="button" id="cdBack" aria-label="Back">←</button><b>✱ ${esc(d.name)}</b><span class="pill ${ro ? "amber" : "green"}">${ro ? "read-only" : "can edit"}</span><span class="path" title="${esc(d.folders.join("; "))}">${esc(d.found.join(" · ") || "folder not found on this PC")}</span>
-        ${tierSwitch()}<button class="btn sm" id="cdStop" type="button" ${d.busy ? "" : "hidden"}>■ Stop</button></div>
+        ${tierSwitch()}${phone() ? "" : `<button class="btn sm" id="cdSide" type="button" title="Show next to other sessions">Open side by side</button>`}<button class="btn sm" id="cdStop" type="button" ${d.busy ? "" : "hidden"}>■ Stop</button></div>
       ${d.sameProject ? `<div class="cd-warn">${d.sameProject} other session${d.sameProject > 1 ? "s are" : " is"} working in this project right now. Keep their jobs on different files.</div>` : ""}
       <div class="cd-log" id="cdLog"></div>
       <form class="cd-in" id="cdForm"><textarea id="cdText" rows="2" placeholder="${ro ? "Ask about the code (read-only here)…" : "What should we build or fix? (Ctrl+Enter)"}"></textarea><button class="btn primary" id="cdSend">Run</button></form>`;
@@ -264,6 +341,7 @@ async function codeLoad(full) {
     document.getElementById("cdForm").onsubmit = e => { e.preventDefault(); codeSend(); };
     document.getElementById("cdStop").onclick = () => api(`/code/${id}/stop`, "POST").catch(x => toast(x.message));
     document.getElementById("cdBack").onclick = codeClose;
+    document.getElementById("cdSide")?.addEventListener("click", () => { codeClose(); splitAdd(id); });
   }
   const log = document.getElementById("cdLog");
   const stick = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
