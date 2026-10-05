@@ -136,7 +136,7 @@ function parseHash() {
 function render() {
   if (!S) return;
   $$("#nav a").forEach(a => a.classList.toggle("on", a.dataset.view === (route.view === "project" ? "projects" : route.view)));
-  const views = { command: vCommand, planner: vPlanner, home: vHome, projects: vProjects, project: vProject, calendar: vCalendar, roadmap: vRoadmap, inbox: vInbox, assistant: vAssistant, missions: vMissions, settings: vSettings, code: vCode, outbox: vOutbox, tasks: vTasks };
+  const views = { command: vCommand, planner: vPlanner, home: vHome, projects: vProjects, project: vProject, calendar: vCalendar, roadmap: vRoadmap, inbox: vInbox, assistant: vAssistant, missions: vMissions, settings: vSettings, code: vCode, outbox: vOutbox, tasks: vTasks, canvas: vCanvas };
   const fn = views[route.view] || vCommand;
   // Don't clobber a field the user is typing in during background refreshes.
   const active = document.activeElement;
@@ -716,5 +716,5 @@ window.addEventListener("DOMContentLoaded", async () => {
   parseHash();
   await refresh();
   render();
-  setInterval(async () => { if (HUD.asleep) return; await refresh(); render.background = true; if (!["assistant", "project", "command", "planner", "code", "tasks"].includes(route.view) || route.view === "project" && editing === null && projTab === "work") render(); render.background = false; }, 6000);
+  setInterval(async () => { if (HUD.asleep) return; await refresh(); render.background = true; if (!["assistant", "project", "command", "planner", "code", "tasks", "canvas"].includes(route.view) || route.view === "project" && editing === null && projTab === "work") render(); render.background = false; }, 6000);
 });

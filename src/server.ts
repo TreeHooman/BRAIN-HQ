@@ -12,6 +12,7 @@ import * as cal from "./lib/calendar.ts";
 import * as outbox from "./lib/outbox.ts";
 import * as code from "./lib/code.ts";
 import * as spotify from "./lib/spotify.ts";
+import * as canvas from "./lib/canvas.ts";
 
 ensureLocalConfig();
 const cfg = loadConfig();
@@ -134,6 +135,11 @@ const routes: [string, RegExp, Handler][] = [
   ["PUT", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => code.rename(m[1], String(b.name || ""))],
   ["POST", /^\/api\/code\/([a-z0-9-]+)\/stop$/, m => { code.stop(m[1]); return { ok: true }; }],
   ["DELETE", /^\/api\/code\/([a-z0-9-]+)$/, m => { code.close(m[1]); return { ok: true }; }],
+  ["GET", /^\/api\/canvas$/, () => canvas.list()],
+  ["POST", /^\/api\/canvas$/, (_, b) => canvas.create(b)],
+  ["GET", /^\/api\/canvas\/(cv-[a-z0-9]+)$/, m => canvas.get(m[1])],
+  ["PUT", /^\/api\/canvas\/(cv-[a-z0-9]+)$/, (m, b) => canvas.save(m[1], b)],
+  ["DELETE", /^\/api\/canvas\/(cv-[a-z0-9]+)$/, m => { canvas.remove(m[1]); return { ok: true }; }],
   ["GET", /^\/api\/tasks$/, () => ({ tasks: orch.tasks(), status: orch.status() })],
   ["POST", /^\/api\/tasks$/, (_, b) => orch.createTask(b)],
   ["POST", /^\/api\/tasks\/([\w-]+)\/reply$/, (m, b) => orch.replyTask(m[1], String(b.text || ""))],

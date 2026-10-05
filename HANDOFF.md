@@ -141,3 +141,16 @@ The owner asked for (1) a cleaner, modern, easier-on-the-eyes UI with better fin
 - Drafts: unfinished form fields are saved to sessionStorage per view, form and name, and restored after re-renders; they're cleared on submit. Background refresh now skips while an input in `#view` is focused or the picker is open. This fixes the reminder time resetting.
 - `musicHud()` (music.js): floating HUD "now playing" at the top-left of the Command stage, desktop only.
 - Code layout "Side by side" (desktop): up to 3 sessions as full chat columns, each with its own input, live steps and project tint. Pins are in `hq-code-split`. A tile's ⇥ button or the drawer's "Open side by side" adds a session.
+
+## 2026-10-05 handoff #11: Canvas (inspired by Morphy's canvas + focus view)
+- `src/lib/canvas.ts` and `/api/canvas[/:id]` (GET/POST/PUT/DELETE): layouts in `data/canvas/<id>.json`. Card types: project, agent (ref = code session id), checklist (ref = goal id) and note (text). Cards are validated and clamped; at most 60 cards and 60 canvases.
+- `web/canvas.js` and `web/canvas.css`, view `#canvas/<id>`:
+  - Board: tabs for open canvases, a breadcrumb (double-click to rename), and a dotted board. Drag empty space to pan; the mouse wheel pans and Ctrl+wheel zooms. Toolbar: add, zoom, fit, undo/redo. Minimap at bottom-right.
+  - Cards: drag a card by its header (it snaps to an 8px grid) and resize it from the corner.
+  - Focus: drag an agent card to the right edge, or press ⇥, to open it in a focus column (up to 2, kept in `hq-cv-focus`).
+  - Agent cards are live chats (`/api/code/:id`) with their own model picker.
+  - The project card shows Working / Need you / Canvases / Shipped, plus New chat, New canvas and the agents list.
+  - Checklists tick goal steps through `/api/goals/:id/steps/:sid`.
+  - The first visit auto-creates a "Main canvas" for the focused project, containing its sessions and goals.
+- Phone: cards are stacked with no panning.
+- Codex/GPT agents (shown in Morphy) are not added. The engine stays Claude Code; adding another engine would be a separate, opt-in piece of work.
