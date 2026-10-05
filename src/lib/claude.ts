@@ -110,7 +110,13 @@ export function buildArgs(o: RunOptions): string[] {
   return args;
 }
 
+/** Every run reports whether Claude was signed in, so the dashboard's connection status stays true (missions, chat, Code, mail…). */
+const resultListeners = new Set<(r: RunResult) => void>();
+export function onRunResult(fn: (r: RunResult) => void) { resultListeners.add(fn); }
 export function runClaude(o: RunOptions): Promise<RunResult> {
+  return runClaudeInner(o).then(r => { for (const fn of resultListeners) { try { fn(r); } catch {} } return r; });
+}
+function runClaudeInner(o: RunOptions): Promise<RunResult> {
   const fake = process.env.HQ_FAKE_CLAUDE; // test seam: a JS file that imitates the CLI
   const bin = fake ? process.execPath : findClaude();
   const started = Date.now();

@@ -5,7 +5,7 @@ import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { DATA, DROP, appendLine, fingerprint, localDate, readJson, uid, writeJson } from "./store.ts";
 import { budget, loadConfig, minLevel, modelFor, type Level } from "./config.ts";
-import { findClaude, killTree, runClaude, type RunResult } from "./claude.ts";
+import { findClaude, killTree, onRunResult, runClaude, type RunResult } from "./claude.ts";
 import type { Step } from "./narrate.ts";
 import { isDue, type Schedule } from "./schedule.ts";
 import { notify } from "./notify.ts";
@@ -212,6 +212,7 @@ export function start() {
   brain.regenerateIndex();
   timer = setInterval(() => void tick(), 30_000);
   setTimeout(() => void tick(), 2000);
+  if (state().auth !== "ok") setTimeout(() => void checkAuth(), 4000); // don't show "Not checked yet" for long
 }
 export function stop() { if (timer) clearInterval(timer); setAwake(false); }
 let kickTimer: NodeJS.Timeout | null = null;
@@ -570,8 +571,21 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
   } finally { chatBusy = false; opEnd(opId, opOk); kick(); }
 }
 
-/** Retry now after the user signs in. */
-export function clearAuth() { patchState(s => { s.auth = "unknown"; s.authCheckedAt = undefined; }); findClaude(true); kick(); }
+onRunResult(r => {
+  if (r.ok && state().auth !== "ok") patchState(s => { s.auth = "ok"; s.authCheckedAt = new Date().toISOString(); });
+  if (r.kind === "auth") patchState(s => { s.auth = "needs-login"; s.authCheckedAt = new Date().toISOString(); });
+});
+let checking: Promise<void> | null = null;
+/** A tiny Haiku run ("reply OK") that tells us for sure whether Claude is signed in. */
+export function checkAuth(): Promise<void> {
+  if (checking) return checking;
+  checking = runClaude({ prompt: "Reply with exactly: OK", model: modelFor("fast").model, level: "read", runId: "auth-check", timeoutMs: 90e3, act: { allow: ["mcp__hq_none"] }, system: "Reply with exactly: OK" })
+    .then(r => { if (!r.ok && r.kind !== "auth") patchState(s => { s.authCheckedAt = new Date().toISOString(); }); activity("auth-check", { ok: r.ok, kind: r.kind }); })
+    .catch(() => {}).finally(() => { checking = null; });
+  return checking;
+}
+/** Retry now after the user signs in: re-find the CLI and check right away. */
+export function clearAuth() { patchState(s => { s.auth = "unknown"; s.authCheckedAt = undefined; }); findClaude(true); void checkAuth().then(() => kick()); }
 export function clearPause() { patchState(s => { s.pausedUntil = new Date(0).toISOString(); }); kick(); }
 
 // ---------------- keep-awake ----------------
