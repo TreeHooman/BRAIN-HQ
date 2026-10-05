@@ -494,6 +494,6 @@ export function calEvents(from: Date, to: Date): GCalEvent[] {
 export function calFeeds() {
   return accounts().map(a => {
     const st = calState.get(a.id), n = [...calCache.entries()].filter(([k]) => k.startsWith(a.id + "|")).reduce((s, [, v]) => s + v.events.length, 0);
-    return { id: "g:" + a.id, name: a.label, color: a.color, host: a.email, google: true, needsReconnect: !hasCal(a), ok: !hasCal(a) ? false : st ? st.ok : null, error: !hasCal(a) ? "Press Reconnect in Workspace → Accounts to show this calendar." : st?.error || null, lastSync: st?.at ? new Date(st.at).toISOString() : null, count: n };
+    return { id: "g:" + a.id, name: a.label, color: a.color, host: a.email, google: true, needsReconnect: !hasCal(a), ok: !hasCal(a) ? false : st ? st.ok : null, error: !hasCal(a) ? "Press Reconnect to show this calendar." : st?.error || null, lastSync: st?.at ? new Date(st.at).toISOString() : null, count: n };
   });
 }
