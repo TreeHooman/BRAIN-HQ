@@ -730,51 +730,59 @@ hudBoot = function (short) {
     const size = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; cv.style.width = innerWidth + "px"; cv.style.height = innerHeight + "px"; };
     size(); addEventListener("resize", size);
     const T = short ? { open: [150, 650], scan: [650, 1500], lock: [1500, 1900], dive: [1900, 2400] } : { open: [350, 1350], scan: [1350, 3000], lock: [3000, 3600], dive: [3600, 4200] };
-    const fib = Array.from({ length: 140 }, (_, i) => ({ a: i / 140 * Math.PI * 2 + Math.random() * .03, r0: .3 + Math.random() * .12, r1: .78 + Math.random() * .2, w: .5 + Math.random(), h: 180 + Math.random() * 70 }));
     const ease = t => t < 0 ? 0 : t > 1 ? 1 : 1 - Math.pow(1 - t, 3);
     const ph = (t, [a, z]) => ease((t - a) / (z - a));
+    const dots = Array.from({ length: 48 }, (_, i) => i / 48 * Math.PI * 2);
     let t0 = performance.now(), raf = 0, done = false;
     Snd.hum(short ? 1 : 2.6, 40, 120);
+    const C = (a = 1) => `rgba(111,242,255,${a})`, Wt = (a = 1) => `rgba(220,252,255,${a})`;
+    const poly = (n, r, rot) => { x.beginPath(); for (let i = 0; i <= n; i++) { const a = rot + i / n * Math.PI * 2; i ? x.lineTo(Math.cos(a) * r, Math.sin(a) * r) : x.moveTo(Math.cos(a) * r, Math.sin(a) * r); } x.closePath(); };
     const draw = now => {
-      const t = now - t0, W = cv.width, H = cv.height, cx = W / 2, cy = H * .42, R = Math.min(W, H) * .16;
+      const t = now - t0, W = cv.width, H = cv.height, cx = W / 2, cy = H * .42, R = Math.min(W, H) * .15;
       x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, W, H);
       const open = ph(t, T.open), scan = ph(t, T.scan), lock = ph(t, T.lock), dive = ph(t, T.dive);
-      // gaze: wanders left → right → down while scanning, recentres to lock on
-      const gx = scan > 0 && lock < 1 ? Math.sin(scan * Math.PI * 2.2) * R * .28 * (1 - lock) : 0, gy = scan > 0 && lock < 1 ? Math.sin(scan * Math.PI * 1.1) * R * .12 * (1 - lock) : 0;
+      const gx = scan > 0 && lock < 1 ? Math.sin(scan * Math.PI * 2.2) * R * .22 * (1 - lock) : 0, gy = scan > 0 && lock < 1 ? Math.sin(scan * Math.PI * 1.1) * R * .1 * (1 - lock) : 0;
       x.save(); x.translate(cx, cy); const z = 1 + dive * dive * 9; x.scale(z, z); x.globalAlpha = 1 - dive * .85;
-      // eyelid almond
-      const w = R * 2.5, h = R * 1.25 * open;
-      x.beginPath(); x.moveTo(-w, 0); x.quadraticCurveTo(0, -h * 1.6, w, 0); x.quadraticCurveTo(0, h * 1.6, -w, 0); x.closePath();
-      x.save(); x.clip();
-      // sclera glow
-      const sg = x.createRadialGradient(0, 0, R * .2, 0, 0, w); sg.addColorStop(0, "rgba(40,90,140,.35)"); sg.addColorStop(1, "rgba(2,6,16,.0)"); x.fillStyle = sg; x.fillRect(-w, -w, w * 2, w * 2);
+      x.lineCap = "round"; x.lineJoin = "round";
+      // octagon frame draws itself in, then a slow counter-rotating outer ring of ticks
+      const fr = R * 1.9; x.strokeStyle = C(.55); x.lineWidth = 1.4 * dpr;
+      x.setLineDash([fr * 6.2 * Math.min(1, t / 700), fr * 7]); poly(8, fr, Math.PI / 8); x.stroke(); x.setLineDash([]);
+      x.save(); x.rotate(t / 2600); x.strokeStyle = C(.6 * Math.min(1, t / 500)); x.lineWidth = 1.1 * dpr;
+      for (let i = 0; i < 72; i++) { const a = i / 72 * Math.PI * 2, l = i % 6 ? .04 : .1; x.beginPath(); x.moveTo(Math.cos(a) * R * 1.55, Math.sin(a) * R * 1.55); x.lineTo(Math.cos(a) * R * (1.55 + l), Math.sin(a) * R * (1.55 + l)); x.stroke(); }
+      x.restore();
+      x.save(); x.rotate(-t / 1100); x.strokeStyle = C(.9); x.lineWidth = 2.4 * dpr;
+      for (let i = 0; i < 4; i++) { x.beginPath(); x.arc(0, 0, R * 1.32, i * Math.PI / 2, i * Math.PI / 2 + .7); x.stroke(); }
+      x.restore();
+      // lens housing
+      x.fillStyle = "#03101a"; x.beginPath(); x.arc(0, 0, R * 1.12, 0, Math.PI * 2); x.fill();
+      x.strokeStyle = C(.8); x.lineWidth = 1.6 * dpr; x.stroke();
+      // aperture: 8 blades retract to open the lens
+      const ap = R * (.04 + .96 * open), rot = open * .9 + Math.sin(t / 900) * .03 * open;
+      x.save(); x.beginPath(); x.arc(0, 0, R * 1.08, 0, Math.PI * 2); x.clip();
+      // inside the opening: dot ring, thin rings, radar sweep, core
+      x.save(); x.beginPath(); poly(8, ap, rot); x.clip();
+      x.fillStyle = "#021723"; x.fillRect(-R * 1.2, -R * 1.2, R * 2.4, R * 2.4);
       x.translate(gx, gy);
-      // iris
-      const ig = x.createRadialGradient(0, 0, R * .2, 0, 0, R); ig.addColorStop(0, "#0b3d5c"); ig.addColorStop(.45, "#0fb4d6"); ig.addColorStop(.8, "#3a5cff"); ig.addColorStop(1, "#1a0f4a");
-      x.fillStyle = ig; x.beginPath(); x.arc(0, 0, R, 0, Math.PI * 2); x.fill();
-      x.globalCompositeOperation = "lighter";
-      for (const f of fib) { x.strokeStyle = `hsla(${f.h},100%,${60 + lock * 15}%,${.22 + lock * .2})`; x.lineWidth = f.w * dpr * .6; x.beginPath(); x.moveTo(Math.cos(f.a) * R * f.r0, Math.sin(f.a) * R * f.r0); x.lineTo(Math.cos(f.a + .04) * R * f.r1, Math.sin(f.a + .04) * R * f.r1); x.stroke(); }
-      // rotating tick ring + segment arcs (machine iris)
-      x.save(); x.rotate(t / 1400); x.strokeStyle = "rgba(160,245,255,.75)"; x.lineWidth = 1.2 * dpr;
-      for (let i = 0; i < 60; i++) { const a = i / 60 * Math.PI * 2, l = i % 5 ? .05 : .11; x.beginPath(); x.moveTo(Math.cos(a) * R * 1.02, Math.sin(a) * R * 1.02); x.lineTo(Math.cos(a) * R * (1.02 + l), Math.sin(a) * R * (1.02 + l)); x.stroke(); }
+      x.strokeStyle = C(.25); x.lineWidth = dpr; for (const r of [.35, .62, .86]) { x.beginPath(); x.arc(0, 0, R * r, 0, Math.PI * 2); x.stroke(); }
+      x.strokeStyle = C(.12); x.beginPath(); x.moveTo(-R, 0); x.lineTo(R, 0); x.moveTo(0, -R); x.lineTo(0, R); x.stroke();
+      x.fillStyle = C(.7); for (const a of dots) { x.beginPath(); x.arc(Math.cos(a + t / 3000) * R * .74, Math.sin(a + t / 3000) * R * .74, 1.3 * dpr, 0, Math.PI * 2); x.fill(); }
+      if (scan > 0 && lock < 1) { const sa = t / 380; x.fillStyle = C(.16); x.beginPath(); x.moveTo(0, 0); x.arc(0, 0, R * .95, sa - .7, sa); x.closePath(); x.fill(); x.strokeStyle = C(.9); x.lineWidth = 1.5 * dpr; x.beginPath(); x.moveTo(0, 0); x.lineTo(Math.cos(sa) * R * .95, Math.sin(sa) * R * .95); x.stroke(); }
+      const cr = R * (.16 + Math.sin(t / 240) * .012 + scan * .05 * (1 - lock) - lock * .05);
+      x.shadowColor = "#6ff2ff"; x.shadowBlur = 28 * dpr;
+      x.strokeStyle = Wt(.95); x.lineWidth = 2 * dpr; poly(6, cr * 1.7, t / 1500); x.stroke();
+      x.fillStyle = lock > 0 ? Wt(1) : C(1); x.beginPath(); x.arc(0, 0, cr, 0, Math.PI * 2); x.fill();
+      x.shadowBlur = 0;
       x.restore();
-      x.save(); x.rotate(-t / 900); x.strokeStyle = "rgba(111,242,255,.9)"; x.lineWidth = 2.2 * dpr;
-      for (let i = 0; i < 3; i++) { x.beginPath(); x.arc(0, 0, R * .62, i * 2.09, i * 2.09 + .9); x.stroke(); }
+      // blades (the closed part of the aperture)
+      x.fillStyle = "#06202e"; x.strokeStyle = C(.55); x.lineWidth = 1.2 * dpr;
+      for (let i = 0; i < 8; i++) {
+        const a0 = rot + i / 8 * Math.PI * 2, a1 = rot + (i + 1) / 8 * Math.PI * 2;
+        const p0 = [Math.cos(a0) * ap, Math.sin(a0) * ap], p1 = [Math.cos(a1) * ap, Math.sin(a1) * ap];
+        x.beginPath(); x.moveTo(...p0); x.lineTo(...p1); x.lineTo(Math.cos(a1 + .5) * R * 1.3, Math.sin(a1 + .5) * R * 1.3); x.lineTo(Math.cos(a0 + .5) * R * 1.3, Math.sin(a0 + .5) * R * 1.3); x.closePath(); x.fill(); x.stroke();
+      }
       x.restore();
-      x.globalCompositeOperation = "source-over";
-      // pupil: dilates while scanning, snaps tight on lock
-      const pr = R * (.3 + Math.sin(t / 260) * .02 + scan * .08 * (1 - lock) - lock * .1);
-      const pg = x.createRadialGradient(0, 0, 0, 0, 0, pr * 1.5); pg.addColorStop(0, "#000"); pg.addColorStop(.66, "#000"); pg.addColorStop(1, "rgba(0,0,0,0)");
-      x.fillStyle = pg; x.beginPath(); x.arc(0, 0, pr * 1.5, 0, Math.PI * 2); x.fill();
-      x.strokeStyle = `rgba(111,242,255,${.5 + lock * .5})`; x.lineWidth = 1.5 * dpr; x.beginPath(); x.arc(0, 0, pr * 1.02, 0, Math.PI * 2); x.stroke();
-      // catch-light
-      x.fillStyle = "rgba(255,255,255,.8)"; x.beginPath(); x.ellipse(-R * .32, -R * .34, R * .09, R * .055, -.6, 0, Math.PI * 2); x.fill();
+      if (open < .05) { x.strokeStyle = Wt(.95); x.lineWidth = 2.5 * dpr; x.shadowColor = "#6ff2ff"; x.shadowBlur = 18 * dpr; x.beginPath(); x.arc(0, 0, R * .05 + 2 * dpr, 0, Math.PI * 2); x.stroke(); x.shadowBlur = 0; }
       x.restore();
-      // lid rims
-      x.strokeStyle = `rgba(111,242,255,${.35 + open * .5})`; x.lineWidth = 1.6 * dpr; x.shadowColor = "#6ff2ff"; x.shadowBlur = 18 * dpr;
-      x.beginPath(); x.moveTo(-w, 0); x.quadraticCurveTo(0, -h * 1.6, w, 0); x.quadraticCurveTo(0, h * 1.6, -w, 0); x.stroke();
-      if (open < .05) { x.strokeStyle = "rgba(180,250,255,.95)"; x.lineWidth = 2.5 * dpr; x.beginPath(); x.moveTo(-w * Math.min(1, t / 300), 0); x.lineTo(w * Math.min(1, t / 300), 0); x.stroke(); }
-      x.shadowBlur = 0; x.restore();
       // scanning beam: a lit band sweeps the screen top → bottom with a grid in its wake
       if (scan > 0 && scan < 1) {
         const y = scan * H, g = x.createLinearGradient(0, y - 140 * dpr, 0, y + 6 * dpr);
