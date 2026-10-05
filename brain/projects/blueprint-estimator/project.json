@@ -1,0 +1,21 @@
+{
+  "updated": "2026-10-05",
+  "links": [],
+  "tags": [
+    "client",
+    "ai"
+  ],
+  "paths": [],
+  "repos": [
+    "TreeHooman/blueprint-estimator"
+  ],
+  "phases": [],
+  "maxPermission": "build",
+  "name": "Blueprint Estimator",
+  "kind": "product",
+  "stage": "paused",
+  "health": "unknown",
+  "order": 9,
+  "summary": "AI blueprint takeoff + estimating tool for a commercial plumbing business (Surrey, BC).",
+  "nextStep": "Owner: is this still active? Last work was pre-calibration prep (4 Jul)."
+}

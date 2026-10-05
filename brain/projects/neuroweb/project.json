@@ -1,0 +1,16 @@
+{
+  "updated": "2026-10-05",
+  "links": [],
+  "tags": [],
+  "paths": [],
+  "repos": [],
+  "phases": [],
+  "maxPermission": "build",
+  "name": "NeuroWeb",
+  "kind": "product",
+  "stage": "idea",
+  "health": "unknown",
+  "order": 4,
+  "summary": "Details not captured yet. Not found on GitHub (TreeHooman) or in Project Secrets.",
+  "nextStep": "Owner: tell the assistant what NeuroWeb is (one or two lines) so it can fill this in."
+}

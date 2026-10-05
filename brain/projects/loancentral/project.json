@@ -1,0 +1,73 @@
+{
+  "updated": "2026-10-05",
+  "links": [
+    {
+      "label": "loancentral.net",
+      "url": "https://loancentral.net"
+    },
+    {
+      "label": "Old LoanCentral HQ page",
+      "url": "/legacy/loancentral-hq.html"
+    }
+  ],
+  "tags": [
+    "reddit",
+    "lending",
+    "core"
+  ],
+  "paths": [
+    "C:/Users/antho/OneDrive/Project Secrets/LoanBot",
+    "C:/Users/antho/OneDrive/Project Secrets/LoanBot/loancentral-sandbox",
+    "C:/Users/antho/OneDrive/Project Secrets/LoanBot/reddit-first"
+  ],
+  "repos": [
+    "TreeHooman/LoanCentral-Test"
+  ],
+  "phases": [
+    {
+      "name": "Phase 0: Housekeeping",
+      "start": "2026-10-01",
+      "end": "2026-10-08",
+      "status": "active"
+    },
+    {
+      "name": "Phase 1: Dashboard v1",
+      "start": "2026-10-08",
+      "end": "2026-10-31",
+      "status": "planned"
+    },
+    {
+      "name": "Phase 2: Dual-mode tools",
+      "start": "2026-11-01",
+      "end": "2026-11-30",
+      "status": "planned"
+    },
+    {
+      "name": "Phase 3: No-bot mode switch",
+      "start": "2026-12-01",
+      "end": "2027-01-31",
+      "status": "planned"
+    },
+    {
+      "name": "Phase 4: The decision",
+      "start": "2027-02-01",
+      "end": "2027-03-31",
+      "status": "planned"
+    },
+    {
+      "name": "Phase 5: Grow, then money",
+      "start": "2027-04-01",
+      "end": "2027-06-30",
+      "status": "planned"
+    }
+  ],
+  "maxPermission": "plan",
+  "name": "LoanCentral",
+  "kind": "business",
+  "stage": "live",
+  "health": "watch",
+  "order": 1,
+  "summary": "r/LoanCentral (~7.5k members) + LoanBot 2.0 + loancentral.net: peer lending record-keeping.",
+  "nextStep": "Finish Phase 0 housekeeping (due 8 Oct), then Phase 1 dashboard v1.",
+  "notes": "LoanCentral-Test (LoanBot 2.0) is READ-ONLY for agents. The live site runs from the hosting PC."
+}

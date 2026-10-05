@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>LoanCentral HQ</title>
+<style>
+  :root {
+    --bg: #0d1317; --panel: #151d23; --panel2: #1b252c; --line: #26323a;
+    --text: #e4e9ec; --muted: #8d9aa3; --blue: #6cb6ff; --green: #5fd38d;
+    --amber: #f2b84b; --red: #ff7b72; --violet: #b69cff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 "Segoe UI", system-ui, sans-serif; }
+  header { padding: 28px 16px 8px; text-align: center; }
+  header h1 { margin: 0; font-size: 24px; letter-spacing: .14em; font-weight: 600; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; padding: 16px; position: sticky; top: 0;
+        background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); z-index: 2; }
+  nav button { background: var(--panel); color: var(--muted); border: 1px solid var(--line); border-radius: 8px;
+               padding: 7px 14px; font: inherit; font-size: 13px; cursor: pointer; }
+  nav button.on { color: var(--blue); border-color: #2d4a63; background: #16232e; }
+  main { max-width: 1040px; margin: 0 auto; padding: 0 16px 60px; }
+  section { display: none; } section.on { display: block; }
+  h2 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 28px 0 10px; font-weight: 600; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .stat { font-size: 26px; font-weight: 600; }
+  .stat small { display: block; font-size: 12px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  .blue { color: var(--blue); } .green { color: var(--green); } .amber { color: var(--amber); } .red { color: var(--red); } .violet { color: var(--violet); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .tablewrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .p-done { background: #173527; color: var(--green); } .p-todo { background: #2a2414; color: var(--amber); }
+  .p-wait { background: #1a2633; color: var(--blue); } .p-block { background: #3a1d1b; color: var(--red); }
+  .p-info { background: #241d36; color: var(--violet); }
+  ul.check { list-style: none; padding: 0; margin: 0; }
+  ul.check li { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  ul.check li:last-child { border-bottom: 0; }
+  ul.check input { margin-top: 4px; accent-color: var(--green); }
+  ul.check li.done span { color: var(--muted); text-decoration: line-through; }
+  .phase { margin-bottom: 12px; }
+  .phase h3 { margin: 0 0 4px; font-size: 16px; }
+  .phase .when { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+  .bar { height: 6px; background: var(--panel2); border-radius: 4px; overflow: hidden; margin: 6px 0 10px; }
+  .bar i { display: block; height: 100%; background: var(--green); }
+  .timeline { position: relative; padding-left: 22px; }
+  .timeline::before { content: ""; position: absolute; left: 6px; top: 4px; bottom: 4px; width: 2px; background: var(--line); }
+  .tl { position: relative; margin-bottom: 14px; }
+  .tl::before { content: ""; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  .tl.past::before { background: var(--green); } .tl.big::before { background: var(--red); }
+  .tl b { display: inline-block; min-width: 120px; }
+  .note { border-left: 3px solid var(--amber); background: #1f1b12; padding: 10px 14px; border-radius: 6px; margin: 10px 0; }
+  .note.red { border-color: var(--red); background: #241615; }
+  .note.blue { border-color: var(--blue); background: #121c25; }
+  code { background: var(--panel2); padding: 1px 6px; border-radius: 5px; font-size: 13px; color: #9fd3ff; }
+  .muted { color: var(--muted); }
+  .board { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .col h3 { margin: 0 0 10px; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; }
+  .col ul { margin: 0; padding-left: 18px; } .col li { margin: 6px 0; }
+  .col li small { color: var(--muted); display: block; }
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; }
+  .steps li { counter-increment: s; position: relative; padding: 10px 0 10px 38px; border-bottom: 1px solid var(--line); }
+  .steps li:last-child { border-bottom: 0; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 9px; width: 26px; height: 26px; border-radius: 50%;
+                      background: #16232e; color: var(--blue); font-weight: 600; font-size: 13px; display: grid; place-items: center; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 30px 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📖 LOANCENTRAL HQ</h1>
+  <p>Project status · plan · compliance · updated 2 Oct 2026</p>
+</header>
+
+<nav id="tabs">
+  <button data-tab="overview" class="on">Overview</button>
+  <button data-tab="board">Status board</button>
+  <button data-tab="plan">Plan</button>
+  <button data-tab="compliance">Compliance</button>
+  <button data-tab="reddit">Reddit log</button>
+  <button data-tab="lab">Screen-reader lab</button>
+  <button data-tab="identity">Identity</button>
+  <button data-tab="others">Other subs</button>
+  <button data-tab="decisions">Decisions</button>
+</nav>
+
+<main>
+
+<!-- OVERVIEW -->
+<section id="overview" class="on">
+  <h2>Where things stand</h2>
+  <div class="grid">
+    <div class="card"><div class="stat amber">Denied<small>Data Access Request (ticket 18545859), 2 Oct</small></div></div>
+    <div class="card"><div class="stat blue">Running<small>LoanBot on the Data API, until Reddit's dates</small></div></div>
+    <div class="card"><div class="stat green">Merged<small>Privacy, deletion and USD/CAD changes, waiting to deploy</small></div></div>
+    <div class="card"><div class="stat red">Mar 2027<small>Public API closes for everyone</small></div></div>
+  </div>
+
+  <h2>The situation in plain words</h2>
+  <div class="card">
+    <p>Reddit is closing its public API, which LoanBot runs on, in <b>March 2027</b>. Bots are expected to move to <b>Devvit</b>, but Devvit rejected a similar lending app (LoanLedger) for "facilitating the exchange of money". Our request to keep API access was <b>denied</b> with a template reply on 2 Oct.</p>
+    <p>The plan: <b>keep the bot running while it can</b>, build the <b>website into the main ledger</b> (useful either way), and have a <b>no-bot mode</b> ready before March. The site, AutoMod and modmail verification replace the bot.</p>
+  </div>
+
+  <h2>Coming up</h2>
+  <div class="card timeline">
+    <div class="tl past"><b>27 Sep 2026</b> App registered with Reddit</div>
+    <div class="tl past"><b>1 Oct</b> Data Access Request sent; privacy/deletion/USD-CAD work merged</div>
+    <div class="tl past"><b>2 Oct</b> Request denied (template). Reply sent asking why</div>
+    <div class="tl past"><b>3 Oct</b> Discord (LoanBot 3.0) test bot built: own folder and data, test server only. Plan + paste-ready rules in discord-bot/DISCORD-PLAN.md</div>
+    <div class="tl past"><b>3 Oct (night)</b> Discord test server "LoanCentral Dev" built with the new layout, rules and guides. Next: bot token + test (walkthrough artifact)</div>
+    <div class="tl past"><b>3 Oct</b> Discord bot live in the main server in preview (ticket flow). Next: user's claim test. See discord-bot/HANDOFF.md</div>
+    <div class="tl past"><b>3 Oct</b> Discord bot security pass: fixed two bot copies running at once, /request open to everyone during preview, 50-channel category limit; added spam caps, link blocking, mention safety. 31 tests pass</div>
+    <div class="tl"><b>8 Oct</b> Phase 0 housekeeping done</div>
+    <div class="tl big"><b>31 Oct</b> Last day Reddit accepts new API access requests. Resubmit before this if needed</div>
+    <div class="tl"><b>13 Nov</b> Reddit RSS feeds end</div>
+    <div class="tl big"><b>12 Jan 2027</b> Unregistered apps lose access (we're registered)</div>
+    <div class="tl"><b>Mid-Feb 2027</b> Decide: keep the bot or switch to no-bot mode</div>
+    <div class="tl big"><b>March 2027</b> Public API closes</div>
+  </div>
+</section>
+
+<!-- STATUS BOARD -->
+<section id="board">
+  <h2>Status board · 2 Oct 2026</h2>
+  <div class="board">
+    <div class="card col"><h3 class="green">✅ Done</h3><ul>
+      <li>Data Access Request sent with full disclosure<small>1 Oct · denied 2 Oct (ticket 18545859)</small></li>
+      <li>USD/CAD only for new loans<small>Merged to upgrade/tested-bot-core</small></li>
+      <li>Privacy policy: "Your rights", US/Canada only<small>Merged</small></li>
+      <li>Anonymization + deleted-account tools<small>Merged</small></li>
+      <li>Plan + no-bot design written<small>loancentral-plan-2026-2027.md, no-api-loancentral-design.md</small></li>
+      <li>This status site</li>
+      <li>Screen-reader lab: screenshot pipeline<small>OCR → LoanBot's command rules → review page</small></li>
+      <li>[REQ]/[PRE] title reader<small>11/11 sample titles parsed; 3/3 real screenshots read correctly</small></li>
+      <li>Username checks: known vs first-time<small>Snaps OCR'd names to records; flags new names with likely spellings</small></li>
+      <li>Read-only name export script<small>export_known_users.py (run on host)</small></li>
+      <li>Reddit-first AutoMod rules tested in r/LoanCentralDev<small>Strict [REQ] title rule (case-proof, other posts allowed), pinned link, notifications, !loan/!funded/!cancel/!logi/!stats/!help</small></li>
+      <li>LoanCentral sandbox built<small>loancentral-sandbox/: copies of the real dashboard on fake data (no database, no keys). Loan flow, verify, mod tabs, history. 25 tests pass</small></li>
+    </ul></div>
+    <div class="card col"><h3 class="blue">🔧 Working on</h3><ul>
+      <li><b>Reddit-first AutoMod method</b> (current approach)<small>Reddit side tested. Sandbox site built (localhost:5055). User testing it; 6 decisions open in loancentral-sandbox/INTEGRATION.md</small></li>
+      <li>Screen-reader lab: <b>parked as backup</b><small>Ready if AutoMod falls short; comment screenshots would be the next test</small></li>
+      <li>Waiting on Reddit<small>Reply to the denial; verifying the "approval" ticket 18545872</small></li>
+      <li>Info from other subs<small>SimpleLoans replied; r/borrow unconfirmed</small></li>
+    </ul></div>
+    <div class="card col"><h3 class="amber">⏭ Next</h3><ul>
+      <li>Decide the 6 integration questions, then move the sandbox into LoanBot 2.0 on a new branch, switched off until needed</li>
+      <li>Deploy the merged changes on the host</li>
+      <li>Run export_known_users.py on the host</li>
+      <li>Send comment screenshots to test smaller text</li>
+      <li>Phase 0 housekeeping<small>Sub rule, close EU sub, wiki, repo secrets, phone numbers</small></li>
+      <li>Resubmit the access request before 31 Oct</li>
+      <li>Phase 1: LoanLedger-style ledger card on the website</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- PLAN -->
+<section id="plan">
+  <h2>Roadmap</h2>
+  <p class="muted">Tick items off here as they're done. Ticks are saved in this browser only.</p>
+  <div id="phases"></div>
+</section>
+
+<!-- COMPLIANCE -->
+<section id="compliance">
+  <h2>Compliance checklist</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Item</th><th>Why it matters</th><th>Status</th></tr>
+    <tr><td>Tell Reddit about DMs (<code>$login</code>), auto-bans and Google login</td><td>The Sept 27 registration left them out; leaving out what the bot does can look like misrepresentation</td><td><span class="pill p-done">Done, Oct 1 form</span></td></tr>
+    <tr><td>Anonymize deleted or opted-out users (<code>anonymize_reddit_user.py</code>)</td><td>Reddit's developer terms require removing deleted accounts from stored data</td><td><span class="pill p-done">Built & merged</span> <span class="pill p-todo">Deploy</span></td></tr>
+    <tr><td>Monthly deleted-account check (<code>find_deleted_reddit_accounts.py</code>)</td><td>Find the accounts to anonymize. Check each by hand: "not found" can also mean shadowbanned</td><td><span class="pill p-todo">Run monthly</span></td></tr>
+    <tr><td>Privacy policy: "Your rights", deletion, US/Canada only</td><td>Tells users their rights; keeps you out of GDPR's scope by not serving the EU/UK</td><td><span class="pill p-done">Merged</span> <span class="pill p-todo">Deploy</span></td></tr>
+    <tr><td>New loans in USD/CAD only</td><td>Matches "US and Canada only"; other currencies suggested serving Europe</td><td><span class="pill p-done">Merged</span> <span class="pill p-todo">Deploy</span></td></tr>
+    <tr><td>Subreddit rule: US and Canada only</td><td>Makes the country limit official on Reddit too</td><td><span class="pill p-todo">To do</span></td></tr>
+    <tr><td>Close r/LoanCentralEU</td><td>Its name says "Europe"</td><td><span class="pill p-todo">To do</span></td></tr>
+    <tr><td>Check <code>user_roles.contact_phone</code> for phone numbers</td><td>The policy says "no phone numbers"; the database has a column for them</td><td><span class="pill p-todo">To do</span></td></tr>
+    <tr><td>Confirm email/SMS sending is off (or disclose it)</td><td>Texting needs opt-in under US law (TCPA); the policy must match</td><td><span class="pill p-todo">To do</span></td></tr>
+    <tr><td>Update the bot wiki: DMs, auto-bans, Google login, US/CA</td><td>Users should know what the bot does to them</td><td><span class="pill p-todo">To do</span></td></tr>
+    <tr><td>Check the public GitHub repo for secrets, and make it private</td><td>Leaked keys or passwords would be visible to anyone</td><td><span class="pill p-todo">To do</span></td></tr>
+    <tr><td>No paywall on borrower data or health scores</td><td>Charging for repayment histories can trigger US credit-reporting law (FCRA)</td><td><span class="pill p-done">Rule in place</span></td></tr>
+    <tr><td>No scraping or screen-reading of Reddit without verified permission</td><td>Breaks Reddit's terms; puts your account and r/LoanCentral at risk</td><td><span class="pill p-block">Hold</span></td></tr>
+    <tr><td>Consider a minimum account age</td><td>Anonymizing lets non-payers delete their account and start fresh</td><td><span class="pill p-info">Idea</span></td></tr>
+  </table></div>
+</section>
+
+<!-- REDDIT LOG -->
+<section id="reddit">
+  <h2>Correspondence with Reddit</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Date</th><th>What</th><th>Result</th></tr>
+    <tr><td>27 Sep</td><td>App registration (developers.reddit.com/app-registration), app <code>loancentral</code>, bot u/LoanCentral</td><td><span class="pill p-done">Submitted</span></td></tr>
+    <tr><td>1 Oct</td><td>Data Access Request on support.reddithelp.com, "moderator mod tool not supported by Devvit". Full disclosure of what the bot does</td><td><span class="pill p-block">Denied 2 Oct</span><br><span class="muted">Ticket 18545859: "not in compliance with the Responsible Builder Policy and/or lacks necessary details"</span></td></tr>
+    <tr><td>2 Oct</td><td>Reply on 18545859 asking which part failed and whether existing access continues</td><td><span class="pill p-wait">Waiting</span></td></tr>
+    <tr><td>1–2 Oct</td><td>Ticket 18545872, an "approval" for scanners and OCR</td><td><span class="pill p-block">Unverified</span><br><span class="muted">The reply is stamped before the question it quotes could have been written. Verify with Gmail "Show original" (DKIM pass + real received time) or an r/ModSupport confirmation</span></td></tr>
+    <tr><td>Pending</td><td>r/ModSupport modmail (Message 1)</td><td><span class="pill p-todo">Not sent yet?</span></td></tr>
+  </table></div>
+  <div class="note blue"><b>Before 31 Oct:</b> if the reply gives a reason, fix it and resubmit. Even without one, resubmit a shorter application that leads with safety: tracking unpaid loans, protecting borrowers, being a mod tool for a single subreddit.</div>
+</section>
+
+<!-- LAB -->
+<section id="lab">
+  <h2>Screen-reader lab</h2>
+  <div class="note blue"><b>Status: BACKUP.</b> Parked on 2 Oct while the Reddit-first AutoMod method is tried (see the reddit-first/ folder). Everything below is kept ready.</div>
+  <div class="note"><b>Mode right now: screenshots only.</b> You take screenshots by hand and the lab reads them. That's allowed, because a person chooses what to capture. Automatic screen capture isn't built, and nothing gets pointed at Reddit until the approval is verified.</div>
+  <div class="grid">
+    <div class="card"><div class="stat green">3 / 3<small>Real [REQ]/[PRE] titles read fully correctly</small></div></div>
+    <div class="card"><div class="stat amber">2 / 3<small>Real usernames with one letter wrong (fixed by name checks)</small></div></div>
+    <div class="card"><div class="stat green">~60–77%<small>Comment commands read fully correctly (fake screenshots, 2× scale)</small></div></div>
+    <div class="card"><div class="stat amber">0–7%<small>Wrong <i>and</i> not flagged: why every read needs a person to confirm it</small></div></div>
+    <div class="card"><div class="stat blue">~35 ms<small>OCR time per screenshot (Windows built-in OCR)</small></div></div>
+  </div>
+  <h2>Real screenshot results (r/LoanCentral and r/borrow)</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Screenshot</th><th>Title fields</th><th>Author as read</th><th>Name check</th></tr>
+    <tr><td>u/Mr_DragonSoull · [REQ] (700)…(1000)</td><td class="green">All correct: $700, repay $1,000, 11/6/26, Ann Arbor, Zelle/PayPal/Apple Cash</td><td><code>mr_dragonsouil</code> (l→I)</td><td><span class="pill p-done">Snapped to mr_dragonsoull</span></td></tr>
+    <tr><td>u/oochie_wally_ · [PRE] w/u/logistix</td><td class="green">All correct: prearranged, lender logistix, $300, payback $400, 10/31/26, Dupage IL</td><td><code>oochie_wany_</code> (ll→n)</td><td><span class="pill p-todo">New name, suggests oochie_wally_</span></td></tr>
+    <tr><td>u/BabyTapir (r/borrow) · [REQ] ($250)</td><td class="green">All correct: $250, October 15, Toronto, e-transfer</td><td><code>babytapir</code></td><td><span class="pill p-info">Currency unclear: Canada + "$"</span></td></tr>
+  </table></div>
+  <div class="note blue"><b>So far:</b> titles are read 3/3 correctly (big bold text suits OCR). Usernames are the weak spot (2/3 had a letter wrong), so the name list and the identity design matter. Include the flair badge in screenshots so status (Funded, Repaid…) is captured.</div>
+
+  <h2>Command style test (14px text, about Reddit size)</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Style</th><th>Example</th><th>Correct</th><th>Wrong + unflagged</th></tr>
+    <tr><td><b>LC: marker</b></td><td><code>LC: loan 50 USD u/name</code></td><td class="green">73%</td><td>3%</td></tr>
+    <tr><td>Plain (today's bot)</td><td><code>!loan 50 USD u/name</code></td><td>60%</td><td>7%</td></tr>
+    <tr><td>Bracketed</td><td><code>[ !loan 50 USD u/name ]</code></td><td>60%</td><td>10%</td></tr>
+    <tr><td>Pipes / double brackets</td><td><code>[[ LOAN | 50 | USD | u/name ]]</code></td><td class="red">0–10%</td><td>n/a</td></tr>
+  </table></div>
+  <h2>How to use it</h2>
+  <div class="card">
+    <ol>
+      <li>Screenshot a comment with <b>Win+Shift+S</b> and save it into <code>screen-reader-lab/inbox/</code></li>
+      <li>Run <code>python process_inbox.py</code></li>
+      <li>Open <code>review.html</code> to see every command found, who wrote it, and what OCR had to fix</li>
+      <li>Optional: run <code>export_known_users.py</code> on the host first, so names get checked</li>
+    </ol>
+    <p class="muted">Real screenshots will show the true accuracy; the numbers above come from fake ones. Adding <code>known_users.txt</code> (one Reddit name per line) improves name matching.</p>
+  </div>
+</section>
+
+<!-- IDENTITY -->
+<section id="identity">
+  <h2>How identity works without the bot</h2>
+  <div class="note red"><b>The rule:</b> OCR never decides <i>who</i> someone is. A misread letter must never move a loan onto the wrong person's record. The worst case is a flag for a mod.</div>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">1 · Verify once</h3><ol class="steps">
+      <li>Borrower signs in to the site with Google</li>
+      <li>The site shows a one-time code, e.g. <code>LC-7K3P</code></li>
+      <li>They send it in <b>modmail to r/LoanCentral</b> from their Reddit account</li>
+      <li>Reddit shows mods the sender's <b>exact username</b> (it can't be faked). A mod enters the code; the site links Google to that username</li>
+    </ol><p class="muted">That username is the source of truth: exact, permanent, never from OCR.</p></div>
+    <div class="card"><h3 style="margin-top:0">2 · Every request carries a code</h3><ol class="steps">
+      <li>The borrower creates the request on the site and gets <code>REQ-0042</code> plus a title to paste</li>
+      <li>They post: <code>[REQ] REQ-0042 ($150) (Foley, AL, USA) (Repay $200) (10/09) (Cashapp)</code></li>
+    </ol><p class="muted">Codes are short, mostly digits, in big title text: what OCR reads best.</p></div>
+    <div class="card"><h3 style="margin-top:0">3 · OCR only matches</h3><ol class="steps">
+      <li><b>The REQ code</b> links the post to the verified account</li>
+      <li><b>The OCR'd author</b> is a cross-check: if it matches (ignoring l/I mix-ups), all good</li>
+      <li><b>If it doesn't match</b>, it's flagged: a copied code or an OCR slip. A mod checks</li>
+      <li><b>No code</b>: not linked to anyone until a person reviews it</li>
+    </ol></div>
+  </div>
+  <h2>Until then (the lab today)</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Name situation</th><th>What the lab does</th></tr>
+    <tr><td>In your records</td><td>Snaps the OCR'd name to the real one (I/l/1, ll/n, rn/m, O/0 forgiven)</td></tr>
+    <tr><td>First-time borrower</td><td>Flags "new name: check the spelling" with likely spellings; after it's confirmed and recorded, the next export includes it</td></tr>
+    <tr><td>No name list loaded</td><td>Marks "name not checked". Run <code>export_known_users.py</code> on the host</td></tr>
+  </table></div>
+</section>
+
+<!-- OTHER SUBS -->
+<section id="others">
+  <h2>Other lending subs</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Sub</th><th>What we know</th><th>Source</th></tr>
+    <tr><td>r/SimpleLoans</td><td>Asking for continued API access; their bot, server and website don't fit Devvit; unsure whether Devvit allows lending. You believe their bot is unregistered (not confirmed)</td><td>Their modmail, 2 Oct</td></tr>
+    <tr><td>r/borrow</td><td>LoansBot is built like LoanBot, with no code changes since 2024. Said to be "approved" for a similar approach</td><td>A mod conversation (unverified)</td></tr>
+    <tr><td>LoanLedger (r/loanledger_dev)</td><td>A Devvit lending app with an in-Reddit dashboard. <b>Rejected</b> for "facilitating the exchange of money". Runs only in a private test sub</td><td>Its developer</td></tr>
+    <tr><td>Universal Scammer List</td><td>Shared mod ban list (safety, not money); runs off-platform on the API; probably faces the same March deadline</td><td>Public</td></tr>
+  </table></div>
+  <div class="note">Your angle against them: <b>"LoanCentral never asks for your ID; your loan history is your verification."</b> SimpleLoans' wiki tells lenders to collect IDs, selfies and bills, which is an identity-theft risk for borrowers.</div>
+</section>
+
+<!-- DECISIONS -->
+<section id="decisions">
+  <h2>Decision log</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Date</th><th>Decision</th></tr>
+    <tr><td>1 Oct</td><td>If Reddit says no: r/LoanCentral + website ledger. If yes: keep the bot and add the dashboard</td></tr>
+    <tr><td>1 Oct</td><td>Goal order: survive, then grow, then make money. Money model undecided; lawyer first</td></tr>
+    <tr><td>1 Oct</td><td>US and Canada only; new loans in USD/CAD</td></tr>
+    <tr><td>1 Oct</td><td>Deleted users get anonymized (name removed, amounts kept), never re-identified</td></tr>
+    <tr><td>1 Oct</td><td>Devvit ruled out for lending (LoanLedger rejection)</td></tr>
+    <tr><td>1 Oct</td><td>Modmail chosen for identity checks in no-bot mode</td></tr>
+    <tr><td>1 Oct</td><td>Discord (LoanBot 3.0): separate data, maybe shared login</td></tr>
+    <tr><td>2 Oct</td><td>Verified Lender flair only; no tiers</td></tr>
+    <tr><td>2 Oct</td><td>Screen reader: screenshot mode only until Reddit's approval is verified; lab kept separate from live code</td></tr>
+    <tr><td>2 Oct</td><td>Main no-bot approach: Reddit-first AutoMod method (Reddit stays the front door). Screen-reader lab parked as backup</td></tr>
+    <tr><td>2 Oct</td><td>Strict [REQ] title format, enforced by Reddit's title rule (case-proof pattern that lets other posts through); pinned AutoMod comment stays pinned even though Reddit collapses it for repeat viewers</td></tr>
+    <tr><td>2 Oct</td><td>No interest % shown anywhere: amount and repay amount only</td></tr>
+    <tr><td>2 Oct</td><td>New pages built in a sandbox copy of the website (no database, no keys), reusing the current dashboard; integrated later behind an off switch</td></tr>
+    <tr><td>3 Oct</td><td>Discord bot runs standalone as "LoanCentral" on the host PC (own SQLite, no Reddit data). Tested in a separate test server first</td></tr>
+    <tr><td>3 Oct</td><td>Separate Reddit and Discord dashboards, one click apart (header switch). Sandbox on port 5056</td></tr>
+    <tr><td>3 Oct</td><td>Recommended: the Discord server stops publishing interest rates and stops collecting ID/paystubs (waiting on the user)</td></tr>
+  </table></div>
+</section>
+
+</main>
+<footer>Local only · not published · files: loancentral-plan-2026-2027.md, no-api-loancentral-design.md, screen-reader-lab/</footer>
+
+<script>
+const PHASES = [
+  ["Phase 0: Housekeeping", "This week · by 8 Oct", [
+    "Deploy merged changes on the host (USD/CAD, privacy policy, anonymization tools)",
+    "Subreddit rule: US and Canada only; loans in USD or CAD",
+    "Close or make private r/LoanCentralEU",
+    "Send the r/ModSupport modmail",
+    "Message r/borrow and r/SimpleLoans mods",
+    "Check the GitHub repo for secrets; make it private",
+    "Check for stored phone numbers (contact_phone)",
+    "Update the bot wiki (DMs, auto-bans, Google login, US/CA)"]],
+  ["Phase 1: LoanLedger-style dashboard v1", "8 Oct – 31 Oct", [
+    "Ledger card: Overall (public totals) + Personal (signed in)",
+    "Personal page redesign: active loans, due dates, history, action-needed list",
+    "Pinned Reddit post + sidebar link: \"Open LoanCentral Ledger →\"",
+    "Reply to / resubmit the data access request before 31 Oct"]],
+  ["Phase 2: Tools that work with or without the bot", "November", [
+    "Modmail verification alongside $login",
+    "Create a request on the site (REQ code + title to paste)",
+    "Command box on the site (!loan 50 USD u/name)",
+    "Lender tools: due-soon list, reminders, CSV export",
+    "Mod desk: verify queue, ban/unban/flair to-do lists",
+    "Email notifications (funded, confirm, payment, due, unpaid)",
+    "Check nothing uses Reddit RSS (by 13 Nov)"]],
+  ["Phase 3: No-bot mode switch", "December – January", [
+    "BOT_MODE setting: api / manual",
+    "AutoMod rules in warn-only mode",
+    "Two-week test on a test subreddit",
+    "12 Jan: confirm the bot still runs"]],
+  ["Phase 4: The decision", "February – March 2027", [
+    "Mid-Feb: decide (no answer = switch)",
+    "If switching: announce about 4 weeks ahead, flip to manual, retire the bot"]],
+  ["Phase 5: Grow, then money", "From Q2 2027", [
+    "Lender onboarding, request pages, monthly stats post",
+    "Lawyer review before any paid feature",
+    "LoanBot 3.0 on Discord (separate data)"]],
+];
+function load() { try { return JSON.parse(localStorage.getItem("lc-hq-ticks") || "{}"); } catch { return {}; } }
+function save(t) { try { localStorage.setItem("lc-hq-ticks", JSON.stringify(t)); } catch {} }
+function renderPhases() {
+  const ticks = load(), root = document.getElementById("phases");
+  root.innerHTML = "";
+  PHASES.forEach(([title, when, items], p) => {
+    const done = items.filter((_, i) => ticks[p + ":" + i]).length;
+    const card = document.createElement("div");
+    card.className = "card phase";
+    card.innerHTML = `<h3>${title}</h3><div class="when">${when} · ${done}/${items.length} done</div>
+      <div class="bar"><i style="width:${100 * done / items.length}%"></i></div><ul class="check"></ul>`;
+    const ul = card.querySelector("ul");
+    items.forEach((text, i) => {
+      const key = p + ":" + i, li = document.createElement("li");
+      li.className = ticks[key] ? "done" : "";
+      li.innerHTML = `<input type="checkbox" ${ticks[key] ? "checked" : ""}><span></span>`;
+      li.querySelector("span").textContent = text;
+      li.querySelector("input").onchange = e => { const t = load(); t[key] = e.target.checked; save(t); renderPhases(); };
+      ul.appendChild(li);
+    });
+    root.appendChild(card);
+  });
+}
+document.getElementById("tabs").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll("section").forEach(s => s.classList.toggle("on", s.id === b.dataset.tab));
+  try { localStorage.setItem("lc-hq-tab", b.dataset.tab); } catch {}
+};
+renderPhases();
+try { const t = localStorage.getItem("lc-hq-tab"); if (t) document.querySelector(`nav button[data-tab="${t}"]`)?.click(); } catch {}
+</script>
+</body>
+</html>

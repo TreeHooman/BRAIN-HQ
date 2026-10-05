@@ -1,0 +1,35 @@
+{
+  "updated": "2026-10-05",
+  "links": [],
+  "tags": [
+    "discord",
+    "lending"
+  ],
+  "paths": [
+    "C:/Users/antho/OneDrive/Project Secrets/LoanBot/discord-bot"
+  ],
+  "repos": [],
+  "phases": [
+    {
+      "name": "Preview test in main server",
+      "start": "2026-10-03",
+      "end": "2026-10-20",
+      "status": "active"
+    },
+    {
+      "name": "Public launch",
+      "start": "2026-10-20",
+      "end": "2026-11-15",
+      "status": "planned"
+    }
+  ],
+  "maxPermission": "build",
+  "name": "LoanCentral Discord",
+  "kind": "product",
+  "stage": "building",
+  "health": "good",
+  "order": 2,
+  "summary": "LoanBot 3.0 on Discord: ticket-based loan requests, data kept separate from Reddit.",
+  "nextStep": "Do the lender-claim test on test ticket REQ-0002 in the main server (preview).",
+  "notes": "The bot is live in the MAIN server in preview mode. Code changes need the STOP then START bats, which the owner runs."
+}

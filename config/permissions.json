@@ -1,0 +1,142 @@
+{
+  "comment": "What each permission level lets a background Claude run use. Levels are cumulative: read < plan < build. 'alwaysDeny' applies to every run; an approved request in the Approvals queue can lift a specific item for one run only. 'hardDeny' can never be lifted. HQ's own config, code, data and project.json files are protected so a mission can't raise its own permissions (project fields change through hq-brain tools instead).",
+  "levels": {
+    "read": {
+      "describe": "Read files, GitHub (read-only) and the web. Writes reports into its final answer only.",
+      "tools": [
+        "Read",
+        "Glob",
+        "Grep",
+        "WebSearch",
+        "WebFetch"
+      ],
+      "allow": [
+        "Bash(gh repo view:*)",
+        "Bash(gh api:*)",
+        "Bash(git log:*)",
+        "Bash(git status:*)",
+        "Bash(git diff:*)"
+      ],
+      "brainWrite": false
+    },
+    "plan": {
+      "describe": "Everything in read, plus updating HQ: project notes, reminders, decisions, inbox, follow-up missions.",
+      "tools": [
+        "Read",
+        "Glob",
+        "Grep",
+        "WebSearch",
+        "WebFetch"
+      ],
+      "allow": [
+        "Bash(gh repo view:*)",
+        "Bash(gh api:*)",
+        "Bash(git log:*)",
+        "Bash(git status:*)",
+        "Bash(git diff:*)"
+      ],
+      "brainWrite": true
+    },
+    "build": {
+      "describe": "Everything in plan, plus editing code in the project's folders and running tests. No pushing, deploying or publishing.",
+      "tools": [
+        "Read",
+        "Glob",
+        "Grep",
+        "Edit",
+        "Write",
+        "Bash",
+        "WebSearch",
+        "WebFetch",
+        "TodoWrite"
+      ],
+      "permissionMode": "acceptEdits",
+      "allow": [
+        "Bash(gh repo view:*)",
+        "Bash(gh api:*)",
+        "Bash(git log:*)",
+        "Bash(git status:*)",
+        "Bash(git diff:*)",
+        "Bash(git branch:*)",
+        "Bash(git switch -c:*)",
+        "Bash(git checkout -b:*)",
+        "Bash(git add:*)",
+        "Bash(git stash:*)",
+        "Bash(npm test:*)",
+        "Bash(npm run test:*)",
+        "Bash(npm run lint:*)",
+        "Bash(npm run build:*)",
+        "Bash(npm install:*)",
+        "Bash(npm ci:*)",
+        "Bash(npx tsc:*)",
+        "Bash(node:*)",
+        "Bash(python:*)",
+        "Bash(py:*)",
+        "Bash(pytest:*)",
+        "Bash(python -m pytest:*)",
+        "Bash(pip install -r:*)",
+        "Bash(ls:*)",
+        "Bash(cat:*)",
+        "Bash(head:*)",
+        "Bash(tail:*)",
+        "Bash(wc:*)",
+        "Bash(mkdir:*)",
+        "Bash(cp:*)",
+        "Bash(mv:*)"
+      ],
+      "brainWrite": true
+    }
+  },
+  "alwaysDeny": [
+    "Bash(git push:*)",
+    "Bash(git commit:*)",
+    "Bash(git merge:*)",
+    "Bash(git rebase:*)",
+    "Bash(git reset:*)",
+    "Bash(gh pr:*)",
+    "Bash(gh release:*)",
+    "Bash(gh repo create:*)",
+    "Bash(gh repo delete:*)",
+    "Bash(gh issue:*)",
+    "Bash(vercel:*)",
+    "Bash(npx vercel:*)",
+    "Bash(supabase:*)",
+    "Bash(npx supabase:*)",
+    "Bash(cloudflared:*)",
+    "Bash(curl:*)",
+    "Bash(wget:*)",
+    "Bash(Invoke-WebRequest:*)",
+    "Bash(ssh:*)",
+    "Bash(scp:*)",
+    "Bash(npm publish:*)",
+    "Bash(shutdown:*)",
+    "Bash(taskkill:*)",
+    "Bash(schtasks:*)",
+    "Bash(reg:*)",
+    "Edit(./config/**)",
+    "Write(./config/**)",
+    "Edit(./src/**)",
+    "Write(./src/**)",
+    "Edit(./data/**)",
+    "Write(./data/**)",
+    "Edit(./scripts/**)",
+    "Write(./scripts/**)",
+    "Edit(./brain/projects/*/project.json)",
+    "Write(./brain/projects/*/project.json)"
+  ],
+  "hardDeny": [
+    "Bash(rm -rf:*)",
+    "Bash(rm -r:*)",
+    "Bash(del /s:*)",
+    "Bash(rmdir /s:*)",
+    "Bash(format:*)",
+    "Bash(git push --force:*)",
+    "Bash(git push -f:*)",
+    "Read(**/.env)",
+    "Read(**/.env.*)",
+    "Read(**/tunnel-token.txt)",
+    "Read(**/*.pem)",
+    "Read(**/.credentials.json)",
+    "Read(./config/hq.local.json)"
+  ]
+}

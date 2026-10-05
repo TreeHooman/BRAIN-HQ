@@ -1,0 +1,16 @@
+{
+  "id": "inbox-sort",
+  "title": "Sort inbox",
+  "tier": "fast",
+  "permission": "plan",
+  "project": null,
+  "schedule": null,
+  "enabled": true,
+  "maxMinutes": 6,
+  "priority": 1,
+  "skipIfUnchanged": true,
+  "watch": [
+    "brain/inbox.json"
+  ],
+  "prompt": "File every note in the inbox (list_inbox).\nFor each note decide what it is and file it:\n- a task with a date → reminder_add (default 09:00 if no time)\n- a deadline/key date → milestone_add\n- a decision → decision_log\n- a fact, idea or update about a project → project_log (and project_update nextStep if it changes the next step)\n- a brand-new project idea → project_create\n- work to do later → queue_followup (plan permission unless it clearly needs code)\nUse hq_index to match notes to project slugs. Then inbox_remove the notes you filed. If a note is too vague, leave it in the inbox.\nFinal answer: one line per note: what it became."
+}

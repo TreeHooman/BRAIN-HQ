@@ -1,0 +1,24 @@
+{
+  "updated": "2026-10-05",
+  "links": [],
+  "tags": [
+    "client",
+    "booking"
+  ],
+  "paths": [
+    "C:/Users/antho/OneDrive/Project Secrets/AI Hockey"
+  ],
+  "repos": [
+    "TreeHooman/ai-hockey"
+  ],
+  "phases": [],
+  "maxPermission": "build",
+  "name": "AI Hockey",
+  "kind": "product",
+  "stage": "live",
+  "health": "good",
+  "order": 8,
+  "summary": "Booking system for a hockey school: pay first, spot locks. Next.js + Supabase + Stripe.",
+  "nextStep": "Check HANDOFF.md in the repo for what's left; confirm the hosting PC auto-update is healthy.",
+  "notes": "The AI Hockey folder holds .env.local and the tunnel token: never read them."
+}

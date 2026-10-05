@@ -1,0 +1,41 @@
+{
+  "updated": "2026-10-05",
+  "links": [],
+  "tags": [
+    "reddit",
+    "compliance",
+    "deadline"
+  ],
+  "paths": [
+    "C:/Users/antho/OneDrive/Project Secrets/LoanBot/reddit-first"
+  ],
+  "repos": [],
+  "phases": [
+    {
+      "name": "Resubmit access request",
+      "start": "2026-10-05",
+      "end": "2026-10-31",
+      "status": "active"
+    },
+    {
+      "name": "Registration grace period",
+      "start": "2026-11-01",
+      "end": "2027-01-12",
+      "status": "planned"
+    },
+    {
+      "name": "API sunset prep",
+      "start": "2027-01-12",
+      "end": "2027-03-31",
+      "status": "planned"
+    }
+  ],
+  "maxPermission": "plan",
+  "name": "Reddit (API & compliance)",
+  "kind": "workstream",
+  "stage": "building",
+  "health": "risk",
+  "order": 3,
+  "summary": "Everything Reddit-side: API access, registration, the AutoMod reddit-first flow, compliance.",
+  "nextStep": "Draft the Data Access Request resubmission (deadline 31 Oct)."
+}

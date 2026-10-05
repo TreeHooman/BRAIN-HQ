@@ -1,0 +1,55 @@
+{
+  "port": 8800,
+  "host": "127.0.0.1",
+  "timezoneNote": "All times use this PC's local clock.",
+
+  "claude": {
+    "bin": "",
+    "comment": "Leave bin empty to auto-find the Claude CLI (PATH, ~/.local/bin, or the desktop app's bundled copy, newest version first)."
+  },
+
+  "autonomy": {
+    "maxLevel": "build",
+    "comment": "Ceiling for every mission and the chat: read < plan < build. A project's maxPermission can lower it further, never raise it."
+  },
+
+  "budget": {
+    "preset": "light",
+    "presets": {
+      "light":  { "maxRunsPerDay": 6,  "maxMinutesPerRun": 15, "maxFollowupsPerRun": 2 },
+      "medium": { "maxRunsPerDay": 15, "maxMinutesPerRun": 30, "maxFollowupsPerRun": 3 },
+      "heavy":  { "maxRunsPerDay": 40, "maxMinutesPerRun": 60, "maxFollowupsPerRun": 5 }
+    },
+    "comment": "Chat messages don't count toward maxRunsPerDay. Hitting the cap leaves missions queued until tomorrow."
+  },
+
+  "usageLimit": {
+    "fallbackPauseMinutes": 60,
+    "comment": "When Claude says the usage limit is hit, HQ pauses until the reset time it reports, or this many minutes if it can't read one, then resumes the same session."
+  },
+
+  "keepAwake": "busy",
+  "keepAwakeComment": "busy = keep the PC awake while missions are queued or running; always = whenever HQ runs (best for multi-day autonomy); off = never.",
+
+  "notifications": {
+    "toast": true,
+    "ntfy": {
+      "enabled": true,
+      "server": "https://ntfy.sh",
+      "detail": "title",
+      "comment": "detail: title = only the headline goes to your phone; full = headline + body. The private topic name lives in config/hq.local.json."
+    }
+  },
+
+  "assistant": {
+    "name": "JARVIS",
+    "persona": "Calm, precise, quietly witty chief of staff. Anticipates what the owner needs, flags risks early, keeps answers short enough to be read aloud.",
+    "comment": "Rename or restyle the assistant here. Voice input/output is in the dashboard (Assistant screen)."
+  },
+
+  "chat": {
+    "tier": "balanced",
+    "permission": "plan",
+    "maxMinutes": 6
+  }
+}

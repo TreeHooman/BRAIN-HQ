@@ -1,0 +1,15 @@
+{
+  "id": "morning-brief",
+  "title": "Morning brief",
+  "tier": "fast",
+  "permission": "plan",
+  "project": null,
+  "schedule": {
+    "type": "daily",
+    "time": "08:00"
+  },
+  "enabled": true,
+  "maxMinutes": 5,
+  "priority": 1,
+  "prompt": "Write today's morning brief for the owner.\n1. Call hq_index, list_reminders (days 7) and list_inbox. Don't open project files unless a project looks stale or at risk.\n2. Write a brief with brief_write, in this shape:\n   ## Today\n   (max 5 bullets: overdue and today's reminders first, then the single most important move per active project)\n   ## This week\n   (deadlines and milestones in the next 7 days)\n   ## Watch\n   (projects not updated in 14+ days, health risk/watch, unsorted inbox count)\n3. Keep it under 25 lines. Plain words, no fluff.\nYour final answer: the 'Today' section only."
+}

@@ -1,0 +1,17 @@
+{
+  "id": "weekly-sweep",
+  "title": "Weekly project sweep",
+  "tier": "balanced",
+  "permission": "plan",
+  "project": null,
+  "schedule": {
+    "type": "weekly",
+    "day": 0,
+    "time": "18:00"
+  },
+  "enabled": false,
+  "maxMinutes": 15,
+  "priority": 2,
+  "skipIfUnchanged": false,
+  "prompt": "Review every project once.\nFor each project in hq_index: check its repos for commits in the last 7 days (gh api repos/OWNER/REPO/commits?since=...), and read SUMMARY only if something changed. Update stage/health/nextStep with project_update and add one project_log line where there was activity. Flag projects not updated in 14+ days.\nFinal answer: a 5-10 line week summary."
+}

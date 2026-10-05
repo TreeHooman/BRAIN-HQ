@@ -1,0 +1,20 @@
+{
+  "id": "deadline-watch",
+  "title": "Deadline watch",
+  "tier": "fast",
+  "permission": "plan",
+  "project": null,
+  "schedule": {
+    "type": "daily",
+    "time": "12:00"
+  },
+  "enabled": false,
+  "maxMinutes": 4,
+  "priority": 2,
+  "skipIfUnchanged": true,
+  "watch": [
+    "brain/milestones.json",
+    "brain/reminders.json"
+  ],
+  "prompt": "Check list_milestones for deadlines in the next 21 days. For each one without a reminder in list_reminders at least 3 days before it, add one with reminder_add. Final answer: what you added, or 'nothing new'."
+}

@@ -1,0 +1,19 @@
+{
+  "updated": "2026-10-05",
+  "links": [],
+  "tags": [
+    "lending",
+    "next"
+  ],
+  "paths": [],
+  "repos": [],
+  "phases": [],
+  "maxPermission": "build",
+  "name": "Borrow Fast",
+  "kind": "business",
+  "stage": "planned",
+  "health": "unknown",
+  "order": 6,
+  "summary": "Next project: a mirror of / competitor to LoanCentral.",
+  "nextStep": "Write the one-page concept: where it lives, who it's for, how it differs from LoanCentral."
+}

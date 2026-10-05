@@ -1,0 +1,32 @@
+{
+  "updated": "2026-10-05",
+  "links": [],
+  "tags": [
+    "strategy",
+    "growth"
+  ],
+  "paths": [],
+  "repos": [],
+  "phases": [
+    {
+      "name": "Collect ideas",
+      "start": "2026-10-05",
+      "end": "2027-02-15",
+      "status": "active"
+    },
+    {
+      "name": "Grow (Phase 5)",
+      "start": "2027-04-01",
+      "end": "2027-09-30",
+      "status": "planned"
+    }
+  ],
+  "maxPermission": "plan",
+  "name": "Frontier Plan",
+  "kind": "strategy",
+  "stage": "planned",
+  "health": "unknown",
+  "order": 7,
+  "summary": "How to scale LoanCentral later (grow, then money) once it survives the API change.",
+  "nextStep": "Collect scaling ideas here as they come up; review after the mid-Feb 2027 decision."
+}

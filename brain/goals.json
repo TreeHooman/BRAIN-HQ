@@ -1,0 +1,54 @@
+[
+  {
+    "id": "g-survive",
+    "title": "Survive the Reddit API shutdown",
+    "project": "loancentral",
+    "why": "The public API closes March 2027; LoanCentral must keep working without the bot.",
+    "due": "2027-03-31",
+    "createdAt": "2026-10-05T12:00:00Z",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "Phase 0 housekeeping",
+        "due": "2026-10-08",
+        "done": false
+      },
+      {
+        "id": "s2",
+        "title": "Resubmit Data Access Request",
+        "due": "2026-10-31",
+        "done": false
+      },
+      {
+        "id": "s3",
+        "title": "Dashboard v1 (ledger card)",
+        "due": "2026-10-31",
+        "done": false
+      },
+      {
+        "id": "s4",
+        "title": "Dual-mode tools (work with or without bot)",
+        "due": "2026-11-30",
+        "done": false
+      },
+      {
+        "id": "s5",
+        "title": "No-bot mode switch + 2-week test",
+        "due": "2027-01-31",
+        "done": false
+      },
+      {
+        "id": "s6",
+        "title": "Decide: keep bot or switch",
+        "due": "2027-02-15",
+        "done": false
+      },
+      {
+        "id": "s7",
+        "title": "Switch before API closes",
+        "due": "2027-03-31",
+        "done": false
+      }
+    ]
+  }
+]

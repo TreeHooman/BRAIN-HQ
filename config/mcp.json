@@ -1,0 +1,4 @@
+{
+  "comment": "Extra MCP servers handed to background missions and the chat. hq-brain is always added automatically. Add more here (same format as Claude Code's .mcp.json) and give each a 'minLevel' (read/plan/build) so low-permission runs don't see it. Fewer servers = fewer tokens per run.",
+  "mcpServers": {}
+}

@@ -1,0 +1,15 @@
+{
+  "name": "{{name}}",
+  "kind": "product",
+  "stage": "idea",
+  "health": "unknown",
+  "summary": "{{summary}}",
+  "nextStep": "Write the summary and first next step.",
+  "updated": "{{date}}",
+  "paths": [],
+  "repos": [],
+  "links": [],
+  "tags": [],
+  "maxPermission": "build",
+  "phases": []
+}

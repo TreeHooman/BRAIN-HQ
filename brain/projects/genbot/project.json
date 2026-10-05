@@ -1,0 +1,20 @@
+{
+  "updated": "2026-10-05",
+  "links": [],
+  "tags": [],
+  "paths": [
+    "C:/Users/antho/OneDrive/Project Secrets/GenBot"
+  ],
+  "repos": [
+    "TreeHooman/GenBets-P"
+  ],
+  "phases": [],
+  "maxPermission": "build",
+  "name": "GenBot",
+  "kind": "product",
+  "stage": "paused",
+  "health": "unknown",
+  "order": 5,
+  "summary": "Probably the GitHub repo GenBets-P (\"GenBot P\"): one initial commit on 2026-06-06.",
+  "nextStep": "Owner: confirm GenBot = GenBets-P and say what it does."
+}

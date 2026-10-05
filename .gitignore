@@ -1,0 +1,18 @@
+# Runtime data: chats, run logs, activity, per-run MCP configs
+data/
+
+# Machine-local settings (holds the private ntfy topic)
+config/hq.local.json
+
+# Secrets, never commit
+.env
+.env.*
+*.pem
+*.key
+tunnel-token.txt
+
+# Tooling output
+.playwright-mcp/
+node_modules/
+*.log
+*.tmp

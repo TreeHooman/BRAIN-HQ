@@ -1,0 +1,12 @@
+{
+  "comment": "Missions pick a TIER, never a model. Change models here once and every mission follows. Aliases (haiku/sonnet/opus) always point at the newest model of that family, so new releases are picked up automatically. Pin an exact id (e.g. claude-opus-5-5) if you want to freeze one.",
+  "tiers": {
+    "fast":     { "model": "haiku",  "label": "Fast (Haiku)",      "use": "briefs, inbox sorting, quick lookups" },
+    "balanced": { "model": "sonnet", "label": "Balanced (Sonnet)", "use": "planning, research, the chat assistant" },
+    "deep":     { "model": "opus",   "label": "Deep (Opus)",       "use": "real coding and hard strategy work" }
+  },
+  "fallback": {
+    "deep": "sonnet",
+    "balanced": "haiku"
+  }
+}

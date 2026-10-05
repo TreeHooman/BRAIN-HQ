@@ -1,0 +1,12 @@
+{
+  "name": "hq",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local business brain + autonomous assistant (Claude Code engine).",
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "node --no-warnings src/server.ts",
+    "mcp": "node --no-warnings src/mcp/hq-brain.ts"
+  }
+}
