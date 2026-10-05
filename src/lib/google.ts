@@ -117,6 +117,7 @@ export async function callback(params: URLSearchParams): Promise<string> {
   saveAccounts(old ? list.map(a => a.id === id ? acc : a) : [...list, acc]);
   access.set(id, { token: j.access_token, exp: Date.now() + (Number(j.expires_in || 3600) - 60) * 1e3 });
   mailCache.clear();
+  if (!hasCal(acc)) return `${acc.label} connected, but Calendar wasn't allowed. Press Reconnect and tick the Calendar box`;
   return p.write && !canWrite(acc) ? `${acc.label} connected, but writing wasn't allowed (tick every box on Google's page)` : `${acc.label} connected${canWrite(acc) ? " with writing on" : ""}`;
 }
 
@@ -169,7 +170,7 @@ async function gget(a: Account, url: string, kind: "json" | "text" = "json", ret
   const j: any = await r.json().catch(() => null);
   const reason = String(j?.error?.errors?.[0]?.reason || j?.error?.status || "");
   const api = url.includes("gmail") ? "Gmail API" : url.includes("sheets") ? "Google Sheets API" : url.includes("/calendar/") ? "Google Calendar API" : "Google Drive API";
-  if (/accessNotConfigured|SERVICE_DISABLED/i.test(reason) || /has not been used|is disabled/i.test(String(j?.error?.message || ""))) throw err(`Turn on the ${api} in Google Cloud (Workspace → Setup, step 2), wait a minute, then retry.`);
+  if (/accessNotConfigured|SERVICE_DISABLED/i.test(reason) || /has not been used|is disabled/i.test(String(j?.error?.message || ""))) throw err(`Turn on the ${api} in Google Cloud: console.cloud.google.com → APIs & Services → Library → "${api}" → Enable (same project as LUTHUR's Client ID). Wait 2 minutes, then Sync now.`);
   if (r.status === 404) throw err("Not found (it may have been deleted or you lost access).", 404);
   if (r.status === 403) throw err(/insufficient/i.test(reason) ? `${a.label}: reconnect and tick every box on Google's page.` : /domainPolicy|admin/i.test(reason + (j?.error?.message || "")) ? `${a.label}: the company's Google admin blocks this. Ask them to allow LUTHUR's Client ID.` : "Google didn't allow that.");
   if (r.status === 429) throw err("Google says slow down. Try again in a few seconds.");
@@ -448,7 +449,7 @@ export async function raw(acc: string, id: string): Promise<{ type: string; body
 export type GCalEvent = { id: string; feed: string; title: string; start: string; end: string; allDay: boolean; location?: string };
 type CalMonth = { at: number; events: GCalEvent[]; inflight?: Promise<void> };
 const calCache = new Map<string, CalMonth>(); // `${acct}|${yyyy-mm}`
-const calState = new Map<string, { ok: boolean | null; error: string | null; at: number }>();
+const calState = new Map<string, { ok: boolean | null; error: string | null; at: number; need?: boolean }>();
 const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 function monthsBetween(from: Date, to: Date): Date[] { const out: Date[] = []; const d = new Date(from.getFullYear(), from.getMonth(), 1); while (d < to && out.length < 14) { out.push(new Date(d)); d.setMonth(d.getMonth() + 1); } return out; }
 
@@ -471,11 +472,11 @@ async function calFetch(a: Account, month: Date): Promise<GCalEvent[]> {
 }
 /** Starts background fetches for stale months (10 min TTL). Non-blocking. */
 export function calKick(from: Date, to: Date) {
-  for (const a of accounts().filter(x => x.refresh && hasCal(x))) for (const m of monthsBetween(from, to)) {
+  for (const a of accounts().filter(x => x.refresh)) for (const m of monthsBetween(from, to)) {
     const key = `${a.id}|${monthKey(m)}`, c = calCache.get(key) || { at: 0, events: [] };
     if (c.inflight || (c.at && Date.now() - c.at < 10 * 60e3)) continue;
     c.inflight = calFetch(a, m).then(ev => { c.events = ev; calState.set(a.id, { ok: true, error: null, at: Date.now() }); })
-      .catch((e: any) => calState.set(a.id, { ok: false, error: String(e?.message || e).slice(0, 200), at: Date.now() }))
+      .catch((e: any) => { const msg = String(e?.message || e); const need = /reconnect|insufficient|401/i.test(msg) || e?.code === 401; calState.set(a.id, { ok: false, need, error: need ? "Press Reconnect and tick the Calendar box on Google's page." : msg.slice(0, 220), at: Date.now() }); })
       .finally(() => { c.at = Date.now(); c.inflight = undefined; });
     calCache.set(key, c);
     if (calCache.size > 200) calCache.delete(calCache.keys().next().value!);
@@ -484,7 +485,7 @@ export function calKick(from: Date, to: Date) {
 export async function calSync(from: Date, to: Date) { for (const [k] of calCache) calCache.get(k)!.at = 0; calKick(from, to); await Promise.all([...calCache.values()].map(c => c.inflight)); }
 export function calEvents(from: Date, to: Date): GCalEvent[] {
   const f = from.getTime(), t = to.getTime(), seen = new Set<string>(), out: GCalEvent[] = [];
-  for (const a of accounts().filter(x => hasCal(x))) for (const m of monthsBetween(from, to)) for (const e of calCache.get(`${a.id}|${monthKey(m)}`)?.events || []) {
+  for (const a of accounts()) for (const m of monthsBetween(from, to)) for (const e of calCache.get(`${a.id}|${monthKey(m)}`)?.events || []) {
     const s = Date.parse(e.allDay ? e.start + "T00:00" : e.start), en = Date.parse(e.allDay ? e.end + "T00:00" : e.end);
     if (s < t && Math.max(en, s + 1) > f && !seen.has(e.id)) { seen.add(e.id); out.push(e); }
   }
@@ -494,6 +495,7 @@ export function calEvents(from: Date, to: Date): GCalEvent[] {
 export function calFeeds() {
   return accounts().map(a => {
     const st = calState.get(a.id), n = [...calCache.entries()].filter(([k]) => k.startsWith(a.id + "|")).reduce((s, [, v]) => s + v.events.length, 0);
-    return { id: "g:" + a.id, name: a.label, color: a.color, host: a.email, google: true, needsReconnect: !hasCal(a), ok: !hasCal(a) ? false : st ? st.ok : null, error: !hasCal(a) ? "Press Reconnect to show this calendar." : st?.error || null, lastSync: st?.at ? new Date(st.at).toISOString() : null, count: n };
+    const need = !a.refresh || !!st?.need;
+    return { id: "g:" + a.id, name: a.label, color: a.color, host: a.email, google: true, needsReconnect: need, ok: st ? st.ok : null, error: !a.refresh ? "Press Reconnect to sign in again." : st?.error || null, lastSync: st?.ok && st.at ? new Date(st.at).toISOString() : null, count: n };
   });
 }
