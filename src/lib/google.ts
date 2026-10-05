@@ -1,22 +1,29 @@
-// Google Workspace: several Google accounts (one per company) for Mail + Drive (Sheets, Docs, Forms, Slides), read-only.
-// OAuth "installed app" flow with PKCE and a loopback redirect. Scopes are read-only (gmail.readonly, drive.readonly),
-// so nothing here can send, change or delete anything. Refresh tokens + the client secret live only in
+// Google Workspace: several Google accounts (one per company) for Mail + Drive (Sheets, Docs, Forms, Slides).
+// OAuth "installed app" flow with PKCE and a loopback redirect. By default an account is read-only (gmail.readonly,
+// drive.readonly). "Allow writing" (per account, opt-in) adds gmail.send + documents + spreadsheets: sending only ever
+// happens from the Outbox after the owner presses Send, and Doc/Sheet edits only from the owner's own clicks. Nothing
+// here can delete mail or files. Refresh tokens + the client secret live only in
 // config/hq.local.json; access tokens only in memory; neither is ever sent to the dashboard or put in errors.
 // Email and file content is untrusted data: returned as plain text for the dashboard to escape, never passed to agents.
 import crypto from "node:crypto";
+import path from "node:path";
 import { loadConfig, saveLocal } from "./config.ts";
+import { DATA, appendLine } from "./store.ts";
 
 const AUTH = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN = "https://oauth2.googleapis.com/token";
 const GMAIL = "https://gmail.googleapis.com/gmail/v1/users/me";
 const DRIVE = "https://www.googleapis.com/drive/v3";
 const SHEETS = "https://sheets.googleapis.com/v4/spreadsheets";
+const WRITE_SCOPES = ["https://www.googleapis.com/auth/gmail.send", "https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/spreadsheets"];
+const DOCS = "https://docs.googleapis.com/v1/documents";
 const SCOPES = ["openid", "email", "profile", "https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/drive.readonly"];
 const TIMEOUT = 15e3, MAX_ACCOUNTS = 12;
 const COLORS = ["#38bdf8", "#a78bfa", "#f59e0b", "#f472b6", "#34d399", "#fb7185", "#60a5fa", "#facc15", "#2dd4bf", "#c084fc", "#fb923c", "#4ade80"];
 
-type Account = { id: string; email: string; name: string; label: string; color: string; refresh: string | null; addedAt: string };
-type Pending = { verifier: string; at: number; redirect: string };
+type Account = { id: string; email: string; name: string; label: string; color: string; refresh: string | null; addedAt: string; scopes?: string };
+type Pending = { verifier: string; at: number; redirect: string; write: boolean };
+const canWrite = (a: Account) => WRITE_SCOPES.every(x => String(a.scopes || "").includes(x));
 const pending = new Map<string, Pending>();
 const access = new Map<string, { token: string; exp: number }>();
 const refreshing = new Map<string, Promise<string>>();
@@ -37,7 +44,7 @@ export function status(port: number) {
   const c = conf();
   return {
     configured: !!(c.clientId && c.clientSecret), clientId: c.clientId ? String(c.clientId).slice(0, 10) + "…" : null, redirectUri: redirectUri(port),
-    accounts: accounts().map(a => ({ id: a.id, email: a.email, name: a.name, label: a.label, color: a.color, ok: !!a.refresh })),
+    accounts: accounts().map(a => ({ id: a.id, email: a.email, name: a.name, label: a.label, color: a.color, ok: !!a.refresh, write: canWrite(a) })),
   };
 }
 
@@ -51,7 +58,7 @@ export function setClient(id: string, secret: string) {
 }
 
 /** Starts adding (or reconnecting) an account: returns Google's sign-in page. State + PKCE verifier stay here for 10 minutes. */
-export function loginUrl(port: number, hint?: string) {
+export function loginUrl(port: number, hint?: string, write = false) {
   const c = conf();
   if (!c.clientId || !c.clientSecret) throw err("Add your Google Client ID and secret first.");
   if (!hint && accounts().length >= MAX_ACCOUNTS) throw err(`Up to ${MAX_ACCOUNTS} accounts. Remove one first.`);
@@ -59,9 +66,9 @@ export function loginUrl(port: number, hint?: string) {
   if (pending.size > 20) pending.clear();
   const state = b64url(crypto.randomBytes(18)), verifier = b64url(crypto.randomBytes(48));
   const redirect = redirectUri(port);
-  pending.set(state, { verifier, at: Date.now(), redirect });
+  pending.set(state, { verifier, at: Date.now(), redirect, write });
   const q = new URLSearchParams({
-    response_type: "code", client_id: c.clientId, redirect_uri: redirect, scope: SCOPES.join(" "), state,
+    response_type: "code", client_id: c.clientId, redirect_uri: redirect, scope: [...SCOPES, ...(write ? WRITE_SCOPES : [])].join(" "), state, include_granted_scopes: "true",
     code_challenge: b64url(crypto.createHash("sha256").update(verifier).digest()), code_challenge_method: "S256",
     access_type: "offline", prompt: "consent select_account",
   });
@@ -97,8 +104,9 @@ export async function callback(params: URLSearchParams): Promise<string> {
   const refresh = j.refresh_token || old?.refresh || null;
   if (!refresh) throw err("Google didn't return a sign-in key. Remove LUTHUR at myaccount.google.com/permissions, then add the account again.");
   const domain = email.split("@")[1];
-  const acc: Account = old ? { ...old, refresh, name: clip(claims.name, 80) || old.name } : {
-    id, email, name: clip(claims.name, 80), refresh, addedAt: new Date().toISOString(),
+  const scopes = String(j.scope || granted || "");
+  const acc: Account = old ? { ...old, refresh, scopes, name: clip(claims.name, 80) || old.name } : {
+    id, email, name: clip(claims.name, 80), refresh, scopes, addedAt: new Date().toISOString(),
     label: domain === "gmail.com" || domain === "googlemail.com" ? "Personal" : domain.split(".")[0].replace(/^./, c => c.toUpperCase()).slice(0, 24),
     color: COLORS.find(c => !list.some(a => a.color === c)) || COLORS[list.length % COLORS.length],
   };
@@ -106,7 +114,7 @@ export async function callback(params: URLSearchParams): Promise<string> {
   saveAccounts(old ? list.map(a => a.id === id ? acc : a) : [...list, acc]);
   access.set(id, { token: j.access_token, exp: Date.now() + (Number(j.expires_in || 3600) - 60) * 1e3 });
   mailCache.clear();
-  return acc.label;
+  return p.write && !canWrite(acc) ? `${acc.label} connected, but writing wasn't allowed (tick every box on Google's page)` : `${acc.label} connected${canWrite(acc) ? " with writing on" : ""}`;
 }
 
 export function update(id: string, patch: { label?: unknown; color?: unknown }) {
@@ -164,6 +172,33 @@ async function gget(a: Account, url: string, kind: "json" | "text" = "json", ret
   if (r.status === 429) throw err("Google says slow down. Try again in a few seconds.");
   throw err(`Google error (${r.status}).`);
 }
+
+async function gsend(a: Account, url: string, body: unknown, method = "POST", retry = true): Promise<any> {
+  const t = await accessToken(a);
+  const r = await fetch(url, { method, headers: { Authorization: `Bearer ${t}`, "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(TIMEOUT) });
+  if (r.status === 401 && retry) { access.delete(a.id); return gsend(a, url, body, method, false); }
+  const j: any = await r.json().catch(() => ({}));
+  if (r.ok) return j;
+  const msg = String(j?.error?.message || ""), reason = String(j?.error?.status || j?.error?.errors?.[0]?.reason || "");
+  const api = url.includes("gmail") ? "Gmail API" : url.includes("docs.googleapis") ? "Google Docs API" : "Google Sheets API";
+  if (/SERVICE_DISABLED|accessNotConfigured/i.test(reason) || /has not been used|is disabled/i.test(msg)) throw err(`Turn on the ${api} in Google Cloud (Workspace → Setup), wait a minute, then retry.`);
+  if (r.status === 403) throw err(/insufficient|PERMISSION_DENIED/i.test(reason + msg) && !/caller does not have permission/i.test(msg) ? `${a.label}: turn on writing for this account (Workspace → Accounts → Allow writing).` : "You don't have edit access to that file.");
+  if (r.status === 404) throw err("Not found (it may have been deleted or you lost access).", 404);
+  if (r.status === 429) throw err("Google says slow down. Try again in a few seconds.");
+  throw err(`Google error (${r.status})${msg ? ": " + clip(msg, 140) : ""}.`);
+}
+const ACTIVITY = path.join(DATA, "activity.jsonl");
+const wlog = (event: string, a: Account, d: Record<string, unknown>) => appendLine(ACTIVITY, JSON.stringify({ at: new Date().toISOString(), event, acct: a.id, label: a.label, ...d }));
+function writer(id: string): Account { const a = account(id); if (!canWrite(a)) throw err(`${a.label} is read-only. Workspace → Accounts → Allow writing.`, 403); return a; }
+
+/** "Acmeco", "anthony@acmeco.com" or an account id → the account id (for the Outbox "from"). */
+export function findAccount(v: unknown): string {
+  const s = String(v || "").trim().toLowerCase(), list = accounts();
+  const a = list.find(x => x.id === s || x.email === s || x.label.toLowerCase() === s);
+  if (!a) throw err(`No connected Google account called "${clip(v, 60)}". Connected: ${list.map(x => `${x.label} (${x.email})`).join(", ") || "none"}.`);
+  return a.id;
+}
+export function accountInfo(id: string) { const a = accounts().find(x => x.id === id); return a ? { id: a.id, email: a.email, label: a.label, write: canWrite(a) } : null; }
 
 async function pool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length); let i = 0;
@@ -223,7 +258,8 @@ export async function mailRead(acc: string, id: string) {
   const body = (out.plain.length ? out.plain.join("\n\n") : htmlToText(out.html.join("\n"))).replace(/\r/g, "").slice(0, 100_000);
   return {
     acct: a.id, id: m.id, thread: m.threadId, from: hdr(h, "from"), to: hdr(h, "to"), cc: hdr(h, "cc"), subject: hdr(h, "subject") || "(no subject)",
-    date: Number(m.internalDate) || 0, body, files: out.files.slice(0, 30),
+    date: Number(m.internalDate) || 0, body, files: out.files.slice(0, 30), write: canWrite(a),
+    messageId: hdr(h, "message-id"), references: hdr(h, "references"), replyTo: hdr(h, "reply-to"),
     link: `https://mail.google.com/mail/?authuser=${encodeURIComponent(a.email)}#all/${encodeURIComponent(m.threadId)}`,
   };
 }
@@ -272,7 +308,8 @@ export async function driveFile(acc: string, id: string) {
 
 /** In-app look at a file: a Sheet as a table (one tab at a time), Docs/Slides/text as plain text, everything else as a link. */
 export async function preview(acc: string, id: string, tab?: string) {
-  const f = await driveFile(acc, id), a = account(acc);
+  const f: any = await driveFile(acc, id), a = account(acc);
+  f.write = canWrite(a);
   const exp = (mime: string) => gget(a, `${DRIVE}/files/${id}/export?mimeType=${encodeURIComponent(mime)}`, "text");
   if (f.mime === KINDS.sheets) {
     try {
@@ -308,4 +345,82 @@ function parseCsv(s: string): string[][] {
   }
   if (cell || row.length) { row.push(cell); rows.push(row); }
   return rows;
+}
+
+// ---------------- writing (opt-in per account) ----------------
+const hclean = (v: unknown, n = 1000) => String(v ?? "").replace(/[\r\n]+/g, " ").trim().slice(0, n); // no header injection
+const enc = (v: string) => /^[\x20-\x7e]*$/.test(v) ? v : `=?UTF-8?B?${Buffer.from(v, "utf8").toString("base64")}?=`;
+const MID = /^<[^<>\s]{3,300}>$/;
+
+/** Sends one email from the account. Only called by the Outbox after the owner pressed Send. */
+export async function sendMail(fromId: string, p: { to: string[]; cc?: string[]; subject: string; body: string; threadId?: string; inReplyTo?: string; references?: string }) {
+  const a = writer(fromId);
+  const name = hclean(a.name, 80).replace(/["\\]/g, "");
+  const inReply = p.inReplyTo && MID.test(p.inReplyTo) ? p.inReplyTo : "";
+  const refs = (String(p.references || "").match(/<[^<>\s]{3,300}>/g) || []).slice(-20).join(" ");
+  const head = [
+    `From: ${name ? `"${enc(name)}" ` : ""}<${a.email}>`, `To: ${p.to.map(x => hclean(x, 300)).join(", ")}`, ...(p.cc?.length ? [`Cc: ${p.cc.map(x => hclean(x, 300)).join(", ")}`] : []),
+    `Subject: ${enc(hclean(p.subject, 300))}`, ...(inReply ? [`In-Reply-To: ${inReply}`, `References: ${refs.includes(inReply) ? refs : [refs, inReply].filter(Boolean).join(" ")}`] : []),
+    "MIME-Version: 1.0", "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: base64",
+  ];
+  const raw = head.join("\r\n") + "\r\n\r\n" + (Buffer.from(String(p.body).replace(/\r?\n/g, "\r\n"), "utf8").toString("base64").match(/.{1,76}/g) || []).join("\r\n");
+  const thread = p.threadId && /^[A-Za-z0-9]{8,40}$/.test(p.threadId) ? p.threadId : undefined;
+  const r = await gsend(a, `${GMAIL}/messages/send`, { raw: Buffer.from(raw, "utf8").toString("base64url"), ...(thread ? { threadId: thread } : {}) });
+  wlog("google-mail-sent", a, { to: p.to.length + (p.cc?.length || 0), id: r.id });
+  mailCache.clear();
+  return { id: String(r.id || ""), from: a.email };
+}
+
+export async function createFile(acc: string, kind: string, title: unknown, text?: unknown) {
+  const a = writer(acc), t = clip(title, 200) || (kind === "sheet" ? "Untitled spreadsheet" : "Untitled document");
+  if (kind === "sheet") {
+    const r = await gsend(a, SHEETS, { properties: { title: t } });
+    wlog("google-sheet-created", a, { id: r.spreadsheetId });
+    return { id: String(r.spreadsheetId), link: openLink(r.spreadsheetUrl, a.email), mime: KINDS.sheets, name: t, acct: a.id };
+  }
+  if (kind !== "doc") throw err("Pick Doc or Sheet.");
+  const r = await gsend(a, DOCS, { title: t });
+  const body = String(text ?? "").replace(/\r\n/g, "\n").slice(0, 100_000);
+  if (body.trim()) await gsend(a, `${DOCS}/${r.documentId}:batchUpdate`, { requests: [{ insertText: { location: { index: 1 }, text: body } }] });
+  wlog("google-doc-created", a, { id: r.documentId });
+  return { id: String(r.documentId), link: openLink(`https://docs.google.com/document/d/${r.documentId}/edit`, a.email), mime: KINDS.docs, name: t, acct: a.id };
+}
+
+const colName = (i: number) => { let s = ""; i++; while (i) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+/** Writes the given cells (row/col are 0-based) on one tab. Values are typed like in Google Sheets (=formulas work). */
+export async function sheetSet(acc: string, id: string, tab: unknown, cells: unknown) {
+  if (!FILE_ID.test(id)) throw err("Bad file id");
+  const a = writer(acc), t = clip(tab, 100);
+  if (!t) throw err("Which tab?");
+  if (!Array.isArray(cells) || !cells.length) throw err("Nothing to save.");
+  if (cells.length > 500) throw err("Too many changes at once (max 500).");
+  const data = cells.map((c: any) => {
+    const r = Number(c?.r), k = Number(c?.c);
+    if (!Number.isInteger(r) || !Number.isInteger(k) || r < 0 || k < 0 || r > 99_999 || k > 701) throw err("Bad cell");
+    return { range: `'${t.replace(/'/g, "''")}'!${colName(k)}${r + 1}`, values: [[String(c?.v ?? "").slice(0, 50_000)]] };
+  });
+  const res = await gsend(a, `${SHEETS}/${id}/values:batchUpdate`, { valueInputOption: "USER_ENTERED", data });
+  wlog("google-sheet-edited", a, { id, cells: data.length });
+  return { ok: true, updated: Number(res.totalUpdatedCells) || data.length };
+}
+
+export async function docAppend(acc: string, id: string, text: unknown) {
+  if (!FILE_ID.test(id)) throw err("Bad file id");
+  const a = writer(acc), body = String(text ?? "").replace(/\r\n/g, "\n").slice(0, 100_000);
+  if (!body.trim()) throw err("Nothing to add.");
+  const d = await gget(a, `${DOCS}/${id}?fields=body.content(endIndex)`);
+  const end = Math.max(1, (Number(d.body?.content?.at(-1)?.endIndex) || 2) - 1);
+  await gsend(a, `${DOCS}/${id}:batchUpdate`, { requests: [{ insertText: { location: { index: end }, text: "\n" + body } }] });
+  wlog("google-doc-edited", a, { id, op: "append" });
+  return { ok: true };
+}
+
+export async function docReplace(acc: string, id: string, find: unknown, repl: unknown, matchCase = false) {
+  if (!FILE_ID.test(id)) throw err("Bad file id");
+  const a = writer(acc), f = String(find ?? "").slice(0, 2000), r = String(repl ?? "").slice(0, 20_000);
+  if (!f.trim()) throw err("Type the text to find.");
+  const res = await gsend(a, `${DOCS}/${id}:batchUpdate`, { requests: [{ replaceAllText: { containsText: { text: f, matchCase: !!matchCase }, replaceText: r } }] });
+  const n = Number(res.replies?.[0]?.replaceAllText?.occurrencesChanged) || 0;
+  wlog("google-doc-edited", a, { id, op: "replace", n });
+  return { ok: true, changed: n };
 }

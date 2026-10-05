@@ -15,6 +15,7 @@ import * as spotify from "./lib/spotify.ts";
 import * as canvas from "./lib/canvas.ts";
 import * as mail from "./lib/mail.ts";
 import * as google from "./lib/google.ts";
+import * as compose from "./lib/compose.ts";
 import { killAll, sweepOrphans } from "./lib/claude.ts";
 
 ensureLocalConfig();
@@ -166,7 +167,12 @@ const routes: [string, RegExp, Handler][] = [
 
   ["GET", /^\/api\/google$/, () => google.status(PORT)],
   ["POST", /^\/api\/google\/client$/, (_, b) => google.setClient(String(b.clientId || ""), String(b.clientSecret || ""))],
-  ["POST", /^\/api\/google\/login$/, (_, b) => ({ url: google.loginUrl(PORT, b.reconnect ? String(b.reconnect) : undefined) })],
+  ["POST", /^\/api\/google\/login$/, (_, b) => ({ url: google.loginUrl(PORT, b.reconnect ? String(b.reconnect) : undefined, b.write === true) })],
+  ["POST", /^\/api\/google\/create$/, (_, b) => google.createFile(String(b.acct || ""), String(b.kind || ""), b.title, b.text)],
+  ["POST", /^\/api\/google\/sheet\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})$/, (m, b) => google.sheetSet(m[1], m[2], b.tab, b.cells)],
+  ["POST", /^\/api\/google\/doc\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})\/append$/, (m, b) => google.docAppend(m[1], m[2], b.text)],
+  ["POST", /^\/api\/google\/doc\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})\/replace$/, (m, b) => google.docReplace(m[1], m[2], b.find, b.replace, b.matchCase === true)],
+  ["POST", /^\/api\/google\/write-ai$/, (_, b) => compose.writeAI(b)],
   ["PUT", /^\/api\/google\/acct\/(g-[a-f0-9]{10})$/, (m, b) => google.update(m[1], b)],
   ["DELETE", /^\/api\/google\/acct\/(g-[a-f0-9]{10})$/, m => google.remove(m[1])],
   ["GET", /^\/api\/google\/mail$/, (_, __, u) => google.mailList(u.searchParams.get("acct") || "all", u.searchParams.get("q") || "", u.searchParams.get("box") || "inbox", u.searchParams.get("fresh") === "1")],

@@ -1,5 +1,5 @@
 // Outbox: emails and calendar changes that need the owner's OK before anything leaves HQ.
-// JARVIS (or the owner) drafts → the owner reviews/edits in the dashboard → Send runs ONE tightly
+// LUTHUR (or the owner) drafts → the owner reviews/edits in the dashboard → Send runs ONE tightly
 // scoped Claude run that may only use the Gmail / Calendar connector, with the exact approved payload.
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -7,8 +7,10 @@ import { DATA, appendLine, readJson, uid, writeJson } from "./store.ts";
 import { loadConfig, modelFor, saveLocal } from "./config.ts";
 import { findClaude, killTree, runClaude } from "./claude.ts";
 import { notify } from "./notify.ts";
+import * as google from "./google.ts";
 
-export type EmailPayload = { to: string[]; cc?: string[]; subject: string; body: string; replyTo?: string };
+/** from = a connected Google account id (sent directly through Gmail); without it the claude.ai Gmail connector is used. */
+export type EmailPayload = { to: string[]; cc?: string[]; subject: string; body: string; replyTo?: string; from?: string; threadId?: string; inReplyTo?: string; references?: string };
 export type CalPayload = { action: "create" | "update" | "delete"; title: string; start?: string; end?: string; allDay?: boolean; location?: string; description?: string; attendees?: string[]; eventRef?: string };
 export type OutItem = {
   id: string; kind: "email" | "calendar"; status: "draft" | "sending" | "sent" | "drafted" | "failed" | "discarded";
@@ -48,7 +50,10 @@ export function validate(kind: string, p: any): EmailPayload | CalPayload {
     if (!subject) throw new Error("An email needs a subject.");
     const body = text(p?.body, 20000);
     if (!body.trim()) throw new Error("An email needs a message.");
-    return { to, cc: addrs(p?.cc, "Cc"), subject, body, replyTo: p?.replyTo ? text(p.replyTo, 300) : undefined };
+    const from = p?.from ? google.findAccount(p.from) : undefined;
+    const thread = p?.threadId && /^[A-Za-z0-9]{8,40}$/.test(String(p.threadId)) ? String(p.threadId) : undefined;
+    const mid = (v: unknown) => (String(v || "").match(/<[^<>\s]{3,300}>/g) || []).slice(-20).join(" ") || undefined;
+    return { to, cc: addrs(p?.cc, "Cc"), subject, body, replyTo: p?.replyTo ? text(p.replyTo, 300) : undefined, ...(from ? { from } : {}), ...(from && thread ? { threadId: thread, inReplyTo: mid(p?.inReplyTo)?.split(" ").at(-1), references: mid(p?.references) } : {}) };
   }
   if (kind === "calendar") {
     const action = ["create", "update", "delete"].includes(p?.action) ? p.action : "create";
@@ -141,6 +146,19 @@ export async function send(id: string): Promise<OutItem> {
   const it = precheck(id);
   const payload = validate(it.kind, it.payload); // re-check what's on disk
   sending = true; // claim the slot before the (slow) connector lookup
+  const em = it.kind === "email" ? payload as EmailPayload : null;
+  if (em?.from) { // a connected Google account: send straight through Gmail, no Claude run
+    patch(id, x => { x.status = "sending"; x.updatedAt = new Date().toISOString(); });
+    log("outbox-send", { id, kind: it.kind, via: "google" });
+    try {
+      const r = await google.sendMail(em.from, em);
+      patch(id, x => { x.status = "sent"; x.result = `SENT from ${r.from}`; x.updatedAt = x.sentAt = new Date().toISOString(); });
+      log("outbox-sent", { id, kind: it.kind });
+      notify({ title: "Email sent", body: summary(it), priority: 2, phone: false });
+    } catch (e: any) { patch(id, x => { x.status = "failed"; x.result = String(e?.message || e).slice(0, 300); }); }
+    finally { sending = false; }
+    return list().find(x => x.id === id)!;
+  }
   let conn;
   try { conn = await discover(); } catch (e) { sending = false; throw e; }
   const server = it.kind === "email" ? conn.email : conn.calendar;

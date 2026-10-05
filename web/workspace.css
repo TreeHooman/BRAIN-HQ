@@ -91,6 +91,17 @@
 .ws-sw button.on, .ws-sw button:hover { opacity: 1; border-color: #fff; }
 .btn.danger { color: var(--red); }
 
+.ws-wr { color: var(--green); font-weight: 500; }
+.ws-edbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; font-size: 12.5px; color: var(--text3); }
+.ws-edbar span { margin-right: auto; }
+.ws-sheet.editing td { cursor: text; min-width: 60px; }
+.ws-sheet.editing td:focus { outline: 2px solid var(--accent); outline-offset: -2px; background: rgba(122,162,255,.08); text-overflow: clip; }
+.ws-sheet td.chg { background: rgba(229,180,90,.14); box-shadow: inset 0 -2px 0 var(--amber); }
+.ws-ai { display: flex; gap: 8px; }
+.ws-ai input { flex: 1; min-width: 0; background: var(--bg2); border: 1px dashed var(--accent); color: var(--text); border-radius: 6px; padding: 7px 10px; font: 13px var(--font); }
+.ws-orig summary { cursor: pointer; color: var(--text3); font-size: 12.5px; }
+.ws-orig pre { max-height: 200px; overflow: auto; font-size: 12px; color: var(--text2); }
+
 /* Command inbox rows carry the account colour */
 #nvMail .ml-row .ws-dot { margin-top: 5px; }
 

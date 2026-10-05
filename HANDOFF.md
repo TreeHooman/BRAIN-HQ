@@ -170,3 +170,9 @@ The owner asked for (1) a cleaner, modern, easier-on-the-eyes UI with better fin
 - `web/workspace.js` and `web/workspace.css`, view `#workspace`: account chips (All plus one per company), Mail/Drive tabs, list plus reader; on phone the reader replaces the list. The Accounts panel holds setup, label, colour, reconnect and remove.
 - With accounts connected, the Command Inbox panel reads from them directly (no Claude run) and links to `#workspace/mail/<acct>/<id>`.
 - Security: `hostOk()` in server.ts blocks API requests whose Host is a foreign domain (DNS-rebinding guard). It allows IPs, localhost, single-label names, *.ts.net and config `allowedHosts`.
+- Writing (follow-up), opt-in per account through "Allow writing": a re-consent that adds the `gmail.send`, `documents` and `spreadsheets` scopes (`include_granted_scopes`). Granted scopes are saved as `account.scopes`.
+  - Email: the Outbox payload takes an optional `from` (account id; `validate` also accepts a label or email through `google.findAccount`) plus `threadId`, `inReplyTo` and `references`. `outbox.send` then sends directly through `google.sendMail` (RFC 2822 built by hand; header values have CR/LF stripped). The `email_draft` MCP tool accepts `from`.
+  - The Workspace composer (Compose, Reply, and the Outbox's New/Edit when a write account exists) always saves to the Outbox first, then Send means approve-and-send.
+  - "Write with LUTHUR" uses `src/lib/compose.ts`: a no-tools Sonnet run, with any quoted email passed as data. It returns `{subject, body}`.
+  - Docs and Sheets: `createFile` (doc or sheet), `sheetSet` (batchUpdate with USER_ENTERED; edited from the preview grid with "Edit cells", which adds 3 spare rows and 1 spare column), `docAppend` and `docReplace` (replaceAllText). Each is confirmed in the UI and logged to `data/activity.jsonl` as `google-*`.
+  - Nothing can delete mail or files, or share them. The Docs API must be enabled (setup step 2).
