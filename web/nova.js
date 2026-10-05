@@ -48,69 +48,6 @@ vec3 sky(vec2 uv,vec2 m,float t,float neb){
   col+=c*pow(smoothstep(.32,1.,nb),1.7)*.55*neb;}
  return col;}
 vec3 glow(vec2 uv,vec2 p,vec3 c,float k){return c*k/(dot(uv-p,uv-p)*400.+1.);}
-// 0: nebula + ringed gas giant
-vec3 s0(vec2 uv,vec2 m,float t){
- vec3 col=sky(uv,m,t,1.);
- vec2 P=vec2(.62,-.2)-m*.07; float R=.27; vec2 d=uv-P;
- float ca=cos(-.38),sa=sin(-.38); vec2 rp=mat2(ca,-sa,sa,ca)*d; vec2 re=vec2(rp.x,rp.y/.24); float rr=length(re)/R;
- float ring=smoothstep(1.3,1.36,rr)*smoothstep(2.25,2.1,rr)*(.55+.45*n2(vec2(rr*38.,1.)))*(1.-.6*smoothstep(1.7,1.75,rr)*smoothstep(1.82,1.77,rr));
- vec3 rc=mix(vec3(.85,.72,.55),vec3(.55,.75,.95),.35)*ring*.75*(.6+.4*smoothstep(-.3,.3,rp.x/R));
- float dd=length(d);
- if(rp.y>0.)col+=rc; // far half of the rings, behind the planet
- float px=2./uR.y, pa=smoothstep(R+px,R-px,dd);
- if(pa>0.){vec3 bg0=col; vec2 dn=d*min(1.,(R-px*.5)/max(dd,1e-4)); vec3 n=vec3(dn/R,sqrt(max(0.,1.-dot(dn,dn)/(R*R))));vec3 L=normalize(vec3(-.65,.35,.55));
-  float lat=n.y*.92+n.x*.18; float b=fbm(vec2(lat*7.,n.x*1.2+t*.25))*.6+.5*sin(lat*22.+fbm(vec2(lat*3.,t*.1))*4.);
-  vec3 base=mix(vec3(.62,.38,.22),vec3(.95,.82,.62),.5+.5*b); base=mix(base,vec3(.3,.55,.8),.08);
-  float dif=max(0.,dot(n,L)); float shadow=1.-.85*smoothstep(.0,.05,abs(rp.y)/R*1.)*0.;
-  col=mix(bg0,base*(dif*1.1+.03)*shadow+vec3(.2,.5,.9)*pow(1.-n.z,3.)*.6*dif,pa);}
- col+=vec3(.25,.55,1.)*exp(-max(0.,dd-R)*38.)*.35*smoothstep(.0,.4,dot(normalize(d+1e-4),normalize(vec2(-.65,.35)))+.3);
- if(rp.y<=0.)col=mix(col,col*.25+rc,ring>0.?.9:0.); // near half crosses in front
- col+=glow(uv,vec2(-.75,.42)-m*.02,vec3(1.,.9,.75),.08); // distant sun
- return col;}
-// 1: sunrise over a planet's limb
-vec3 s1(vec2 uv,vec2 m,float t){
- vec3 col=sky(uv,m*.5,t,.35);
- vec2 C=vec2(0.,-2.05)-m*vec2(.05,.03); float R=1.8; vec2 d=uv-C; float r=length(d);
- vec2 S=vec2(-.32,-.2)-m*vec2(.05,.03)+vec2(0.,.004*sin(t*.5)); // sun peeking over the limb
- float h=r-R;
- float px=2./uR.y, pa=smoothstep(px,-px,h);
- if(pa>0.){vec3 bg0=col; vec2 dn=d*min(1.,(R-px*.5)/max(r,1e-4)); vec3 n=vec3(dn/R,sqrt(max(0.,1.-dot(dn,dn)/(R*R))));
-  vec2 g=n.xy*3.+vec2(t*.08,0.); float land=smoothstep(.52,.6,fbm(g*1.7)); float cl=smoothstep(.45,.85,fbm(g*2.6+vec2(t*.12,3.)));
-  vec3 surf=mix(vec3(.02,.09,.22),vec3(.12,.18,.08),land); surf=mix(surf,vec3(.85,.9,1.),cl*.85);
-  float lit=smoothstep(.0,.6,dot(normalize(d),normalize(S-C))*1.6-.9);
-  float city=land*(1.-lit)*(1.-cl)*step(.82,h21(floor(n.xy*300.)))*.6;
-  col=surf*(lit*.9+.02)+vec3(1.,.7,.35)*city;
-  col=mix(bg0,col+vec3(.3,.6,1.)*pow(1.-n.z,4.)*(.4+lit),pa);}
- float atm=exp(-abs(h)*(h>0.?55.:140.));
- float sunSide=pow(max(0.,dot(normalize(d),normalize(S-C))),40.);
- col+=mix(vec3(.25,.55,1.),vec3(1.,.6,.3),sunSide)*atm*(.55+1.8*sunSide);
- float sd=length(uv-S); col+=vec3(1.,.92,.8)*(.012/(sd*sd*60.+.012))*(h>-.01?1.:.3);
- float sp=max(0.,1.-abs((uv-S).y)*90.)*exp(-abs((uv-S).x)*3.)+max(0.,1.-abs((uv-S).x)*120.)*exp(-abs((uv-S).y)*14.);
- col+=vec3(1.,.85,.7)*sp*.35; col+=glow(uv,S,vec3(.5,.7,1.),.25);
- return col;}
-// 2: black hole with accretion disk and lensed sky
-vec3 s2(vec2 uv,vec2 m,float t){
- vec2 C=vec2(.05,.02)-m*.06; vec2 d=uv-C; float r=length(d); float rs=.11;
- vec2 lens=uv-d/(r*r+1e-3)*rs*rs*1.6; vec3 col=sky(lens,m,t,.55)*smoothstep(rs,rs*1.6,r);
- float tilt=.22; vec2 e=vec2(d.x,d.y/tilt); float er=length(e); float ang=atan(e.y,e.x);
- float disk=smoothstep(rs*1.5,rs*1.9,er)*smoothstep(rs*5.,rs*2.6,er);
- float sw=fbm(vec2(ang*3.-t*1.6/(er*6.+.2),er*14.)); float dop=.55+.45*cos(ang+.3);
- vec3 dc=mix(vec3(1.,.45,.12),vec3(1.,.93,.8),smoothstep(rs*3.,rs*1.6,er))*disk*(.35+.9*sw)*(.4+1.2*dop);
- float halo=smoothstep(rs*1.15,rs*1.35,r)*smoothstep(rs*2.4,rs*1.45,r)*(.5+.5*fbm(vec2(atan(d.y,d.x)*4.+t*.6,r*20.)));
- vec3 hc=vec3(1.,.6,.25)*halo*(.6+.6*(.5+.5*cos(atan(d.y,d.x)+.3)))*smoothstep(-.02,.06,d.y+.03);
- if(d.y>0.)col+=dc*.8; col+=hc*1.1; col*=smoothstep(rs*.98,rs*1.03,r); if(d.y<=0.)col+=dc;
- col+=vec3(1.,.75,.45)*.004/(abs(r-rs*1.25)+.004)*.25*smoothstep(rs*.9,rs*1.2,r);
- return col;}
-// 3: spiral galaxy
-vec3 s3(vec2 uv,vec2 m,float t){
- vec3 col=sky(uv,m*.6,t,.25);
- vec2 C=vec2(-.05,.0)-m*.05; vec2 d=uv-C; float ca=cos(.5),sa=sin(.5); d=mat2(ca,-sa,sa,ca)*d; d.y/=.45;
- float r=length(d); float a=atan(d.y,d.x)+t*.06;
- float arms=pow(.5+.5*cos(2.*(a-log(r+.02)*2.6)),3.5); float dust=fbm(vec2(a*2.,r*9.)+t*.02);
- float body=exp(-r*2.6); vec3 armc=mix(vec3(.45,.65,1.),vec3(.9,.6,1.),dust);
- col+=armc*arms*body*(.35+.9*dust)*1.3; col-=vec3(.25,.2,.12)*smoothstep(.55,.8,dust)*arms*body*1.2;
- col+=vec3(1.,.85,.6)*exp(-r*11.)*1.2+vec3(1.,.7,.45)*.02/(r*r*30.+.02)*.4;
- return max(col,0.);}
 // 4: the original deep-space nebula (no floor grid)
 vec3 s4(vec2 uv,vec2 m,float t){
  vec2 q=uv*1.25+m*.06;
@@ -119,7 +56,7 @@ vec3 s4(vec2 uv,vec2 m,float t){
  col*=pow(smoothstep(.32,1.,nb),1.7)*(.5+uB*.25);
  col+=vec3(.003,.007,.025)+vec3(0.,.025,.05)*max(0.,1.-length(uv));
  return col;}
-vec3 pick(float id,vec2 uv,vec2 m,float t){if(id>3.5)return s4(uv,vec2(m.x,-m.y),t);if(id<.5)return s0(uv,m,t);if(id<1.5)return s1(uv,m,t);if(id<2.5)return s2(uv,m,t);return s3(uv,m,t);}
+vec3 pick(float id,vec2 uv,vec2 m,float t){return s4(uv,vec2(m.x,-m.y),t);} // planets removed: nebula only
 void main(){
  vec2 uv=(gl_FragCoord.xy-.5*uR)/uR.y; vec2 m=uM-.5; m.y=-m.y; float t=uT*.022*(1.+uB*2.);
  uv/=1.+uZ*.04; uv.y-=uS*.00004;

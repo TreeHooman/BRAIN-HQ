@@ -32,7 +32,7 @@ try {
     }
   }
   foreach ($f in "HANDOFF.md", "CLAUDE.md", "README.md") { if (Test-Path "$($src.FullName)\$f") { Copy-Item "$($src.FullName)\$f" "$hq\$f" -Force } }
-  if ($auto) { [IO.File]::WriteAllText("$hq\data\version.json", (@{ sha = $Sha; at = (Get-Date).ToString("o") } | ConvertTo-Json)) }  # no BOM
+  if ($auto) { [IO.File]::WriteAllText((Join-Path $hq "data\version.json"), (@{ sha = $Sha; at = (Get-Date).ToString("o") } | ConvertTo-Json)) }  # no BOM
   Write-Host "HQ updated." -ForegroundColor Green
 } catch {
   Write-Host "Update failed: $_. Restoring the backup." -ForegroundColor Red

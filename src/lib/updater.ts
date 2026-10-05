@@ -100,10 +100,15 @@ export function saveSettings(b: any) {
 export async function apply(sha: string) {
   if (process.platform !== "win32") throw new Error("One-click update works on the Windows PC only");
   if (st.busy) throw new Error("Already updating");
-  if (!SHA_RE.test(sha) || sha !== st.latest?.sha) throw new Error("Check for updates first");
+  if (!SHA_RE.test(sha)) throw new Error("Check for updates first");
   const s = settings();
-  st.busy = "Downloading…";
+  st.busy = "Checking…";
   try {
+    // always install the newest commit right now (a check from minutes ago may be stale)
+    await check(true);
+    if (!st.latest) throw new Error(st.error || "Couldn't reach GitHub");
+    sha = st.latest.sha;
+    st.busy = "Downloading…";
     const r = await fetch(`https://api.github.com/repos/${s.repo}/zipball/${sha}`, { headers: { "User-Agent": "HQ-updater", Accept: "application/vnd.github+json", ...(s.token ? { Authorization: "Bearer " + s.token } : {}) }, redirect: "follow", signal: AbortSignal.timeout(180000) });
     if (!r.ok) throw new Error(ghError(r.status, s.repo, s.token));
     if (Number(r.headers.get("content-length") || 0) > MAX_ZIP) throw new Error("Update is unexpectedly large");

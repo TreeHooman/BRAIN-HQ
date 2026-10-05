@@ -54,7 +54,7 @@ function upDraw(wrap) {
   if (go) go.onclick = async () => {
     if (!confirm("Update LUTHUR now? It restarts and this page reloads by itself.")) return;
     const sha = UP.s.latest.sha; busy(go, true);
-    try { await api("/update/apply", "POST", { sha }); upWait(sha); } catch (e) { toast("⚠ " + e.message, 6000); busy(go, false); }
+    try { const r = await api("/update/apply", "POST", { sha }); upWait(r.latest?.sha || sha); } catch (e) { toast("⚠ " + e.message, 6000); busy(go, false); }
   };
 }
 

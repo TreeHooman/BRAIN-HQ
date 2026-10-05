@@ -1,7 +1,7 @@
 // Background playlist: cycles the built-in space vistas (nova.js shader) and, optionally, the owner's own wallpapers
 // (images/videos dropped in HQ\backgrounds\, served at /bg/<file>). Crossfades between them; per-viewer choices in localStorage.
 "use strict";
-const SPACE_SCENES = ["Ringed giant", "Planet sunrise", "Black hole", "Galaxy", "Nebula"];
+const SPACE_SCENES = ["", "", "", "", "Nebula"]; // ids 0-3 (planets) were removed; ids kept so saved choices still map
 const Space = { list: [], i: 0, start: performance.now(), fade: 0, fadeFrom: null, walls: [], wallEl: null, timer: 0 };
 const SPACE_DEF = { every: 60, scenes: [4], walls: true }; // default: just the nebula
 // Phones keep their own choice (default: nebula only, no planets), so a desktop pick never lands on the phone.
@@ -11,7 +11,7 @@ const spaceSave = p => hstore.set(SPACE_KEY, JSON.stringify(p));
 
 function spaceBuild() {
   const p = spacePref();
-  Space.list = [...p.scenes.filter(n => n >= 0 && n < SPACE_SCENES.length).map(n => ({ k: "scene", n })), ...(p.walls ? Space.walls.map(f => ({ k: "wall", f })) : [])];
+  Space.list = [...p.scenes.filter(n => n === 4).map(n => ({ k: "scene", n })), ...(p.walls ? Space.walls.map(f => ({ k: "wall", f })) : [])];
   if (!Space.list.length) Space.list = [{ k: "scene", n: 4 }];
   Space.i = Math.min(Space.i, Space.list.length - 1);
 }
@@ -56,7 +56,7 @@ function spaceCard() {
   const p = spacePref();
   return `<h2>Background</h2><div class="card form" id="spCard">
     <div class="small muted">Pick one view, or several to cycle. Move the mouse to look around.</div>
-    <div class="chips">${SPACE_SCENES.map((n, i) => `<button type="button" class="chip ${p.scenes.includes(i) ? "on" : ""}" data-sp="${i}">${esc(n)}</button>`).join("")}</div>
+    <div class="chips">${SPACE_SCENES.map((n, i) => !n ? "" : `<button type="button" class="chip ${p.scenes.includes(i) ? "on" : ""}" data-sp="${i}">${esc(n)}</button>`).join("")}</div>
     <div class="row"><span class="small muted" style="min-width:110px">Change every</span><select id="spEvery">${[[30, "30 seconds"], [60, "1 minute"], [180, "3 minutes"], [600, "10 minutes"], [3600, "1 hour"]].map(([v, l]) => `<option value="${v}" ${p.every == v ? "selected" : ""}>${l}</option>`).join("")}</select><button type="button" class="btn sm ghost" id="spNext">Next view</button></div>
     <div class="row"><span class="small muted" style="min-width:110px">Motion</span><select id="spPow"><option value="auto">Automatic (saver on phones)</option><option value="full">Full motion</option><option value="saver">Battery saver</option></select></div>
     <label class="row small"><input type="checkbox" id="spWalls" ${p.walls ? "checked" : ""}> Include my wallpapers (${Space.walls.length} found)</label>
