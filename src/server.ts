@@ -13,6 +13,7 @@ import * as outbox from "./lib/outbox.ts";
 import * as code from "./lib/code.ts";
 import * as spotify from "./lib/spotify.ts";
 import * as canvas from "./lib/canvas.ts";
+import { killAll, sweepOrphans } from "./lib/claude.ts";
 
 ensureLocalConfig();
 const cfg = loadConfig();
@@ -218,10 +219,12 @@ server.on("error", (e: any) => {
 });
 server.listen(PORT, HOST, () => {
   console.log(`HQ running → http://localhost:${PORT}`);
+  if (!process.env.HQ_FAKE_CLAUDE) { const n = sweepOrphans(); if (n) console.log(`Stopped ${n} leftover agent process${n > 1 ? "es" : ""} from a previous run`); }
   if (!process.env.HQ_NO_ORCHESTRATOR) orch.start();
   cal.kick();
   outbox.recover();
 });
-const shutdown = () => { orch.stop(); process.exit(0); };
+const shutdown = () => { orch.stop(); killAll(); process.exit(0); };
+process.on("exit", () => killAll());
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);

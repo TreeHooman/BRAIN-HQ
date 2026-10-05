@@ -115,6 +115,7 @@ export function runClaude(o: RunOptions): Promise<RunResult> {
     for (const k of Object.keys(env)) if (/^(CLAUDECODE|CLAUDE_CODE_|CLAUDE_AGENT_SDK|CLAUDE_PID|CLAUDE_EFFORT|ANTHROPIC_BASE_URL)/.test(k)) delete env[k];
     const args = buildArgs(o);
     const child = spawn(bin, fake ? [fake, ...args] : args, { cwd: ROOT, windowsHide: true, env });
+    if (child.pid) { children.add(child.pid); child.on("exit", () => children.delete(child.pid!)); }
     if (child.pid && o.onSpawn) o.onSpawn(child.pid);
     let out = "", err = "", timedOut = false;
     const narrator = o.onStep ? createNarrator(o.onStep) : null;
@@ -129,6 +130,34 @@ export function runClaude(o: RunOptions): Promise<RunResult> {
       resolve(interpret(out, err, timedOut, Date.now() - started));
     });
   });
+}
+
+// Every agent process HQ starts, so they can be stopped with HQ (never left running on their own).
+const children = new Set<number>();
+export function killAll() { for (const pid of children) killTree(pid); children.clear(); }
+
+/** At startup no run is active, so any agent process HQ started earlier (before a crash, update or forced
+ *  stop) is an orphan: stop it. Matched by HQ's own per-run MCP config folder and hq-brain server path,
+ *  so the desktop app and the owner's own Claude Code sessions are never touched. */
+export function sweepOrphans(): number {
+  const marks = [path.join(DATA, "mcp").toLowerCase(), path.join(ROOT, "src", "mcp", "hq-brain.ts").toLowerCase()];
+  let list: { pid: number; cmd: string }[] = [];
+  try {
+    if (process.platform === "win32") {
+      const r = spawnSync("powershell", ["-NoProfile", "-NonInteractive", "-Command", "Get-CimInstance Win32_Process -Filter \"Name='claude.exe' OR Name='node.exe'\" | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress"], { windowsHide: true, encoding: "utf8", timeout: 20e3 });
+      const j = JSON.parse(r.stdout || "[]"); list = (Array.isArray(j) ? j : [j]).map((x: any) => ({ pid: Number(x.ProcessId), cmd: String(x.CommandLine || "") }));
+    } else {
+      const r = spawnSync("ps", ["-eo", "pid=,args="], { encoding: "utf8", timeout: 10e3 });
+      list = String(r.stdout || "").split("\n").map(l => l.trim().match(/^(\d+)\s+(.*)$/)).filter(Boolean).map((m: any) => ({ pid: Number(m[1]), cmd: m[2] }));
+    }
+  } catch { return 0; }
+  let n = 0;
+  for (const p of list) {
+    if (!p.pid || p.pid === process.pid || p.pid === process.ppid) continue;
+    const c = p.cmd.toLowerCase();
+    if (marks.some(m => c.includes(m))) { killTree(p.pid); n++; }
+  }
+  return n;
 }
 
 export function killTree(pid?: number) {
