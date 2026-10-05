@@ -504,11 +504,11 @@ label.f .wp-btn { width: 100%; }
 @media (min-width: 1100px) and (prefers-reduced-motion: no-preference) {
   [data-theme="hud"] .nv-desk { perspective: 1400px; perspective-origin: 50% 45%; }
   [data-theme="hud"] .nv-desk .nv-l, [data-theme="hud"] .nv-desk .nv-r { transform-style: flat; backface-visibility: hidden; transition: transform .9s cubic-bezier(.2, .8, .2, 1); }
-  [data-theme="hud"] .nv-desk .nv-l { transform-origin: 100% 50%; transform: rotateY(calc(13deg + var(--dx, 0) * 3deg)) rotateX(calc(var(--dy, 0) * -1.5deg)); }
-  [data-theme="hud"] .nv-desk .nv-r { transform-origin: 0% 50%; transform: rotateY(calc(-13deg + var(--dx, 0) * 3deg)) rotateX(calc(var(--dy, 0) * -1.5deg)); }
+  [data-theme="hud"] .nv-desk .nv-l { transform-origin: 0% 50%; transform: rotateY(calc(-13deg + var(--dx, 0) * 3deg)) rotateX(calc(var(--dy, 0) * -1.5deg)); }
+  [data-theme="hud"] .nv-desk .nv-r { transform-origin: 100% 50%; transform: rotateY(calc(13deg + var(--dx, 0) * 3deg)) rotateX(calc(var(--dy, 0) * -1.5deg)); }
   [data-theme="hud"] .nv-desk .nv-l:hover, [data-theme="hud"] .nv-desk .nv-r:hover, [data-theme="hud"] .nv-desk .nv-l:focus-within, [data-theme="hud"] .nv-desk .nv-r:focus-within { transition-duration: .5s; }
-  [data-theme="hud"] .nv-desk .nv-l:hover, [data-theme="hud"] .nv-desk .nv-l:focus-within { transform: rotateY(8deg) translateZ(36px) scale(1.012); }
-  [data-theme="hud"] .nv-desk .nv-r:hover, [data-theme="hud"] .nv-desk .nv-r:focus-within { transform: rotateY(-8deg) translateZ(36px) scale(1.012); }
+  [data-theme="hud"] .nv-desk .nv-l:hover, [data-theme="hud"] .nv-desk .nv-l:focus-within { transform: rotateY(-7deg) translateZ(36px) scale(1.012); }
+  [data-theme="hud"] .nv-desk .nv-r:hover, [data-theme="hud"] .nv-desk .nv-r:focus-within { transform: rotateY(7deg) translateZ(36px) scale(1.012); }
   [data-theme="hud"] .nv-desk .nv-l:hover .nv-panel, [data-theme="hud"] .nv-desk .nv-r:hover .nv-panel { border-color: rgba(150, 240, 255, .32); }
   [data-theme="hud"] .nv-desk .nv-l .nv-panel { box-shadow: inset -1px 0 0 rgba(120, 220, 255, .35), -18px 0 40px -30px rgba(0, 200, 255, .5); }
   [data-theme="hud"] .nv-desk .nv-r .nv-panel { box-shadow: inset 1px 0 0 rgba(120, 220, 255, .35), 18px 0 40px -30px rgba(0, 200, 255, .5); }
