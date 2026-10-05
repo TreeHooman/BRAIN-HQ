@@ -86,133 +86,125 @@ function sceneLoop() {
 }
 function sceneKick() { if (Scene.ok && !Scene.raf) { if (reduced()) { sceneDraw(); return; } Scene.raf = requestAnimationFrame(sceneLoop); } }
 
-// ---------------- the core: holographic neuron (hollow wireframe soma, dendrites, firing signals) ----------------
-// Canvas 2D with additive light. Built once (seeded), rotated in 3D and projected each frame.
-const Core = { el: null, c: null, x: null, raf: 0, ok: false, w: 0, h: 0, net: null, pulses: [], b: 0, last: 0, spawn: 0 };
-function neuronBuild() {
-  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  const N = [], E = []; // nodes {x,y,z,d (path distance from soma), p (parent), tip}, edges [a,b,kind]
-  const add = (x, y, z, d, p, k) => { N.push({ x, y, z, d, p, tip: false, k }); return N.length - 1; };
-  // soma: hollow geodesic shell (fibonacci points, linked to near neighbours)
-  const S = 46, R = .17, shell = [];
-  for (let i = 0; i < S; i++) { const y = 1 - (i + .5) / S * 2, r = Math.sqrt(1 - y * y), a = i * 2.39996; shell.push(add(Math.cos(a) * r * R, y * R, Math.sin(a) * r * R, 0, -1, "soma")); }
-  for (const i of shell) {
-    const near = shell.filter(j => j !== i).map(j => [j, (N[i].x - N[j].x) ** 2 + (N[i].y - N[j].y) ** 2 + (N[i].z - N[j].z) ** 2]).sort((a, b) => a[1] - b[1]).slice(0, 3);
-    for (const [j] of near) if (i < j) E.push([i, j, "soma"]);
-  }
-  // dendrites + one long axon, grown as branching random walks from the shell
-  const grow = (from, dir, len, depth, kind) => {
-    let cur = from, d = [...dir];
-    for (let s = 0; s < len; s++) {
-      d = d.map(v => v + (rnd() - .5) * .55); const m = Math.hypot(...d); d = d.map(v => v / m);
-      const n = N[cur], step = kind === "axon" ? .062 : .055 * (1 - depth * .12);
-      const nx = n.x + d[0] * step, ny = n.y + d[1] * step, nz = n.z + d[2] * step;
-      if (Math.hypot(nx, ny, nz) > .93) break;
-      const id = add(nx, ny, nz, n.d + 1, cur, kind); E.push([cur, id, kind]); cur = id;
-      if (depth < 3 && rnd() < (kind === "axon" ? .12 : .26)) grow(cur, d.map(v => v + (rnd() - .5) * 1.4), Math.max(2, len - s - 1 - Math.floor(rnd() * 3)), depth + 1, kind === "axon" ? "axon" : "dend");
-    }
-    N[cur].tip = true;
-  };
-  const roots = 9;
-  for (let i = 0; i < roots; i++) {
-    const y = 1 - (i + .5) / roots * 2, r = Math.sqrt(1 - y * y), a = i * 2.39996 + .4, dir = [Math.cos(a) * r, y, Math.sin(a) * r];
-    const s = shell.reduce((b, j) => { const q = N[j]; const dd = q.x * dir[0] + q.y * dir[1] + q.z * dir[2]; return dd > b[1] ? [j, dd] : b; }, [shell[0], -9])[0];
-    grow(s, dir, 7 + Math.floor(rnd() * 4), 0, "dend");
-  }
-  grow(shell[S - 3], [.15, -1, .25], 15, 0, "axon");
-  // synaptic field: faint free-floating nodes wired to the nearest tips
-  const tips = N.map((n, i) => n.tip ? i : -1).filter(i => i >= 0);
-  for (let i = 0; i < 26; i++) {
-    const u = rnd() * 2 - 1, a = rnd() * 6.283, r = .78 + rnd() * .2, q = Math.sqrt(1 - u * u);
-    const id = add(Math.cos(a) * q * r, u * r, Math.sin(a) * q * r, 99, -1, "field");
-    const t = tips.map(j => [j, (N[j].x - N[id].x) ** 2 + (N[j].y - N[id].y) ** 2 + (N[j].z - N[id].z) ** 2]).sort((a, b) => a[1] - b[1])[0];
-    if (t && t[1] < .09) E.push([t[0], id, "syn"]);
-  }
-  return { N, E, tips, P: N.map(() => ({ x: 0, y: 0, s: 1, z: 0 })) };
+// ---------------- the core: AI voice orb ----------------
+// Layered closed light-waves + a frequency ring around a small core. Idle: slow breathing.
+// Listening: driven by the real mic level (Web Audio). Speaking: speech-like envelope while TTS talks.
+// Thinking: comet arcs swirl. Canvas 2D, additive light, supersampled for crisp lines.
+const Core = { el: null, c: null, x: null, raf: 0, ok: false, w: 0, h: 0, b: 0, amp: 0, spk: 0, last: 0, bars: null };
+const Mic = { stream: null, an: null, buf: null, level: 0, want: false, starting: false };
+async function micOn() {
+  if (Mic.stream || Mic.starting || !navigator.mediaDevices?.getUserMedia) return;
+  Mic.starting = true;
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    if (!Mic.want) { s.getTracks().forEach(t => t.stop()); return; }
+    const ac = Snd.ac(), src = ac.createMediaStreamSource(s), an = ac.createAnalyser(); an.fftSize = 512; src.connect(an);
+    Object.assign(Mic, { stream: s, an, buf: new Uint8Array(an.fftSize) });
+  } catch { /* no permission: fall back to a synthetic level */ } finally { Mic.starting = false; }
+}
+function micOff() { Mic.stream?.getTracks().forEach(t => t.stop()); Object.assign(Mic, { stream: null, an: null, level: 0 }); }
+function micLevel() {
+  if (!Mic.an) return 0;
+  Mic.an.getByteTimeDomainData(Mic.buf); let s = 0; for (const v of Mic.buf) { const d = (v - 128) / 128; s += d * d; }
+  return Math.min(1, Math.sqrt(s / Mic.buf.length) * 5);
 }
 function coreMount(host) {
   Core.el = host;
+  host.querySelector(".gyro")?.remove();
   const c = document.createElement("canvas"); c.setAttribute("aria-hidden", "true"); host.prepend(c);
   Core.c = c; Core.x = c.getContext("2d"); Core.ok = !!Core.x;
-  Core.net ||= neuronBuild(); Core.pulses = [];
   coreSize();
   if (Core.ok && !Core.raf) Core.raf = requestAnimationFrame(coreLoop);
 }
 function coreSize() {
   if (!Core.ok || !Core.c.isConnected) return;
-  const r = Core.c.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1);
+  const r = Core.c.getBoundingClientRect(), d = Math.min(3, Math.max(2, (devicePixelRatio || 1) * 1.5));
   Core.w = r.width; Core.h = r.height;
   Core.c.width = Math.max(64, Math.round(r.width * d)); Core.c.height = Math.max(64, Math.round(r.height * d));
   Core.x.setTransform(d, 0, 0, d, 0, 0);
 }
-function corePath(tip) { const out = []; for (let i = tip; i >= 0 && out.length < 40; i = Core.net.N[i].p) out.push(i); return out; } // tip → soma
 function coreLoop(now = performance.now()) {
   Core.raf = 0;
-  if (!Core.ok || !Core.c.isConnected) { Core.ok = false; return; }
+  if (!Core.ok || !Core.c.isConnected) { Core.ok = false; Mic.want = false; micOff(); return; }
   if (nvOn()) coreDraw(now);
   if (!reduced() || !Core.drawn) { Core.drawn = true; Core.raf = requestAnimationFrame(coreLoop); }
 }
 function coreDraw(now) {
-  const { x, w, h, net } = Core, t = (now - NV.t0) / 1000, dt = Math.min(.05, (now - (Core.last || now)) / 1000); Core.last = now;
+  const { x, w, h } = Core, t = (now - NV.t0) / 1000, dt = Math.min(.05, (now - (Core.last || now)) / 1000); Core.last = now;
   const el = Core.el, busy = el.classList.contains("busy") ? 1 : 0, lis = el.classList.contains("listening") ? 1 : 0;
-  Core.b = lerp(Core.b, busy, .04); NV.listen = lerp(NV.listen, lis, .06); NV.pulse = Math.max(0, NV.pulse - dt * .8);
-  const B = Core.b, L = NV.listen;
-  // colour: cyan → violet when busy
-  const col = (a, hot = 0) => { const r = Math.round(lerp(110, 180, B) + hot * 120), g = Math.round(lerp(240, 150, B) + hot * 15), bl = 255; return `rgba(${Math.min(255, r)},${Math.min(255, g)},${bl},${a.toFixed(3)})`; };
+  const speaking = !!window.speechSynthesis?.speaking;
+  // mic follows the listening state
+  Mic.want = !!lis; if (lis && !Mic.stream) micOn(); else if (!lis && Mic.stream) micOff();
+  Core.b = lerp(Core.b, busy, .05); NV.listen = lerp(NV.listen, lis, .08); NV.pulse = Math.max(0, NV.pulse - dt * .9);
+  Core.spk = lerp(Core.spk, speaking ? 1 : 0, .08);
+  // target amplitude per state
+  let target = .05 + Math.sin(t * 1.2) * .015;                                     // idle breathing
+  if (Core.b > .1) target = Math.max(target, .16 + Math.sin(t * 3.1) * .04);       // thinking hum
+  if (lis) target = Math.max(target, Mic.an ? .08 + micLevel() * .9 : .2 + Math.abs(Math.sin(t * 5.3) * Math.sin(t * 2.1)) * .35);
+  if (speaking) { const syl = Math.abs(Math.sin(t * 9.7) * Math.sin(t * 3.3 + 1) + Math.sin(t * 15.1) * .3); target = Math.max(target, .15 + syl * .55); }
+  target += NV.pulse * .4;
+  Core.amp = lerp(Core.amp, target, target > Core.amp ? .35 : .08);
+  const A = Core.amp, B = Core.b, L = NV.listen, Sp = Core.spk;
+  // palette: listening = cyan/teal, speaking = cyan/white, thinking = violet/magenta
+  const hue = (i) => { const c1 = [110, 240, 255], c2 = [169, 139, 255], c3 = [255, 122, 217]; const k = Math.min(1, B * .9); const base = i === 0 ? c1 : i === 1 ? c2 : i === 2 ? c3 : [200, 245, 255]; const tgt = i === 0 ? c2 : i === 1 ? c3 : c1; return base.map((v, j) => Math.round(lerp(v, tgt[j], k * .7))); };
+  const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a.toFixed(3)})`;
   x.clearRect(0, 0, w, h);
   x.globalCompositeOperation = "lighter";
-  // projection: slow spin + pointer tilt + gentle breathing
-  const ry = (reduced() ? .6 : t * (.12 + B * .25)) + ((NV.sx ?? .5) - .5) * .9, rx = -.25 + ((NV.sy ?? .5) - .5) * .6;
-  const cy = Math.cos(ry), sy = Math.sin(ry), cx = Math.cos(rx), sx = Math.sin(rx);
-  const S = Math.min(w, h) * .5 * .98, ox = w / 2, oy = h / 2, breathe = 1 + Math.sin(t * 1.3) * .012 + L * Math.sin(t * 6) * .02;
-  for (let i = 0; i < net.N.length; i++) {
-    const n = net.N[i]; let X = n.x * breathe, Y = n.y * breathe, Z = n.z * breathe;
-    const x1 = X * cy - Z * sy, z1 = X * sy + Z * cy; const y1 = Y * cx - z1 * sx, z2 = Y * sx + z1 * cx;
-    const k = 1.6 / (1.6 + z2); const P = net.P[i]; P.x = ox + x1 * S * k; P.y = oy + y1 * S * k; P.s = k; P.z = z2;
-  }
-  // faint core glow (small, not a ball)
-  const g = x.createRadialGradient(ox, oy, 0, ox, oy, S * .5);
-  g.addColorStop(0, col(.16 + B * .1 + NV.pulse * .25)); g.addColorStop(.4, col(.04)); g.addColorStop(1, col(0));
-  x.fillStyle = g; x.fillRect(ox - S, oy - S, S * 2, S * 2);
-  // signal waves: listening ripples outward along branches; ping = one expanding burst
-  const wave = d => L * Math.max(0, Math.sin(d * .9 - t * 7)) ** 6 + NV.pulse * Math.exp(-((d - (1 - NV.pulse) * 16) ** 2) * .15);
-  // scan band sweeping vertically (hologram)
-  const scanY = oy - S + ((t * .25) % 1) * S * 2;
-  x.lineCap = "round";
-  for (const [a, b, kind] of net.E) {
-    const A = net.P[a], Bp = net.P[b], na = net.N[a], nb = net.N[b];
-    const depth = (A.z + Bp.z) / 2, fade = .35 + (1 - (depth + 1) / 2) * .65;
-    const d = Math.min(na.d, nb.d);
-    const base = kind === "soma" ? .7 : kind === "syn" ? .16 : kind === "axon" ? .6 : .58 * (1 - Math.min(d, 12) / 20);
-    const scan = Math.exp(-(((A.y + Bp.y) / 2 - scanY) ** 2) / 300) * .5;
-    const a1 = Math.min(1, (base + wave(d) * .8 + scan * base) * fade);
-    x.strokeStyle = col(a1 * .25); x.lineWidth = (kind === "soma" ? 3.2 : 4) * A.s; x.beginPath(); x.moveTo(A.x, A.y); x.lineTo(Bp.x, Bp.y); x.stroke();
-    x.strokeStyle = col(a1, kind === "soma" ? .1 : 0); x.lineWidth = (kind === "syn" ? .6 : kind === "soma" ? .9 : 1.1) * A.s; x.stroke();
-  }
-  // nodes: soma vertices, branch joints, glowing terminal boutons, field neurons
-  for (let i = 0; i < net.N.length; i++) {
-    const n = net.N[i], P = net.P[i]; if (!n.tip && n.k !== "soma" && n.k !== "field") continue;
-    const fade = .35 + (1 - (P.z + 1) / 2) * .65, tw = .6 + .4 * Math.sin(t * 2 + i * 1.7);
-    const r = (n.k === "soma" ? 1.1 : n.k === "field" ? 1.3 : 1.8) * P.s, a = (n.k === "field" ? .35 * tw : .8) * fade;
-    x.fillStyle = col(a * .3); x.beginPath(); x.arc(P.x, P.y, r * 3.2, 0, 6.283); x.fill();
-    x.fillStyle = col(a, .3); x.beginPath(); x.arc(P.x, P.y, r, 0, 6.283); x.fill();
-  }
-  // action potentials: signals travel tip → soma (more and faster when busy)
-  if (!reduced()) {
-    Core.spawn += dt * (1.2 + B * 7 + L * 3);
-    while (Core.spawn > 1) { Core.spawn--; const tip = net.tips[Math.floor(Math.random() * net.tips.length)]; const out = Math.random() < (.15 + B * .3); const p = corePath(tip); Core.pulses.push({ path: out ? p.reverse() : p, u: 0, v: (2.6 + Math.random() * 2) * (1 + B * .8) }); }
-    for (const p of Core.pulses) p.u += p.v * dt;
-    Core.pulses = Core.pulses.filter(p => p.u < p.path.length - 1).slice(-60);
-    for (const p of Core.pulses) {
-      const i = Math.floor(p.u), f = p.u - i, A = net.P[p.path[i]], Bp = net.P[p.path[i + 1]]; if (!A || !Bp) continue;
-      const px = lerp(A.x, Bp.x, f), py = lerp(A.y, Bp.y, f), s = lerp(A.s, Bp.s, f);
-      // short comet trail
-      const T = net.P[p.path[Math.max(0, i - 1)]];
-      x.strokeStyle = col(.5, .5); x.lineWidth = 1.6 * s; x.beginPath(); x.moveTo(lerp(T.x, A.x, f), lerp(T.y, A.y, f)); x.lineTo(px, py); x.stroke();
-      x.fillStyle = col(.25, .6); x.beginPath(); x.arc(px, py, 6 * s, 0, 6.283); x.fill();
-      x.fillStyle = "rgba(255,255,255,.95)"; x.beginPath(); x.arc(px, py, 1.6 * s, 0, 6.283); x.fill();
+  const ox = w / 2 + ((NV.sx ?? .5) - .5) * 6, oy = h / 2 + ((NV.sy ?? .5) - .5) * 6, R = Math.min(w, h) * .23;
+  // soft inner light (small)
+  const g = x.createRadialGradient(ox, oy, 0, ox, oy, R * 1.05);
+  g.addColorStop(0, rgba([235, 252, 255], .5 + A * .4)); g.addColorStop(.18, rgba(hue(0), .22 + A * .25)); g.addColorStop(.55, rgba(hue(1), .05 + A * .06)); g.addColorStop(1, rgba(hue(1), 0));
+  x.fillStyle = g; x.beginPath(); x.arc(ox, oy, R * 1.05, 0, 6.283); x.fill();
+  // layered closed waves: integer harmonics keep each loop closed
+  const layers = [[2, 3, 5, 0], [3, 4, 7, 1], [2, 5, 6, 2], [4, 6, 9, 3]], P = 220;
+  layers.forEach(([f1, f2, f3, ci], li) => {
+    const sp = .5 + li * .17, ph = li * 1.7, amp = A * (1 - li * .12) * R * .55, rr = R * (.78 + li * .05);
+    x.beginPath();
+    for (let i = 0; i <= P; i++) {
+      const th = i / P * Math.PI * 2;
+      const d = Math.sin(f1 * th + t * sp * 2.1 + ph) * .55 + Math.sin(f2 * th - t * sp * 1.6 + ph * 2) * .3 + Math.sin(f3 * th + t * sp * 3.2) * .15;
+      const r = rr + d * amp + Math.sin(th * 2 + t * .6 + li) * R * .015;
+      const px = ox + Math.cos(th) * r, py = oy + Math.sin(th) * r;
+      i ? x.lineTo(px, py) : x.moveTo(px, py);
     }
+    const c = hue(ci);
+    x.strokeStyle = rgba(c, .1 + A * .12); x.lineWidth = 4; x.stroke();       // glow
+    x.strokeStyle = rgba(c, .55 + A * .4); x.lineWidth = 1.1; x.stroke();      // crisp line
+  });
+  // frequency ring: thin radial bars, mirrored for symmetry
+  const N = 96, R2 = R * 1.42;
+  Core.bars ||= new Float32Array(N);
+  x.lineCap = "round";
+  for (let i = 0; i < N; i++) {
+    const th = i / N * Math.PI * 2 - Math.PI / 2, k = Math.min(i, N - i) / (N / 2);
+    const n = (Math.sin(k * 11 + t * 4.3) * .5 + Math.sin(k * 23 - t * 6.1) * .3 + Math.sin(k * 5 + t * 2.2) * .2) * .5 + .5;
+    const want = (.04 + n * A * 1.3) * (1 - k * .35);
+    Core.bars[i] = lerp(Core.bars[i], want, .25);
+    const len = R * (.03 + Core.bars[i] * .5), c = hue(i % 3 === 0 ? 1 : 0);
+    x.strokeStyle = rgba(c, .25 + Core.bars[i] * 1.2); x.lineWidth = 1.3;
+    x.beginPath(); x.moveTo(ox + Math.cos(th) * R2, oy + Math.sin(th) * R2); x.lineTo(ox + Math.cos(th) * (R2 + len), oy + Math.sin(th) * (R2 + len)); x.stroke();
   }
+  // outer hairline rings with slow-moving gaps
+  for (const [rk, sp, a] of [[1.32, .15, .2], [1.75, -.08, .1]]) {
+    x.strokeStyle = rgba(hue(0), a + A * .1); x.lineWidth = .7;
+    for (let s = 0; s < 3; s++) { const a0 = t * sp + s * 2.094; x.beginPath(); x.arc(ox, oy, R * rk, a0, a0 + 1.7); x.stroke(); }
+  }
+  // thinking: comet arcs swirl around
+  if (B > .02) for (let k = 0; k < 3; k++) {
+    const a0 = t * (2.2 + k * .6) + k * 2.1, rr = R * (1.12 + k * .09);
+    const grd = x.createConicGradient ? x.createConicGradient(a0 - 1.2, ox, oy) : null;
+    if (grd) { grd.addColorStop(0, rgba(hue(1), 0)); grd.addColorStop(.19, rgba(hue(2), .9 * B)); grd.addColorStop(.2, rgba(hue(2), 0)); x.strokeStyle = grd; }
+    else x.strokeStyle = rgba(hue(2), .7 * B);
+    x.lineWidth = 1.6; x.beginPath(); x.arc(ox, oy, rr, a0 - 1.2, a0); x.stroke();
+    x.fillStyle = rgba([255, 255, 255], .9 * B); x.beginPath(); x.arc(ox + Math.cos(a0) * rr, oy + Math.sin(a0) * rr, 1.8, 0, 6.283); x.fill();
+  }
+  // listening: rings breathe outward
+  if (L > .02) for (let k = 0; k < 3; k++) {
+    const u = ((t * .7 + k / 3) % 1), rr = R * (1 + u * .9);
+    x.strokeStyle = rgba(hue(0), (1 - u) * .35 * L); x.lineWidth = 1; x.beginPath(); x.arc(ox, oy, rr, 0, 6.283); x.stroke();
+  }
+  // ping: one expanding shock ring
+  if (NV.pulse > .01) { const rr = R * (1 + (1 - NV.pulse) * 1.3); x.strokeStyle = rgba([220, 250, 255], NV.pulse * .8); x.lineWidth = 1.4; x.beginPath(); x.arc(ox, oy, rr, 0, 6.283); x.stroke(); }
   x.globalCompositeOperation = "source-over";
 }
 addEventListener("resize", () => coreSize());
@@ -225,7 +217,7 @@ function coreState() {
   w.classList.toggle("busy", busy && !listening); w.classList.toggle("listening", listening);
   NV.busyT = busy ? 1 : 0; sceneKick();
   const lbl = document.getElementById("coreState");
-  const want = listening ? "LISTENING" : busy ? "PROCESSING" : S?.status?.running ? "WORKING" : "ONLINE";
+  const want = listening ? "LISTENING" : busy ? "THINKING" : window.speechSynthesis?.speaking ? "SPEAKING" : S?.status?.running ? "WORKING" : "ONLINE";
   if (lbl && lbl.dataset.v !== want) { lbl.dataset.v = want; scrambleTo(lbl, want, 400); }
 }
 function corePing() { NV.pulse = 1; }
@@ -321,13 +313,12 @@ const Orb = { raf: 0, th: 0, vel: 0, hover: null, drag: null, sats: [], last: 0,
 async function vCommand(el) {
   const name = S.settings.assistantName || "JARVIS", now = new Date(), hr = now.getHours();
   el.innerHTML = `<div class="nv-head"><div><div class="nv-greet">${hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening"} · ${esc(DOW[now.getDay()])} ${now.getDate()} ${esc(MON[now.getMonth()])}</div><h1>Command</h1></div><div class="nv-vitals" id="nvVitals"></div></div>
-    <div class="nv-cmd">
+    <div class="nv-cmd nv-desk">
       <div class="nv-l" id="cmdLeft"></div>
       <div class="nv-mid">
         <div class="nv-stage" id="nvStage">
           <div class="nv-orbit" id="nvOrbit"><svg class="path" aria-hidden="true"><ellipse class="a"/><ellipse class="b"/></svg></div>
-          <div class="nv-core core-wrap" id="core" role="button" tabindex="0" aria-label="Talk to ${esc(name)}">
-            <div class="gyro" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="nv-core core-wrap" id="core" role="button" tabindex="0" aria-label="Talk to ${esc(name)}">${hudRings()}
             <div class="nv-core-label"><b>${esc(name.toUpperCase())}</b><span id="coreState" data-v="">ONLINE</span></div>
           </div>
           <div class="nv-tip" id="nvTip" role="tooltip"></div>
@@ -364,7 +355,7 @@ function orbitBuild(fresh) {
     n.className = "nv-sat" + (p.slug === activeProject() ? " focus" : ""); n.tabIndex = 0; n.setAttribute("role", "link");
     n.setAttribute("aria-label", `${p.name}, ${p.stage}, ${projPct(p)}%`);
     n.style.setProperty("--c", HCOL[p.health] || "var(--accent)");
-    n.innerHTML = `<span class="dot"></span><span class="nm">${esc(p.name)}</span><span class="pc">${projPct(p)}%</span>`;
+    n.innerHTML = satBadge(p) + `<span class="tx"><span class="nm">${esc(p.name)}</span><span class="mt">${esc(p.stage)} · ${projPct(p)}%</span><i class="pb"><i style="width:${projPct(p)}%"></i></i></span>`;
     n.onclick = () => { if (Orb.dragMoved) return; location.hash = "project/" + p.slug; };
     n.onkeydown = e => { if (e.key === "Enter") n.click(); };
     n.onpointerenter = () => orbitTip(n, p); n.onpointerleave = () => orbitTip(null);
@@ -380,6 +371,51 @@ function orbitBuild(fresh) {
     addEventListener("pointermove", e => { if (!Orb.drag) return; const dx = e.clientX - Orb.drag.x; if (Math.abs(dx) > 4) Orb.dragMoved = true; const nt = Orb.drag.th + dx / 260; Orb.vel = (nt - Orb.th) * 60; Orb.th = nt; orbitStart(); });
     addEventListener("pointerup", () => { if (Orb.drag) { Orb.drag = null; setTimeout(() => { Orb.dragMoved = false; }, 30); } });
   }
+}
+// Stark-style radial HUD around the voice orb (vector, crisp): segmented rings, degree scale, brackets, live diagnostics fan
+function hudRings() {
+  const c = 200, pt = (r, a) => [c + Math.cos(a) * r, c + Math.sin(a) * r].map(v => v.toFixed(2));
+  const arc = (r, a0, a1) => { const [x0, y0] = pt(r, a0), [x1, y1] = pt(r, a1); return `M${x0} ${y0}A${r} ${r} 0 ${a1 - a0 > Math.PI ? 1 : 0} 1 ${x1} ${y1}`; };
+  const sector = (r0, r1, a0, a1) => { const [ax, ay] = pt(r1, a0), [bx, by] = pt(r1, a1), [cx2, cy2] = pt(r0, a1), [dx, dy] = pt(r0, a0); return `M${ax} ${ay}A${r1} ${r1} 0 0 1 ${bx} ${by}L${cx2} ${cy2}A${r0} ${r0} 0 0 0 ${dx} ${dy}Z`; };
+  const D = Math.PI / 180;
+  let ticks = "", nums = "";
+  for (let i = 0; i < 120; i++) { const a = i * 3 * D, r2 = i % 10 === 0 ? 176 : i % 5 === 0 ? 172 : 169; const [x0, y0] = pt(166, a), [x1, y1] = pt(r2, a); ticks += `M${x0} ${y0}L${x1} ${y1}`; }
+  for (let i = 0; i < 12; i++) { const a = (i * 30 - 90) * D, [x, y] = pt(184, a); nums += `<text x="${x}" y="${y}" transform="rotate(${i * 30} ${x} ${y})">${String(i * 30).padStart(3, "0")}</text>`; }
+  const seg = Array.from({ length: 36 }, (_, i) => i % 9 === 8 ? "" : arc(150, (i * 10 + 1) * D, (i * 10 + 8) * D)).join("");
+  const brackets = [0, 120, 240].map(o => arc(132, (o + 8) * D, (o + 92) * D) + (() => { const [x0, y0] = pt(126, (o + 8) * D), [x1, y1] = pt(138, (o + 8) * D), [x2, y2] = pt(126, (o + 92) * D), [x3, y3] = pt(138, (o + 92) * D); return `M${x0} ${y0}L${x1} ${y1}M${x2} ${y2}L${x3} ${y3}`; })()).join("");
+  const fan = ["runs", "queue", "inbox", "outbox"].map((k, i) => { const r0 = 196 + i * 13, a0 = 200 * D, a1 = 252 * D; return `<path class="fan-bg" d="${sector(r0, r0 + 10, a0, a1)}"/><path class="fan-v" data-fan="${k}" d="${sector(r0, r0 + 10, a0, a0 + .001)}" data-r0="${r0}"/><text class="fan-l" x="${pt(r0 + 5, 255 * D)[0]}" y="${pt(r0 + 5, 255 * D)[1]}">${k.toUpperCase()}</text>`; }).join("");
+  const right = arc(205, -40 * D, 40 * D) + arc(212, -30 * D, 30 * D);
+  return `<svg class="nv-hud" viewBox="-60 -60 520 520" aria-hidden="true">
+    <g class="h-scale"><path d="${ticks}"/></g>
+    <g class="h-seg"><path d="${seg}"/></g>
+    <g class="h-brk"><path d="${brackets}"/></g>
+    <circle class="h-hair" cx="200" cy="200" r="158"/><circle class="h-hair b" cx="200" cy="200" r="118"/>
+    <g class="h-fan">${fan}</g>
+    <g class="h-right"><path d="${right}"/><text class="h-clock" id="hudClock" x="${pt(222, 0)[0]}" y="${pt(222, 0)[1]}"></text></g>
+  </svg>`;
+}
+function hudFan(vals) {
+  const svg = document.querySelector(".nv-hud"); if (!svg) return;
+  const D = Math.PI / 180, c = 200, pt = (r, a) => [c + Math.cos(a) * r, c + Math.sin(a) * r].map(v => v.toFixed(2));
+  for (const p of svg.querySelectorAll("[data-fan]")) {
+    const [v, max] = vals[p.dataset.fan] || [0, 1], r0 = +p.dataset.r0, r1 = r0 + 10, a0 = 200 * D, a1 = a0 + Math.max(.02, Math.min(1, v / Math.max(1, max))) * 52 * D;
+    const [ax, ay] = pt(r1, a0), [bx, by] = pt(r1, a1), [cx2, cy2] = pt(r0, a1), [dx, dy] = pt(r0, a0);
+    p.setAttribute("d", `M${ax} ${ay}A${r1} ${r1} 0 0 1 ${bx} ${by}L${cx2} ${cy2}A${r0} ${r0} 0 0 0 ${dx} ${dy}Z`);
+    p.classList.toggle("hot", v > 0);
+  }
+  const ck = document.getElementById("hudClock"); if (ck) { const n = new Date(); ck.textContent = `${pad(n.getHours())}:${pad(n.getMinutes())}`; }
+}
+// holographic project badge: initials in a hex core, health-coloured progress arc, rotating tick ring
+function satBadge(p) {
+  const pct = projPct(p), C = 2 * Math.PI * 15, ini = (p.name.match(/\b[A-Za-z0-9]/g) || ["?"]).slice(0, 2).join("").toUpperCase();
+  const hex = Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 3 * i - Math.PI / 6; return `${(20 + Math.cos(a) * 9.5).toFixed(2)},${(20 + Math.sin(a) * 9.5).toFixed(2)}`; }).join(" ");
+  const ticks = Array.from({ length: 24 }, (_, i) => { const a = i / 24 * Math.PI * 2, r1 = 18.2, r2 = i % 6 ? 19.2 : 20; return `M${(20 + Math.cos(a) * r1).toFixed(2)} ${(20 + Math.sin(a) * r1).toFixed(2)}L${(20 + Math.cos(a) * r2).toFixed(2)} ${(20 + Math.sin(a) * r2).toFixed(2)}`; }).join("");
+  return `<svg class="badge" viewBox="0 0 40 40" aria-hidden="true">
+    <g class="spin"><path d="${ticks}" stroke="currentColor" stroke-width=".6" opacity=".55"/></g>
+    <circle cx="20" cy="20" r="15" fill="none" stroke="rgba(150,220,255,.14)" stroke-width="1.6"/>
+    <circle cx="20" cy="20" r="15" fill="none" stroke="var(--c)" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="${(C * pct / 100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 20 20)" class="arc"/>
+    <polygon points="${hex}" fill="rgba(10,20,40,.7)" stroke="var(--c)" stroke-width=".8"/>
+    <text x="20" y="20.4" text-anchor="middle" dominant-baseline="middle">${esc(ini)}</text></svg>`;
 }
 function orbitTip(n, p) {
   const tip = document.getElementById("nvTip"); if (!tip) return;
@@ -434,6 +470,7 @@ function cmdFill(quiet) {
     paused ? `<span class="nv-vital"><i class="amber"></i>Paused <b>${esc(fmtWhen(st.pausedUntil))}</b></span>` : "",
     `<span class="nv-vital">Focus <b>${esc(ap ? projName(ap) : "All")}</b></span>`].join("");
 
+  hudFan({ runs: [st.today, st.maxRunsPerDay], queue: [st.queued, 5], inbox: [S.inbox.length, 10], outbox: [drafts.length, 5] });
   // timeline: calendar events + reminders, today and tomorrow, with a NOW marker
   const evs = (S.calendar?.upcoming || []).map(e => ({ t: e.title, s: e.allDay ? toDate(e.start + "T00:00") : new Date(e.start), en: e.allDay ? toDate(e.end + "T00:00") : new Date(e.end), all: e.allDay, loc: e.location, k: "ev" }));
   const rem = open.map(r => ({ t: r.title, s: toDate(r.due), en: toDate(r.due), all: String(r.due).length <= 10, k: "rem", p: r.project }));
@@ -445,13 +482,13 @@ function cmdFill(quiet) {
     if (!tmrShown && x.s > todayEnd) { tmrShown = true; tl += `<div class="nv-now" style="color:var(--text3)">TOMORROW</div>`; }
     if (!nowShown && x.s > now && x.s <= todayEnd) { nowShown = true; tl += `<div class="nv-now">NOW ${pad(now.getHours())}:${pad(now.getMinutes())}</div>`; }
     const live = x.k === "ev" && !x.all && x.s <= now && x.en > now;
-    tl += `<a class="nv-row" href="${x.p ? "#project/" + x.p : "#calendar"}"><span class="tm">${x.all ? "all day" : `${pad(x.s.getHours())}:${pad(x.s.getMinutes())}`}</span><div style="min-width:0"><div class="t">${esc(x.t)}</div><small>${live ? "HAPPENING NOW" : x.k === "ev" ? "CALENDAR" : "REMINDER"}${x.loc ? " · " + esc(x.loc).slice(0, 40) : ""}${x.p ? " · " + esc(projName(x.p)) : ""}</small></div></a>`;
+    tl += `<a class="nv-row ${live ? "t-live" : x.k === "ev" ? "t-ev" : "t-rem"}" href="${x.p ? "#project/" + x.p : "#calendar"}"><span class="tm">${x.all ? "all day" : `${pad(x.s.getHours())}:${pad(x.s.getMinutes())}`}</span><div style="min-width:0"><div class="t">${esc(x.t)}</div><small>${live ? "HAPPENING NOW" : x.k === "ev" ? "CALENDAR" : "REMINDER"}${x.loc ? " · " + esc(x.loc).slice(0, 40) : ""}${x.p ? " · " + esc(projName(x.p)) : ""}</small></div></a>`;
   }
   const feedOn = (S.calendar?.feeds || []).length > 0;
   L.innerHTML = `<div class="card nv-panel"><div class="ttl">Today <b>${items.filter(x => !(x.k === "rem" && x.s < now)).length || "clear"}</b></div>${tl || `<div class="nv-empty">Nothing scheduled.${feedOn ? "" : ` <a href="#settings">Connect your calendar</a>`}</div>`}</div>
-    <div class="card nv-panel"><div class="ttl">Missions <b>${st.queued} queued</b></div>
+    ${st.running || st.queued || S.missions.some(m => m.enabled) ? `<div class="card nv-panel"><div class="ttl">Missions <b>${st.queued} queued</b></div>
       ${st.running ? `<a class="nv-row" href="#missions"><span class="led"></span><div><div class="t">${esc(st.running.title)}</div><small>RUNNING · ${esc(ago(st.running.startedAt))}</small></div></a>` : ""}
-      ${S.missions.filter(m => m.enabled).slice(0, 4).map(m => `<a class="nv-row" href="#missions"><span class="led off"></span><div><div class="t">${esc(m.title)}</div><small>${esc(m.scheduleText)} · ${esc(cap(tierModel(m.tier)))}</small></div></a>`).join("") || `<div class="nv-empty">No missions yet.</div>`}</div>`;
+      ${S.missions.filter(m => m.enabled).slice(0, 4).map(m => `<a class="nv-row" href="#missions"><span class="led off"></span><div><div class="t">${esc(m.title)}</div><small>${esc(m.scheduleText)} · ${esc(cap(tierModel(m.tier)))}</small></div></a>`).join("")}</div>` : ""}`;
 
   // needs you: everything actionable, most urgent first
   const ups = S.milestones.filter(m => !m.done && toDate(m.date + "T23:59") >= now).sort((a, b) => a.date.localeCompare(b.date));
@@ -465,8 +502,9 @@ function cmdFill(quiet) {
   if (paused) A.push(["amber", `Paused until ${fmtWhen(st.pausedUntil)}`, "USAGE LIMIT", "#missions"]);
   S.projects.filter(p => p.health === "risk" && p.stage !== "done").forEach(p => A.push(["red", `${p.name} at risk`, esc(p.nextStep || "").slice(0, 50).toUpperCase(), "#project/" + p.slug]));
   if (dl) { const days = Math.ceil((toDate(dl.date + "T23:59") - now) / 864e5); A.push([days <= 3 ? "red" : "", dl.title, `DEADLINE IN ${days} DAY${days === 1 ? "" : "S"}${dl.project ? " · " + esc(projName(dl.project)).toUpperCase() : ""}`, dl.project ? "#project/" + dl.project : "#roadmap"]); }
-  S.projects.filter(p => p.health === "watch" && p.stage !== "done").slice(0, 3).forEach(p => A.push(["amber", `${p.name}: watch`, "HEALTH", "#project/" + p.slug]));
-  R.innerHTML = `<div class="card nv-panel"><div class="ttl">Needs you <b>${A.length || "clear"}</b></div>${A.slice(0, 9).map(a => `<a class="nv-row" href="${a[3]}"><span class="led ${a[0]}"></span><div style="min-width:0"><div class="t">${esc(a[1])}</div><small>${a[2]}</small></div></a>`).join("") || `<div class="nv-row"><span class="led green"></span><div><div class="t">All clear</div><small>NOTHING WAITING ON YOU</small></div></div>`}</div>
+  const groups = [["red", "Urgent"], ["amber", "Waiting on you"], ["", "Coming up"]].map(([k, label]) => [k, label, A.filter(a => a[0] === k)]).filter(g => g[2].length);
+  const rowA = a => `<a class="nv-row sev-${a[0] || "blue"}" href="${a[3]}"><span class="led ${a[0]}"></span><div style="min-width:0"><div class="t">${esc(a[1])}</div><small>${a[2]}</small></div></a>`;
+  R.innerHTML = `<div class="card nv-panel"><div class="ttl">Needs you <b>${A.length || "clear"}</b></div>${groups.map(([k, label, items]) => `<div class="nv-grp g-${k || "blue"}">${label}<b>${items.length}</b></div>${items.slice(0, 5).map(rowA).join("")}`).join("") || `<div class="nv-row sev-green"><span class="led green"></span><div><div class="t">All clear</div><small>NOTHING WAITING ON YOU</small></div></div>`}</div>
     <div class="card nv-panel"><div class="ttl">Quick actions</div><div class="row" style="flex-wrap:wrap;gap:8px">
       <a class="btn sm" href="#code">⌨ Code</a><button class="btn sm" type="button" data-nv="email">✉ Email</button><button class="btn sm" type="button" data-nv="event">＋ Event</button><a class="btn sm" href="#planner">⬡ Planner</a><button class="btn sm" type="button" data-nv="pal">⌕ Search</button></div></div>`;
   R.querySelector('[data-nv="email"]').onclick = () => outboxCompose("email");
@@ -476,7 +514,28 @@ function cmdFill(quiet) {
 }
 
 // ---------------- start ----------------
+// ---------------- hideable sidebar: hidden by default on desktop, a top-left button opens it as a drawer ----------------
+function sideSet(open) {
+  document.body.classList.toggle("side-open", open);
+  document.getElementById("sideBtn")?.setAttribute("aria-expanded", String(open));
+  if (open) { Snd.blip(880, .04, "sine", .02); setTimeout(navGlide, 50); }
+}
+function sideInit() {
+  const pinned = hstore.get("hq-side", "hide") === "pin";
+  document.body.classList.toggle("side-hide", !pinned);
+  const scrim = document.createElement("div"); scrim.className = "side-scrim"; scrim.onclick = () => sideSet(false); (document.querySelector(".app") || document.body).prepend(scrim); // same stacking context as the drawer
+  const btn = document.getElementById("sideBtn");
+  if (btn) btn.onclick = () => { if (!document.body.classList.contains("side-hide")) { hstore.set("hq-side", "hide"); document.body.classList.add("side-hide"); sideSet(false); return; } sideSet(!document.body.classList.contains("side-open")); };
+  document.getElementById("nav")?.addEventListener("click", e => { if (e.target.closest("a") && document.body.classList.contains("side-hide")) sideSet(false); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && document.body.classList.contains("side-open")) sideSet(false);
+    if ((e.key === "m" || e.key === "M") && !e.ctrlKey && !e.altKey && !e.metaKey && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || "")) { e.preventDefault(); btn?.click(); }
+  });
+}
+function sidePin(pin) { hstore.set("hq-side", pin ? "pin" : "hide"); document.body.classList.toggle("side-hide", !pin); sideSet(false); setTimeout(navGlide, 400); }
+
 (function novaStart() {
+  sideInit();
   const sw = document.createElement("div"); sw.id = "nova-sweep"; sw.setAttribute("aria-hidden", "true"); document.body.appendChild(sw);
   sceneStart(); cursorStart();
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { sceneKick(); if (Core.ok && !Core.raf) Core.raf = requestAnimationFrame(coreLoop); } });

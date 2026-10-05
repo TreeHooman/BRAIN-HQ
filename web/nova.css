@@ -316,3 +316,104 @@
 [data-theme="hud"] .tiers button { border: 0; border-radius: 999px; font-family: var(--font); letter-spacing: 0; text-transform: none; font-size: 12.5px; padding: 6px 14px; clip-path: none; transition: background .4s var(--ease), color .3s, box-shadow .4s; }
 [data-theme="hud"] .tiers button.on { background: rgba(111, 242, 255, .16); color: #fff; box-shadow: inset 0 0 0 1px rgba(111, 242, 255, .4), 0 0 18px rgba(111, 242, 255, .2); }
 [data-theme="hud"] .tiers button[data-tier="deep"].on { background: rgba(169, 139, 255, .2); box-shadow: inset 0 0 0 1px rgba(169, 139, 255, .5), 0 0 18px rgba(169, 139, 255, .3); }
+
+/* ---------- satellite badges v2 ---------- */
+.nv-sat { gap: 10px; padding: 4px 14px 4px 4px; background: linear-gradient(120deg, rgba(14, 24, 48, .72), rgba(8, 12, 28, .55)); }
+.nv-sat .dot { display: none; }
+.nv-sat .badge { width: 40px; height: 40px; flex: none; color: var(--c); overflow: visible; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--c) 55%, transparent)); }
+.nv-sat .badge text { font: 600 8.5px var(--mono); fill: #eaf6ff; letter-spacing: .04em; }
+.nv-sat .badge .spin { transform-origin: 20px 20px; animation: novaSpin 14s linear infinite; }
+.nv-sat:hover .badge .spin, .nv-sat.focus .badge .spin { animation-duration: 3s; }
+.nv-sat .tx { display: grid; gap: 2px; min-width: 0; }
+.nv-sat .nm { font-size: 12.5px; font-weight: 600; letter-spacing: .01em; }
+.nv-sat .mt { font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); }
+.nv-sat .pb { display: block; height: 2px; border-radius: 2px; background: rgba(150, 210, 255, .12); overflow: hidden; }
+.nv-sat .pb i { display: block; height: 100%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.nv-sat .nm, .nv-sat .mt, .nv-sat .pb { transition: opacity .5s var(--ease); }
+.nv-sat.back .nm, .nv-sat.back .mt, .nv-sat.back .pb { opacity: 0; }
+.nv-sat.back { filter: blur(.4px) saturate(.7); }
+.nv-sat.back .badge { filter: none; }
+@media (max-width: 760px) { .nv-sat .badge { width: 30px; height: 30px; } .nv-sat .mt, .nv-sat .pb { display: none; } }
+
+/* ---------- Stark desk: side screens curve around the orb ---------- */
+@media (min-width: 1251px) and (prefers-reduced-motion: no-preference) {
+  [data-theme="hud"] .nv-desk { perspective: 1700px; perspective-origin: 50% 40%; }
+  [data-theme="hud"] .nv-desk .nv-l, [data-theme="hud"] .nv-desk .nv-r { transform-style: preserve-3d; transition: transform 1s var(--spring); }
+  [data-theme="hud"] .nv-desk .nv-l { transform: rotateY(16deg) translateZ(-20px); transform-origin: 100% 50%; }
+  [data-theme="hud"] .nv-desk .nv-r { transform: rotateY(-16deg) translateZ(-20px); transform-origin: 0% 50%; }
+  [data-theme="hud"] .nv-desk .nv-l:hover, [data-theme="hud"] .nv-desk .nv-r:hover { transform: rotateY(0deg) translateZ(10px); }
+}
+/* holo screen skin for the desk panels */
+[data-theme="hud"] .nv-desk .nv-panel { background: linear-gradient(170deg, rgba(40, 120, 190, .16), rgba(8, 30, 60, .3) 45%, rgba(6, 14, 34, .45)); }
+[data-theme="hud"] .nv-desk .nv-panel > * { position: relative; z-index: 1; }
+[data-theme="hud"] .nv-desk .nv-panel { background-image: linear-gradient(170deg, rgba(40, 120, 190, .16), rgba(8, 30, 60, .3) 45%, rgba(6, 14, 34, .45)), repeating-linear-gradient(0deg, rgba(120, 220, 255, .025) 0 1px, transparent 1px 4px); }
+[data-theme="hud"] .nv-desk .nv-panel .ttl { color: rgba(140, 230, 255, .7); }
+/* curved desk edge under the orb */
+.nv-stage::after { content: ""; position: absolute; left: 6%; right: 6%; bottom: 4%; height: 26%; border-radius: 50%; pointer-events: none; z-index: 0;
+  border-top: 1px solid rgba(130, 230, 255, .35); box-shadow: 0 -12px 40px -14px rgba(111, 242, 255, .35);
+  background: radial-gradient(ellipse at 50% 0%, rgba(111, 242, 255, .1), transparent 60%); }
+
+/* ---------- radial HUD around the voice orb ---------- */
+.nv-core svg.nv-hud { position: absolute; left: -34%; top: -34%; width: 168%; height: 168%; pointer-events: none; overflow: visible; z-index: 0; }
+.nv-hud path, .nv-hud circle { fill: none; stroke: rgba(90, 200, 255, .55); stroke-width: .8; vector-effect: non-scaling-stroke; }
+.nv-hud text { fill: rgba(140, 220, 255, .55); font: 500 7px var(--mono); text-anchor: middle; dominant-baseline: middle; letter-spacing: .08em; }
+.nv-hud .h-scale, .nv-hud .h-seg, .nv-hud .h-brk { transform-origin: 200px 200px; }
+.nv-hud .h-scale path { stroke: rgba(90, 200, 255, .35); }
+.nv-hud .h-seg path { stroke: rgba(60, 180, 255, .5); stroke-width: 3.2; }
+.nv-hud .h-brk path { stroke: rgba(150, 235, 255, .8); stroke-width: 1.2; }
+.nv-hud .h-hair { stroke: rgba(90, 200, 255, .18); } .nv-hud .h-hair.b { stroke-dasharray: 1 4; stroke: rgba(150, 235, 255, .35); }
+.nv-hud .fan-bg { fill: rgba(60, 170, 255, .07); stroke: rgba(90, 200, 255, .25); stroke-width: .6; }
+.nv-hud .fan-v { fill: rgba(80, 200, 255, .25); stroke: none; transition: d .9s var(--ease); }
+.nv-hud .fan-v.hot { fill: rgba(111, 242, 255, .65); filter: drop-shadow(0 0 3px rgba(111, 242, 255, .8)); }
+.nv-hud .fan-l { font-size: 6.5px; text-anchor: end; fill: rgba(140, 220, 255, .6); }
+.nv-hud .h-right path { stroke: rgba(90, 200, 255, .3); }
+.nv-hud .h-clock { font: 600 13px var(--head); fill: rgba(200, 245, 255, .85); text-anchor: start; letter-spacing: .06em; }
+@media (prefers-reduced-motion: no-preference) {
+  .nv-hud .h-scale { animation: novaSpin 120s linear infinite; }
+  .nv-hud .h-seg { animation: novaSpin 60s linear infinite reverse; }
+  .nv-hud .h-brk { animation: novaSpin 24s linear infinite; }
+  .nv-core.busy .nv-hud .h-brk { animation-duration: 4s; } .nv-core.busy .nv-hud .h-seg { animation-duration: 12s; }
+  .nv-core.listening .nv-hud .h-brk { animation-duration: 8s; }
+}
+.nv-core.busy .nv-hud .h-brk path { stroke: rgba(200, 170, 255, .9); }
+/* label sits above the orb so orbiting badges never cover it */
+.nv-core-label { bottom: auto; top: -22%; }
+.nv-stage::after { height: 16%; bottom: 6%; left: 14%; right: 14%; }
+@media (max-width: 760px) { .nv-hud .fan-l, .nv-hud text { display: none; } .nv-core-label { top: -12%; } }
+
+/* ---------- hideable sidebar (desktop): drawer opened from the top-left button ---------- */
+.side-btn { display: none; }
+@media (min-width: 761px) {
+  .side-btn { display: inline-grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: 12px; border: 1px solid var(--border2); background: rgba(150, 210, 255, .06); color: var(--text); cursor: pointer; transition: background .3s, box-shadow .4s, transform .45s var(--spring); }
+  .side-btn:hover { background: rgba(150, 220, 255, .12); box-shadow: 0 0 24px rgba(111, 242, 255, .2); }
+  .side-btn svg { width: 18px; height: 18px; }
+  .side-btn i { display: block; width: 16px; height: 1.5px; background: currentColor; border-radius: 2px; box-shadow: 0 -5px 0 currentColor, 0 5px 0 currentColor; transition: transform .4s var(--spring), box-shadow .3s; }
+  body.side-open .side-btn i { transform: rotate(45deg); box-shadow: 0 0 0 currentColor, 0 0 0 currentColor; }
+  body.side-open .side-btn i::after { content: ""; display: block; width: 16px; height: 1.5px; background: currentColor; transform: rotate(90deg); border-radius: 2px; }
+  body.side-hide .app { grid-template-columns: minmax(0, 1fr) !important; }
+  body.side-hide .side { position: fixed !important; left: 0; top: 0; z-index: 40; margin: 12px; height: calc(100vh - 24px); width: 236px;
+    transform: translateX(calc(-100% - 30px)); opacity: 0; transition: transform .6s var(--spring), opacity .35s var(--ease); }
+  body.side-hide.side-open .side { transform: none; opacity: 1; box-shadow: 0 40px 120px rgba(0, 0, 0, .7), 0 0 60px rgba(111, 242, 255, .12); }
+  body.side-hide .top { margin-left: 12px; }
+  body.side-hide .ops { left: 14px; }
+  .side-scrim { position: fixed; inset: 0; z-index: 39; background: rgba(0, 2, 10, .3); backdrop-filter: blur(1.5px); opacity: 0; pointer-events: none; transition: opacity .4s var(--ease); }
+  body.side-hide.side-open .side-scrim { opacity: 1; pointer-events: auto; }
+}
+
+/* ---------- colour coding: severity + type ---------- */
+.nv-grp { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; margin: 12px 0 4px; padding-bottom: 4px; border-bottom: 1px solid currentColor; opacity: .9; }
+.nv-grp:first-of-type { margin-top: 2px; }
+.nv-grp b { font-weight: 600; padding: 1px 7px; border-radius: 999px; background: currentColor; } .nv-grp b { color: #050812; }
+.nv-grp.g-red { color: var(--red); } .nv-grp.g-amber { color: var(--amber); } .nv-grp.g-blue { color: var(--accent); }
+.nv-grp.g-red b { background: var(--red); } .nv-grp.g-amber b { background: var(--amber); } .nv-grp.g-blue b { background: var(--accent); }
+.nv-row.sev-red { background: linear-gradient(90deg, rgba(255, 101, 132, .13), transparent 70%); box-shadow: inset 2px 0 0 var(--red); }
+.nv-row.sev-red .t { color: #ffd9e1; font-weight: 500; }
+.nv-row.sev-amber { background: linear-gradient(90deg, rgba(255, 197, 107, .09), transparent 70%); box-shadow: inset 2px 0 0 var(--amber); }
+.nv-row.sev-blue { box-shadow: inset 2px 0 0 rgba(111, 242, 255, .5); }
+.nv-row.sev-green { box-shadow: inset 2px 0 0 var(--green); }
+.nv-row[class*="sev-"] { margin: 3px 0; padding-left: 12px; border-radius: 0 12px 12px 0; }
+.nv-row.t-ev .tm { color: var(--green); } .nv-row.t-rem .tm { color: var(--amber); }
+.nv-row.t-ev { box-shadow: inset 2px 0 0 rgba(94, 255, 194, .55); } .nv-row.t-rem { box-shadow: inset 2px 0 0 rgba(255, 197, 107, .55); }
+.nv-row.t-live { background: linear-gradient(90deg, rgba(94, 255, 194, .14), transparent 75%); box-shadow: inset 3px 0 0 var(--green); }
+.nv-row.t-live small { color: var(--green); }
+.nv-row.t-ev, .nv-row.t-rem, .nv-row.t-live { margin: 3px 0; padding-left: 12px; border-radius: 0 12px 12px 0; }

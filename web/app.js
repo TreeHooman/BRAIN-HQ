@@ -633,6 +633,7 @@ function vSettings(el) {
       <h2>Look &amp; feel</h2>
       <div class="card form">
         <div class="row"><span class="small muted" style="min-width:110px">Theme</span><div class="chips"><button type="button" class="chip ${document.documentElement.dataset.theme === "hud" ? "on" : ""}" data-theme-set="hud">HUD (JARVIS)</button><button type="button" class="chip ${document.documentElement.dataset.theme === "calm" ? "on" : ""}" data-theme-set="calm">Calm</button></div></div>
+        <div class="row"><span class="small muted" style="min-width:110px">Sidebar</span><div class="chips"><button type="button" class="chip ${hstore.get("hq-side", "hide") === "pin" ? "" : "on"}" data-side="hide">Hidden (☰ top left)</button><button type="button" class="chip ${hstore.get("hq-side", "hide") === "pin" ? "on" : ""}" data-side="pin">Always shown</button></div></div>
         <div class="row"><span class="small muted" style="min-width:110px">Sound effects</span><div class="chips"><button type="button" class="chip ${Snd.on() ? "on" : ""}" data-sound="1">On</button><button type="button" class="chip ${Snd.on() ? "" : "on"}" data-sound="0">Off</button></div></div>
         <div class="small muted">Animations follow your Windows “reduce motion” setting. Shortcuts: <kbd class="kbd">Ctrl K</kbd> search, <kbd class="kbd">Ctrl 1–9</kbd> switch project (<kbd class="kbd">Ctrl 0</kbd> all), <kbd class="kbd">Alt J</kbd> talk, <kbd class="kbd">/</kbd> capture.</div>
         <div class="row end"><button type="button" class="btn" id="replayBoot">Replay boot</button><button type="button" class="btn" id="powerDown">⏻ Power down</button></div></div>
@@ -665,6 +666,7 @@ function vSettings(el) {
     </div></div>`;
   $$("[data-theme-set]", el).forEach(b => b.onclick = () => setTheme(b.dataset.themeSet));
   $$("[data-sound]", el).forEach(b => b.onclick = () => setSound(b.dataset.sound === "1"));
+  $$("[data-side]", el).forEach(b => b.onclick = () => { sidePin(b.dataset.side === "pin"); render(); });
   $("#calAdd").onclick = async () => {
     const url = $("#calUrl").value.trim(); if (!url) return toast("Paste the secret address first");
     const b = $("#calAdd"); b.disabled = true; b.textContent = "Checking…";
