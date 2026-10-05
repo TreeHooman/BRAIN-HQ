@@ -831,6 +831,7 @@ hudBoot = function (short) {
     b.className = "boot eyeboot"; b.hidden = false;
     b.innerHTML = `<canvas class="eye-cv"></canvas><div class="eye-txt"><div class="eye-name">${esc(name)}</div><div class="eye-lines">${lines.map((l, i) => `<div style="animation-delay:${(short ? 500 : 1300) + i * (short ? 220 : 380)}ms">${esc(l)}</div>`).join("")}</div><div class="eye-final" id="bootFinal"></div></div><div class="boot-skip">CLICK OR PRESS ANY KEY TO SKIP</div>`;
     window.hqBooting = true; // background scene/orb/stars wait until the scan is done (smooth opening)
+    document.documentElement.classList.add("hq-booting"); // the page stays hidden under the scan, then enters once
     const cv = b.querySelector("canvas"), x = cv.getContext("2d", { alpha: true, desynchronized: true }), dpr = Math.min(1.25, devicePixelRatio || 1);
     const size = () => { cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; cv.style.width = innerWidth + "px"; cv.style.height = innerHeight + "px"; };
     size(); addEventListener("resize", size);
@@ -920,7 +921,10 @@ hudBoot = function (short) {
       if (done) return; done = true; cancelAnimationFrame(raf); removeEventListener("resize", size); window.hqBooting = false; try { sceneStart?.(); starsStart?.(); } catch {}
       document.removeEventListener("keydown", finish, true);
       b.classList.add("out");
-      setTimeout(() => { b.hidden = true; b.className = "boot"; b.innerHTML = ""; delete b.dataset.locked; const v = document.getElementById("view"); window.nvAssembleLater = false; if (!(typeof nvAssemble === "function" && nvAssemble(v))) { v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in"); } try { navGlide(); } catch {} resolve(); }, 420);
+      // one entrance, started as the scan fades (before, the finished page showed for a moment and then re-animated)
+      { const v = document.getElementById("view"); window.nvAssembleLater = false; document.documentElement.classList.remove("hq-booting");
+        if (!(typeof nvAssemble === "function" && nvAssemble(v))) { v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in"); } }
+      setTimeout(() => { b.hidden = true; b.className = "boot"; b.innerHTML = ""; delete b.dataset.locked; try { navGlide(); } catch {} resolve(); }, 420);
     };
     b.onclick = finish;
     document.addEventListener("keydown", finish, true);
