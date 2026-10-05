@@ -10,8 +10,8 @@ import { opStart, opEnd, activity } from "./orchestrator.ts";
 import type { Step } from "./narrate.ts";
 import * as brain from "./brain.ts";
 
-type Msg = { role: "you" | "hq"; text: string; at: string; error?: boolean; steps?: Step[]; added?: number; removed?: number; ms?: number };
-type Session = { id: string; project: string; name?: string; sessionId: string | null; createdAt?: string; updatedAt?: string; importedFrom?: string; messages: Msg[] };
+type Msg = { role: "you" | "hq"; text: string; at: string; error?: boolean; steps?: Step[]; added?: number; removed?: number; ms?: number; ctx?: number; win?: number | null; cost?: number | null; mode?: string };
+type Session = { id: string; project: string; name?: string; sessionId: string | null; createdAt?: string; updatedAt?: string; importedFrom?: string; usage?: { cost: number; turns: number; ctx: number; win: number | null; rate: any; at: string }; messages: Msg[] };
 
 const DIR = path.join(DATA, "code");
 const ID = /^[a-z0-9-]{1,60}$/;
@@ -78,7 +78,7 @@ export function get(key: string) {
   const s = load(key);
   const { p, dirs, level } = access(s.project);
   const sameProject = [...busy.keys()].filter(k => k !== key && readJson<Session | null>(path.join(DIR, `${k}.json`), null)?.project === s.project).length;
-  return { id: key, project: s.project, name: s.name || p.name, folders: p.paths || [], found: dirs, level, busy: busy.has(key), opId: busy.get(key)?.opId || null, sameProject, messages: s.messages.slice(-60) };
+  return { id: key, project: s.project, name: s.name || p.name, folders: p.paths || [], found: dirs, level, busy: busy.has(key), opId: busy.get(key)?.opId || null, sameProject, usage: s.usage || null, messages: s.messages.slice(-60) };
 }
 
 export function rename(key: string, name: string) {
@@ -104,7 +104,7 @@ export function check(key: string, text: string) {
   if (!dirs.length) throw new Error(`No folder found for ${p.name}. Add its folder under the project's Setup tab.`);
 }
 
-export async function send(key: string, text: string, tier = "balanced", effort: string | null = null, readOnly = false): Promise<void> {
+export async function send(key: string, text: string, tier = "balanced", effort: string | null = null, readOnly = false, mode: string | null = null): Promise<void> {
   check(key, text);
   text = String(text || "").trim().slice(0, 20000);
   const s = load(key);
@@ -123,7 +123,7 @@ export async function send(key: string, text: string, tier = "balanced", effort:
   let ok = false;
   try {
     const res = await runClaude({
-      prompt: text, model, fallbackModel: fallback, effort, level, resume: s.sessionId, runId: `code-${key}`, addDirs: dirs,
+      prompt: text, model, fallbackModel: fallback, effort, level, mode: level === "build" && (mode === "auto" || mode === "bypass") ? mode : "safe", resume: s.sessionId, runId: `code-${key}`, addDirs: dirs,
       timeoutMs: (cfg.code?.maxMinutes || 20) * 60e3, onStep, onSpawn: pid => { const b = busy.get(key); if (b) b.pid = pid; },
       system: [
         `You're pair-programming with the owner live in HQ's Code screen on project "${p.name}" (session "${name}").`,
@@ -147,7 +147,9 @@ export async function send(key: string, text: string, tier = "balanced", effort:
     else if (res.kind === "timeout") reply = (reply ? reply + "\n\n" : "") + "_Stopped at the time limit. Say “continue” to pick up where I left off._";
     const kept = steps.filter(x => x.kind === "tool" || x.kind === "text");
     const tools = steps.filter(x => x.kind === "tool");
-    latest.messages.push({ role: "hq", text: reply, at: new Date().toISOString(), error: !res.ok && !b?.cancelled, ms: res.durationMs,
+    const st = res.stats;
+    if (st) { const u = latest.usage || { cost: 0, turns: 0, ctx: 0, win: null, rate: null, at: "" }; latest.usage = { cost: u.cost + (st.cost || 0), turns: u.turns + 1, ctx: st.context || u.ctx, win: st.window || u.win, rate: st.rate || u.rate, at: new Date().toISOString() }; }
+    latest.messages.push({ role: "hq", text: reply, at: new Date().toISOString(), error: !res.ok && !b?.cancelled, ms: res.durationMs, ctx: st?.context, win: st?.window, cost: st?.cost, mode: level === "build" ? (mode || "safe") : "read",
       steps: kept.slice(-50).map(x => ({ ...x, diff: x.diff?.slice(0, 12) })), added: tools.reduce((a, x) => a + (x.added || 0), 0), removed: tools.reduce((a, x) => a + (x.removed || 0), 0) });
     if (latest.messages.length > 200) latest.messages.splice(0, latest.messages.length - 200);
     save(key, latest);

@@ -59,11 +59,15 @@ export type RunOptions = {
   act?: { allow: string[] };
   /** Thinking effort (Claude Code --effort). Omitted = the model default. */
   effort?: string | null;
+  /** Build-level code sessions only. safe = allowlisted commands; auto = any command except the blocked list;
+   *  bypass = Claude Code's bypassPermissions mode. HQ's deny lists (push, deploy, secrets…) apply in every mode. */
+  mode?: "safe" | "auto" | "bypass" | null;
 };
+export type RunStats = { context: number; window: number | null; output: number; cost: number | null; rate: { status?: string; type?: string; resetsAt?: number | null; utilization?: number | null } | null };
 export type RunResult = {
   ok: boolean; text: string; sessionId: string | null; durationMs: number;
   kind: "ok" | "error" | "limit" | "auth" | "timeout" | "missing";
-  resetAt?: number | null; turns?: number;
+  resetAt?: number | null; turns?: number; stats?: RunStats | null;
 };
 
 export const EFFORTS = ["low", "medium", "high"];
@@ -95,7 +99,10 @@ export function buildArgs(o: RunOptions): string[] {
   ];
   if (o.fallbackModel && o.fallbackModel !== o.model) args.push("--fallback-model", o.fallbackModel);
   const eff = effortArg(o.effort, o.model); if (eff) args.push("--effort", eff);
-  if (lv.permissionMode) args.push("--permission-mode", lv.permissionMode);
+  if (o.level === "build" && (o.mode === "auto" || o.mode === "bypass")) {
+    for (const t of ["Bash", "Edit", "Write", "MultiEdit", "NotebookEdit", "TodoWrite"]) if (!allow.includes(t)) allow.push(t);
+    args.push("--permission-mode", o.mode === "bypass" ? "bypassPermissions" : "acceptEdits");
+  } else if (lv.permissionMode) args.push("--permission-mode", lv.permissionMode);
   for (const d of o.addDirs || []) if (fs.existsSync(d)) args.push("--add-dir", d);
   if (o.resume) args.push("--resume", o.resume);
   args.push("--allowedTools", ...allow);
@@ -180,14 +187,30 @@ function interpret(out: string, err: string, timedOut: boolean, durationMs: numb
   const text: string = j?.result ?? (plain || err.trim() || (j ? "" : out.trim().slice(-2000)));
   const sessionId: string | null = j?.session_id ?? null;
   const turns = j?.num_turns;
-  if (timedOut) return { ok: false, kind: "timeout", text: text || "Stopped at the time limit.", sessionId, durationMs, turns };
+  const stats = runStats(lines, j);
+  if (timedOut) return { ok: false, kind: "timeout", text: text || "Stopped at the time limit.", sessionId, durationMs, turns, stats };
   const blob = `${text}\n${err}`;
   if (/not logged in|please run \/login|invalid api key|oauth token (has )?expired|authentication_error/i.test(blob))
     return { ok: false, kind: "auth", text, sessionId, durationMs };
   if ((j?.is_error || !j) && /usage limit|limit reached|limit will reset|out of (extra )?usage|rate.?limit|resets? (at|in)|hit your limit/i.test(blob))
     return { ok: false, kind: "limit", text, sessionId, durationMs, resetAt: parseReset(blob) };
-  if (!j || j.is_error) return { ok: false, kind: "error", text: text || "Claude returned an error.", sessionId, durationMs, turns };
-  return { ok: true, kind: "ok", text, sessionId, durationMs, turns };
+  if (!j || j.is_error) return { ok: false, kind: "error", text: text || "Claude returned an error.", sessionId, durationMs, turns, stats };
+  return { ok: true, kind: "ok", text, sessionId, durationMs, turns, stats };
+}
+
+/** Context size (tokens the model saw on its last call), context window, cost and plan-limit info from stream-json. */
+function runStats(linesNewestFirst: string[], result: any): RunStats | null {
+  let ctx = 0, outT = 0, rate: RunStats["rate"] = null;
+  for (const l of linesNewestFirst) {
+    if (!l.startsWith("{")) continue;
+    let x: any; try { x = JSON.parse(l); } catch { continue; }
+    if (!ctx && x?.type === "assistant" && x.message?.usage) { const u = x.message.usage; ctx = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0); outT = u.output_tokens || 0; }
+    if (!rate && x?.type === "rate_limit_event") { const r = x.rate_limit_info || x; rate = { status: r.status, type: r.rateLimitType || r.type, resetsAt: r.resetsAt ? Number(r.resetsAt) * (Number(r.resetsAt) < 1e12 ? 1000 : 1) : null, utilization: typeof r.utilization === "number" ? r.utilization : null }; }
+    if (ctx && rate) break;
+  }
+  const mu: any = result?.modelUsage ? Object.values(result.modelUsage)[0] : null;
+  if (!ctx && !result) return null;
+  return { context: ctx, window: mu?.contextWindow || null, output: outT || result?.usage?.output_tokens || 0, cost: typeof result?.total_cost_usd === "number" ? result.total_cost_usd : null, rate };
 }
 
 /** Reads a reset time out of a usage-limit message. Returns epoch ms or null. */

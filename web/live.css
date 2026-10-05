@@ -488,3 +488,20 @@ label.f .wp-btn { width: 100%; }
 .ml-row .t b { color: var(--text); margin-right: 6px; font-weight: 600; }
 .ml-row:not(.unread) .t { color: var(--text2); } .ml-row:not(.unread) .t b { color: var(--text2); font-weight: 500; }
 .ml-foot { display: flex; align-items: center; gap: 6px; margin-top: 8px; font: 11px var(--mono); color: var(--text3); } .ml-foot span { flex: 1; }
+
+/* ---- briefing: smooth, crisp ---- */
+.brief-spot { transition: left .75s cubic-bezier(.22, 1, .36, 1), top .75s cubic-bezier(.22, 1, .36, 1), width .75s cubic-bezier(.22, 1, .36, 1), height .75s cubic-bezier(.22, 1, .36, 1), opacity .4s ease !important; will-change: left, top, width, height; }
+.brief-way { transition: left .75s cubic-bezier(.22, 1, .36, 1), top .75s cubic-bezier(.22, 1, .36, 1), opacity .3s !important; }
+.brief-card { transition: opacity .22s ease, transform .35s cubic-bezier(.22, 1, .36, 1) !important; -webkit-font-smoothing: antialiased; }
+.brief-card.swap { opacity: 0 !important; transform: translate(-50%, 8px) !important; }
+.brief-s.reveal, .brief-t.reveal { animation: briefReveal .9s cubic-bezier(.22, 1, .36, 1) both; -webkit-mask-image: linear-gradient(90deg, #000 45%, transparent 55%); mask-image: linear-gradient(90deg, #000 45%, transparent 55%); -webkit-mask-size: 220% 100%; mask-size: 220% 100%; }
+.brief-t.reveal { animation-duration: .6s; }
+@keyframes briefReveal { from { -webkit-mask-position: 100% 0; mask-position: 100% 0; opacity: .3; transform: translateY(3px); } to { -webkit-mask-position: 0 0; mask-position: 0 0; opacity: 1; transform: none; } }
+.brief-s { line-height: 1.6; letter-spacing: .005em; } .brief-t { letter-spacing: -.005em; }
+.cine-lit { position: relative; z-index: 81; filter: brightness(1.12); transition: filter .5s; }
+/* ---- crisp text: Command side panels sit flat (3D tilt made text soft); hover tilt off on text panels ---- */
+@media (min-width: 1100px) { [data-theme="hud"] .nv-desk .nv-l, [data-theme="hud"] .nv-desk .nv-r, [data-theme="hud"] .nv-desk .nv-l:hover, [data-theme="hud"] .nv-desk .nv-r:hover { transform: none !important; } }
+[data-theme="hud"] .nv-panel.n3d, [data-theme="hud"] .card.n3d, [data-theme="hud"] .lv-tile.n3d { transform: none !important; }
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+.nv-l, .nv-r { display: flex; flex-direction: column; gap: 14px; } .nv-l > .card, .nv-r > .card { margin: 0 !important; }
+@media (prefers-reduced-motion: reduce) { .brief-s.reveal, .brief-t.reveal { animation: none; -webkit-mask-image: none; mask-image: none; } }

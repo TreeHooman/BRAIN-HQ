@@ -214,8 +214,11 @@ function cvCardHTML(c) {
 function cvAgentBody(sid, key) {
   const tier = hstore.get("hq-cv-tier-" + sid, currentTier()), ro = hstore.get("hq-cv-ro-" + sid, "0") === "1";
   return `<div class="cv-b"><div class="cv-log" id="cvLog-${key}" data-sid="${esc(sid)}"><div class="cd-empty"><b>Loading…</b></div></div>
+    <div class="cv-use" data-use></div>
     <form class="cv-ask" data-ask="${esc(sid)}"><textarea rows="2" placeholder="Ask Claude…" aria-label="Message"></textarea>
       <div class="cv-askrow"><select data-tier aria-label="Model">${["fast", "balanced", "deep"].map(k => `<option value="${k}" ${k === tier ? "selected" : ""}>${esc(cvModel(k))}</option>`).join("")}</select>
+        <select data-eff aria-label="Thinking" title="Thinking level (Haiku has none)">${[["auto", "think: auto"], ["low", "think: low"], ["medium", "think: med"], ["high", "think: high"]].map(([k, l]) => `<option value="${k}" ${k === hstore.get("hq-cv-eff-" + sid, currentEffort()) ? "selected" : ""}>${l}</option>`).join("")}</select>
+        <select data-mode aria-label="Permissions" title="Safe: only allow-listed commands. Auto: edits + any command except the blocked list. Bypass: Claude Code bypass mode. Push, deploy and secrets stay blocked in every mode.">${[["safe", "perms: safe"], ["auto", "perms: auto"], ["bypass", "perms: bypass"]].map(([k, l]) => `<option value="${k}" ${k === hstore.get("hq-cv-mode-" + sid, "safe") ? "selected" : ""}>${l}</option>`).join("")}</select>
         <button type="button" class="cv-lock ${ro ? "on" : ""}" data-lock aria-pressed="${ro}" title="${ro ? "Look only: it can't change files (click to allow edits)" : "Can edit files (click to make it look only)"}">${LOCK(ro)}<span>${ro ? "look only" : "can edit"}</span></button>
         <span class="cv-st" data-st></span><button type="button" class="cv-stop" data-stop hidden aria-label="Stop">■</button><button class="cv-send" aria-label="Send"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div></form></div>`;
 }
@@ -224,12 +227,18 @@ function cvBindAsk(root) {
     if (f.dataset.bound) return; f.dataset.bound = "1";
     const sid = f.dataset.ask, ta = f.querySelector("textarea");
     f.querySelector("[data-tier]").onchange = e => hstore.set("hq-cv-tier-" + sid, e.target.value);
+    const ef = f.querySelector("[data-eff]"), md = f.querySelector("[data-mode]");
+    const effSync = () => { const fast = f.querySelector("[data-tier]").value === "fast"; ef.disabled = fast; ef.title = fast ? "Haiku has no thinking levels. Pick Sonnet or Opus." : "Thinking level"; };
+    effSync(); f.querySelector("[data-tier]").addEventListener("change", effSync);
+    ef.onchange = () => hstore.set("hq-cv-eff-" + sid, ef.value);
+    md.onchange = () => { if (md.value === "bypass" && !confirm("Bypass mode lets this agent run any command and edit any file in the project folders without asking.\nPush, deploy, delete-repo and secrets stay blocked.\n\nTurn it on for this chat?")) { md.value = hstore.get("hq-cv-mode-" + sid, "safe"); return; } hstore.set("hq-cv-mode-" + sid, md.value); f.closest(".cv-card, .cv-fcol")?.classList.toggle("mode-bypass", md.value === "bypass"); };
+    f.closest(".cv-card, .cv-fcol")?.classList.toggle("mode-bypass", md.value === "bypass");
     const lk = f.querySelector("[data-lock]");
     lk.onclick = () => { const on = hstore.get("hq-cv-ro-" + sid, "0") !== "1"; hstore.set("hq-cv-ro-" + sid, on ? "1" : "0"); lk.classList.toggle("on", on); lk.setAttribute("aria-pressed", String(on)); lk.innerHTML = `${LOCK(on)}<span>${on ? "look only" : "can edit"}</span>`; lk.title = on ? "Look only: it can't change files (click to allow edits)" : "Can edit files (click to make it look only)"; };
     f.querySelector("[data-stop]").onclick = () => api(`/code/${sid}/stop`, "POST").catch(x => toast(x.message));
     const go = async () => {
       const text = ta.value.trim(); if (!text) return;
-      try { await api(`/code/${sid}`, "POST", { text, tier: f.querySelector("[data-tier]").value, effort: currentEffort() === "auto" ? null : currentEffort(), readOnly: hstore.get("hq-cv-ro-" + sid, "0") === "1" }); ta.value = ""; Snd.blip(980, .06); CV.seen.delete(sid); setTimeout(cvPoll, 300); }
+      try { await api(`/code/${sid}`, "POST", { text, tier: f.querySelector("[data-tier]").value, effort: ef.value === "auto" || ef.disabled ? null : ef.value, readOnly: hstore.get("hq-cv-ro-" + sid, "0") === "1", mode: md.value }); ta.value = ""; Snd.blip(980, .06); CV.seen.delete(sid); setTimeout(cvPoll, 300); }
       catch (e) { toast(e.message, 5000); }
     };
     f.onsubmit = e => { e.preventDefault(); go(); };
@@ -307,6 +316,7 @@ function cvAgentPaint(sid, log) {
   const op = s.busy ? Live.ops.find(o => o.id === s.opId) : null, live = log.querySelector(".cv-live");
   if (live) live.innerHTML = s.busy ? `<div class="cd-msg hq"><div class="cd-steps">${(op?.steps || []).filter(x => x.kind === "tool" || x.kind === "text").slice(-3).map(x => stepLine(x, true)).join("")}<div class="s run"><b>${op ? "Working" : "Starting"}</b><span>${op ? `${op.calls} steps · ${fmtDur(Date.now() - op.startedAt)}` : ""}</span></div></div></div>` : "";
   if (stick && s.busy) log.scrollTop = log.scrollHeight;
+  const use = log.parentElement.querySelector("[data-use]"); if (use) use.innerHTML = usageHTML(d.usage);
   const f = log.parentElement.querySelector("form[data-ask]");
   if (f) { f.querySelector("[data-st]").textContent = s.busy ? "working…" : d.level === "build" ? "" : "read-only"; f.querySelector("[data-stop]").hidden = !s.busy; f.querySelector(".cv-send").disabled = s.busy; }
 }
@@ -397,6 +407,18 @@ const cvFolder = sid => { const s = cvSess(sid), p = S.projects.find(x => x.slug
 const cvModel = t => { const n = ({ fast: "Haiku", balanced: "Sonnet", deep: "Opus" })[t], m = String(tierModel(t) || ""); return m && m.toLowerCase() !== n.toLowerCase() ? `${n} · ${m}` : n; };
 const LOCK = on => `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="${on ? "M8 11V8a4 4 0 0 1 8 0v3" : "M8 11V8a4 4 0 0 1 7.5-2"}"/></svg>`;
 const cvCols = () => !cvStack() && hstore.get("hq-cv-cols", "0") === "1";
+
+/** Context used of the window, plan limit (when Claude reports it) and the session's API-equivalent value. */
+function usageHTML(u) {
+  if (!u) return "";
+  const k = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : String(n || 0);
+  const win = u.win || 200000, pct = Math.min(100, Math.round((u.ctx || 0) / win * 100));
+  const r = u.rate, rp = typeof r?.utilization === "number" ? Math.round(r.utilization * (r.utilization <= 1 ? 100 : 1)) : null;
+  const reset = r?.resetsAt ? new Date(r.resetsAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
+  return `<span class="cu-ctx ${pct > 80 ? "hot" : pct > 60 ? "warm" : ""}" title="Context: ${(u.ctx || 0).toLocaleString()} of ${win.toLocaleString()} tokens. Near full, it summarises older messages."><i style="--w:${pct}%"></i>ctx ${k(u.ctx)}/${k(win)} · ${pct}%</span>`
+    + (r ? `<span class="cu-rate ${r.status && r.status !== "allowed" ? "hot" : ""}" title="Your Claude plan limit${r.type ? " (" + esc(String(r.type).replace(/_/g, " ")) + ")" : ""}">${rp != null ? `limit ${rp}%` : r.status === "allowed" ? "limit ok" : esc(r.status || "")}${reset ? " · resets " + esc(reset) : ""}</span>` : "")
+    + (u.cost ? `<span class="cu-cost" title="What this session would cost on the pay-per-use API. On your subscription it counts toward your plan limit instead.">≈$${u.cost.toFixed(2)} API value · ${u.turns} run${u.turns === 1 ? "" : "s"}</span>` : "");
+}
 
 const _renderCV = render;
 render = function () {

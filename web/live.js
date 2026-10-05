@@ -233,7 +233,7 @@ function splitRender() {
       const id = f.dataset.spForm, ta = f.querySelector("textarea");
       const go = async () => {
         const text = ta.value.trim(); if (!text) return;
-        try { await api(`/code/${id}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort() }); ta.value = ""; Split.seen.delete(id); Snd.blip(980, .06); liveKick(); splitLoad(id); }
+        try { await api(`/code/${id}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort(), mode: hstore.get("hq-cv-mode-" + id, "safe") }); ta.value = ""; Split.seen.delete(id); Snd.blip(980, .06); liveKick(); splitLoad(id); }
         catch (e) { toast(e.message, 5000); }
       };
       f.onsubmit = e => { e.preventDefault(); go(); };
@@ -330,8 +330,9 @@ async function codeLoad(full) {
   if (full || !main.querySelector(".cd-log")) {
     const ro = d.level !== "build";
     main.innerHTML = `<div class="cd-bar"><button class="btn sm ghost" type="button" id="cdBack" aria-label="Back">←</button><b>✱ ${esc(d.name)}</b><span class="pill ${ro ? "amber" : "green"}">${ro ? "read-only" : "can edit"}</span><span class="path" title="${esc(d.folders.join("; "))}">${esc(d.found.join(" · ") || "folder not found on this PC")}</span>
-        ${tierSwitch()}${phone() ? "" : `<button class="btn sm" id="cdSide" type="button" title="Show next to other sessions">Open side by side</button>`}<button class="btn sm" id="cdStop" type="button" ${d.busy ? "" : "hidden"}>■ Stop</button></div>
+        ${tierSwitch()}${ro ? "" : `<select class="cd-mode" id="cdMode" aria-label="Permissions" title="Safe: allow-listed commands only. Auto: edits + any command except the blocked list. Bypass: Claude Code bypass mode. Push, deploy and secrets stay blocked in every mode.">${[["safe", "Perms: safe"], ["auto", "Perms: auto"], ["bypass", "Perms: bypass"]].map(([k, l]) => `<option value="${k}" ${k === hstore.get("hq-cv-mode-" + id, "safe") ? "selected" : ""}>${l}</option>`).join("")}</select>`}${phone() ? "" : `<button class="btn sm" id="cdSide" type="button" title="Show next to other sessions">Open side by side</button>`}<button class="btn sm" id="cdStop" type="button" ${d.busy ? "" : "hidden"}>■ Stop</button></div>
       ${d.sameProject ? `<div class="cd-warn">${d.sameProject} other session${d.sameProject > 1 ? "s are" : " is"} working in this project right now. Keep their jobs on different files.</div>` : ""}
+      <div class="cv-use cd-use" id="cdUse"></div>
       <div class="cd-log" id="cdLog"></div>
       <form class="cd-in" id="cdForm"><textarea id="cdText" rows="2" placeholder="${ro ? "Ask about the code (read-only here)…" : "What should we build or fix? (Ctrl+Enter)"}"></textarea><button class="btn primary" id="cdSend">Run</button></form>`;
     bindTierSwitch(main);
@@ -341,8 +342,10 @@ async function codeLoad(full) {
     document.getElementById("cdForm").onsubmit = e => { e.preventDefault(); codeSend(); };
     document.getElementById("cdStop").onclick = () => api(`/code/${id}/stop`, "POST").catch(x => toast(x.message));
     document.getElementById("cdBack").onclick = codeClose;
+    document.getElementById("cdMode")?.addEventListener("change", e => { if (e.target.value === "bypass" && !confirm("Bypass mode lets this session run any command and edit any file in the project folders without asking.\nPush, deploy, delete-repo and secrets stay blocked.\n\nTurn it on?")) { e.target.value = hstore.get("hq-cv-mode-" + id, "safe"); return; } hstore.set("hq-cv-mode-" + id, e.target.value); });
     document.getElementById("cdSide")?.addEventListener("click", () => { codeClose(); splitAdd(id); });
   }
+  const cu = document.getElementById("cdUse"); if (cu && typeof usageHTML === "function") cu.innerHTML = usageHTML(d.usage);
   const log = document.getElementById("cdLog");
   const stick = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
   if (full || prevLen !== d.messages.length) {
@@ -364,7 +367,7 @@ async function codeLoad(full) {
 }
 async function codeSend() {
   const ta = document.getElementById("cdText"); const text = ta?.value.trim(); if (!text || Code.data?.busy) return;
-  try { await api(`/code/${Code.slug}`, "POST", { text, tier: currentTier() }); }
+  try { await api(`/code/${Code.slug}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort(), mode: hstore.get("hq-cv-mode-" + Code.slug, "safe") }); }
   catch (e) { toast("⚠ " + e.message, 5000); return; }
   ta.value = ""; ta.style.height = ""; Code.sentAt = Date.now(); Snd.blip(980, .06); corePing?.(); opsKick?.(); liveKick();
   codeLoad(false);
@@ -629,6 +632,11 @@ const Brief = {
     else return false;
     return true;
   },
+  place(low) {
+    if (this.el.classList.contains("low") === low) return;
+    const c = this.el.querySelector(".brief-card"); c.classList.add("swap");
+    setTimeout(() => { this.el.classList.toggle("low", low); requestAnimationFrame(() => c.classList.remove("swap")); }, 220);
+  },
   go(d) { clearTimeout(this.t); const n = this.i + d; if (n >= this.steps.length) return this.end(); this.i = Math.max(0, n); this.paused = false; this.el.querySelector('[data-b="pause"]').textContent = "❚❚"; this.show(); },
   async show() {
     const st = this.steps[this.i]; if (!st || !this.on) return;
@@ -638,18 +646,18 @@ const Brief = {
     const tgt = st.sel ? [...document.querySelectorAll(st.sel)].find(e => e.offsetParent !== null) : null;
     const spot = this.el.querySelector(".brief-spot");
     if (tgt) {
-      tgt.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-      await new Promise(r => setTimeout(r, 380));
+      await Cine.settle(tgt);
+      if (!this.on || this.steps[this.i] !== st) return;
       const r = Cine.aim(tgt, spot, this.el.querySelector(".brief-way"));
-      this.el.classList.toggle("low", r.top + r.height / 2 < innerHeight / 2);
-    } else { Cine.zoom(null); Object.assign(spot.style, { left: innerWidth / 2 + "px", top: innerHeight * .4 + "px", width: "0px", height: "0px", opacity: 1 }); this.el.querySelector(".brief-way").classList.remove("on"); this.el.classList.remove("low"); }
+      this.place(r.top + r.height / 2 < innerHeight / 2);
+    } else { Cine.zoom(null); Object.assign(spot.style, { left: innerWidth / 2 + "px", top: innerHeight * .4 + "px", width: "0px", height: "0px", opacity: 1 }); this.el.querySelector(".brief-way").classList.remove("on"); this.place(false); }
     this.el.querySelector(".brief-n").textContent = `${this.i + 1} / ${this.steps.length}`;
     this.el.querySelector(".brief-t").textContent = st.title;
     const s = this.el.querySelector(".brief-s"); s.textContent = "";
     this.el.querySelector(".brief-dots").innerHTML = this.steps.map((_, j) => `<i class="${j < this.i ? "p" : j === this.i ? "c" : ""}"></i>`).join("");
     // type the line while it's spoken, then move on by itself
-    let k = 0; const txt = st.say; clearInterval(this.typer);
-    this.typer = setInterval(() => { k += 2; s.textContent = txt.slice(0, k); if (k >= txt.length) clearInterval(this.typer); }, 18);
+    const txt = st.say; s.textContent = txt; s.classList.remove("reveal"); void s.offsetWidth; s.classList.add("reveal");
+    const t = this.el.querySelector(".brief-t"); t.classList.remove("reveal"); void t.offsetWidth; t.classList.add("reveal");
     try { corePing(); } catch {}
     const next = () => { if (!this.on || this.paused || this.steps[this.i] !== st) return; clearTimeout(this.t); this.t = setTimeout(() => st.end ? this.end(true) : this.go(1), st.end ? 2500 : 900); };
     if (hstore.get("hq-mute", "0") === "1" || !window.speechSynthesis) this.t = setTimeout(next, 2200 + txt.length * 45);
@@ -766,13 +774,16 @@ const Cine = {
     return r;
   },
   /** Gentle push-in on #view toward the target (skipped with reduced motion or an open drawer). */
-  zoom(tgt) {
-    const v = document.getElementById("view"); if (!v) return;
-    if (!tgt || this.still() || document.querySelector(".lv-drawer:not([hidden])") || phone()) { v.style.transform = ""; v.classList.remove("cine-cam"); return; }
-    const vr = v.getBoundingClientRect(), r = tgt.getBoundingClientRect();
-    v.classList.add("cine-cam");
-    v.style.transformOrigin = `${r.left - vr.left + r.width / 2}px ${r.top - vr.top + r.height / 2}px`;
-    v.style.transform = "scale(1.035)";
+  zoom(tgt) { const v = document.getElementById("view"); if (v) { v.style.transform = ""; v.classList.remove("cine-cam"); } document.querySelectorAll(".cine-lit").forEach(e => e.classList.remove("cine-lit")); if (tgt && !this.still()) tgt.classList.add("cine-lit"); },
+  /** Scroll the target into view and resolve once it has stopped moving (so the highlight lands exactly on it). */
+  settle(tgt) {
+    return new Promise(res => {
+      const r0 = tgt.getBoundingClientRect(), off = r0.top < 70 || r0.bottom > innerHeight - 90;
+      if (off) tgt.scrollIntoView({ block: "center", behavior: this.still() ? "auto" : "smooth" });
+      let last = "", same = 0, n = 0;
+      const tick = () => { const r = tgt.getBoundingClientRect(), k = `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}`; same = k === last ? same + 1 : 0; last = k; if (same >= 4 || ++n > 70) res(); else requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    });
   },
   /** A short guided sequence: [[selector, caption], ...], ~2.6 s each. */
   async show(steps) {
@@ -785,8 +796,7 @@ const Cine = {
     for (const [sel, cap] of steps) {
       await new Promise(r => setTimeout(r, 350));
       const tgt = [...document.querySelectorAll(sel)].find(e => e.offsetParent !== null); if (!tgt || this.el.hidden) continue;
-      tgt.scrollIntoView({ block: "center", behavior: this.still() ? "auto" : "smooth" });
-      await new Promise(r => setTimeout(r, 420));
+      await this.settle(tgt);
       const way = this.el.querySelector(".brief-way"); way.querySelector("span").textContent = cap;
       this.aim(tgt, this.el.querySelector(".brief-spot"), way); try { corePing(); } catch {}
       await new Promise(r => { this.t = setTimeout(r, 2600); });
