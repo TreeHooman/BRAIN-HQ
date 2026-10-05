@@ -1,5 +1,6 @@
 // Code screen: live coding sessions run by Claude Code at build level in a project's folders.
 // Several sessions can run at once (cap: code.maxParallel); each one resumes its own Claude session.
+import * as brainSync from "./brainsync.ts";
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
@@ -154,6 +155,10 @@ export async function send(key: string, text: string, tier = "balanced", effort:
     if (latest.messages.length > 200) latest.messages.splice(0, latest.messages.length - 200);
     save(key, latest);
     activity("code", { session: key, project: s.project, ok: res.ok, kind: res.kind });
+    if (res.ok && !b?.cancelled) {
+      const files = [...new Set(tools.filter(x => /write|edit/i.test(x.tool)).map(x => x.target).filter(Boolean))];
+      brainSync.afterTurn(key, s.project, { ask: text, reply, files, added: tools.reduce((a, x) => a + (x.added || 0), 0), removed: tools.reduce((a, x) => a + (x.removed || 0), 0), at: new Date().toISOString() });
+    }
   } finally { busy.delete(key); opEnd(opId, ok); }
 }
 

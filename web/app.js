@@ -5,8 +5,8 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const MIC_SVG = `<svg class="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>`;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 let S = null;            // latest /api/state snapshot
-let route = { view: "code", arg: null };
-const homeView = () => matchMedia("(max-width: 760px)").matches ? "assistant" : "code";
+let route = { view: "command", arg: null };
+const homeView = () => "command";
 let calMonth = null;     // Date for the calendar view
 let calFeed = { key: "", events: [], at: 0 }; // calendar-feed events for the shown month
 let projTab = "summary";

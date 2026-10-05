@@ -56,6 +56,7 @@ function spaceCard() {
     <div class="small muted">Pick one view, or several to cycle. Move the mouse to look around.</div>
     <div class="chips">${SPACE_SCENES.map((n, i) => `<button type="button" class="chip ${p.scenes.includes(i) ? "on" : ""}" data-sp="${i}">${esc(n)}</button>`).join("")}</div>
     <div class="row"><span class="small muted" style="min-width:110px">Change every</span><select id="spEvery">${[[30, "30 seconds"], [60, "1 minute"], [180, "3 minutes"], [600, "10 minutes"], [3600, "1 hour"]].map(([v, l]) => `<option value="${v}" ${p.every == v ? "selected" : ""}>${l}</option>`).join("")}</select><button type="button" class="btn sm ghost" id="spNext">Next view</button></div>
+    <div class="row"><span class="small muted" style="min-width:110px">Motion</span><select id="spPow"><option value="auto">Automatic (saver on phones)</option><option value="full">Full motion</option><option value="saver">Battery saver</option></select></div>
     <label class="row small"><input type="checkbox" id="spWalls" ${p.walls ? "checked" : ""}> Include my wallpapers (${Space.walls.length} found)</label>
     <div class="note blue small">Your own views: put images (.jpg .png .webp) or looping videos (.mp4 .webm) in the <code>HQ\\backgrounds</code> folder, then reload. They cycle with the space views.</div></div>`;
 }
@@ -70,6 +71,8 @@ vSettings = function (el) {
     wrap.querySelector("#spEvery").onchange = e => { const p = spacePref(); p.every = Number(e.target.value); spaceSave(p); Space.start = performance.now(); };
     wrap.querySelector("#spWalls").onchange = e => { const p = spacePref(); p.walls = e.target.checked; spaceSave(p); spaceBuild(); spaceWall(); };
     wrap.querySelector("#spNext").onclick = () => spaceNext();
+    const pw = wrap.querySelector("#spPow"); try { pw.value = localStorage.getItem("hq-power") || "auto"; } catch {}
+    pw.onchange = () => { try { pw.value === "auto" ? localStorage.removeItem("hq-power") : localStorage.setItem("hq-power", pw.value); } catch {} Scene.scale = .6; sceneSize?.(); Stars.still = false; starsStart(); toast(pw.value === "saver" ? "Battery saver on" : "Saved"); };
   };
   draw();
 };
@@ -116,6 +119,9 @@ function starsDraw(t) {
 function starsLoop(now) {
   Stars.raf = 0;
   if (!Stars.c || !isHud() || document.hidden || HUD.asleep) return;
+  const lp = typeof lowPower === "function" && lowPower();
+  if (lp) { if (!Stars.still) { starsDraw(0); Stars.still = true; } return; } // saver: draw once, no twinkle loop
+  Stars.still = false;
   if (++Stars.f % 2 === 0) starsDraw(now / 1000);
   if (!reduced()) Stars.raf = requestAnimationFrame(starsLoop);
 }
@@ -125,7 +131,7 @@ function starsStart() {
     (document.getElementById("nova-wall") || document.getElementById("nova-bg"))?.after(c) || document.body.prepend(c);
     Stars.x = c.getContext("2d");
     Stars.spr = [...STAR_COL.map(col => starSprite(col, false)), ...STAR_COL.map(col => starSprite(col, true))];
-    starsSize(); addEventListener("resize", starsSize);
+    starsSize(); addEventListener("resize", () => { starsSize(); Stars.still = false; if (!Stars.raf) Stars.raf = requestAnimationFrame(starsLoop); });
   }
   if (reduced()) { starsDraw(0); return; }
   if (!Stars.raf) Stars.raf = requestAnimationFrame(starsLoop);

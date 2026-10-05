@@ -7,6 +7,8 @@
 const NV = { t0: performance.now(), mx: .5, my: .5, sx: 0, scroll: 0, busy: 0, busyT: 0, listen: 0, pulse: 0, fine: matchMedia("(pointer: fine)").matches };
 const lerp = (a, b, k) => a + (b - a) * k;
 const nvOn = () => isHud() && !HUD.asleep && !document.hidden;
+/** Battery saver: phones (and anyone who picks it) get a near-still background and a slower orb, so the device stays cool. */
+const lowPower = () => { try { const v = localStorage.getItem("hq-power"); if (v === "full") return false; if (v === "saver") return true; } catch {} return matchMedia("(pointer: coarse)").matches || matchMedia("(max-width: 760px)").matches; };
 
 // ---------------- tiny WebGL helper ----------------
 function glProgram(gl, fs) {
@@ -128,7 +130,7 @@ void main(){
  gl_FragColor=vec4(col,1.);}`;
 const Scene = { c: null, gl: null, p: null, raf: 0, scale: .6, frame: 0, ok: false };
 /** Planets need full resolution to look sharp; the soft nebula is fine (and cheap) at 60%. */
-function sceneRes(sharp) { const sc = sharp ? 1 : .6; if (Scene.scale !== sc) { Scene.scale = sc; sceneSize(); } }
+function sceneRes(sharp) { const sc = lowPower() ? .35 : sharp ? 1 : .6; if (Scene.scale !== sc) { Scene.scale = sc; sceneSize(); } }
 function sceneStart() {
   if (Scene.ok || Scene.failed) return sceneKick();
   const c = document.createElement("canvas"); c.id = "nova-bg"; c.setAttribute("aria-hidden", "true"); document.body.prepend(c);
@@ -159,7 +161,8 @@ function sceneLoop() {
   if (!Scene.ok || !nvOn()) return;
   NV.sx = lerp(NV.sx || .5, NV.mx, .04); NV.sy = lerp(NV.sy ?? .5, NV.my, .04);
   NV.busy = lerp(NV.busy, NV.busyT, .03);
-  if (++Scene.frame % 2 === 0 || NV.busy > .05) sceneDraw();
+  const lp = lowPower(); if (lp && Scene.scale > .4) { Scene.scale = .35; sceneSize(); }
+  if (lp ? ++Scene.frame % 12 === 0 : (++Scene.frame % 2 === 0 || NV.busy > .05)) sceneDraw(); // saver: ~5 fps, a slow drift
   if (!reduced()) Scene.raf = requestAnimationFrame(sceneLoop);
 }
 function sceneKick() { if (Scene.ok && !Scene.raf) { if (reduced()) { sceneDraw(); return; } Scene.raf = requestAnimationFrame(sceneLoop); } }
@@ -168,7 +171,7 @@ function sceneKick() { if (Scene.ok && !Scene.raf) { if (reduced()) { sceneDraw(
 // Layered closed light-waves + a frequency ring around a small core. Idle: slow breathing.
 // Listening: driven by the real mic level (Web Audio). Speaking: speech-like envelope while TTS talks.
 // Thinking: comet arcs swirl. Canvas 2D, additive light, supersampled for crisp lines.
-const Core = { el: null, c: null, x: null, raf: 0, ok: false, w: 0, h: 0, b: 0, amp: 0, spk: 0, last: 0, bars: null };
+const Core = { skip: 0, el: null, c: null, x: null, raf: 0, ok: false, w: 0, h: 0, b: 0, amp: 0, spk: 0, last: 0, bars: null };
 const Mic = { stream: null, an: null, buf: null, level: 0, want: false, starting: false };
 async function micOn() {
   if (Mic.stream || Mic.starting || !navigator.mediaDevices?.getUserMedia) return;
@@ -204,7 +207,7 @@ function coreSize() {
 function coreLoop(now = performance.now()) {
   Core.raf = 0;
   if (!Core.ok || !Core.c.isConnected) { Core.ok = false; Mic.want = false; micOff(); return; }
-  if (nvOn()) coreDraw(now);
+  if (nvOn() && (!lowPower() || ++Core.skip % 3 === 0)) coreDraw(now); // saver: ~20 fps orb
   if (!reduced() || !Core.drawn) { Core.drawn = true; Core.raf = requestAnimationFrame(coreLoop); }
 }
 function coreDraw(now) {

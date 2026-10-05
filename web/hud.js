@@ -178,6 +178,7 @@ function bgDraw() {
 function bgLoop() {
   BG.raf = 0;
   if (!isHud() || document.hidden || HUD.asleep) return;
+  if (BG.c && getComputedStyle(BG.c).display === "none") return; // the NOVA scene replaced this layer: don't burn CPU on a hidden canvas
   if (++BG.frame % 2 === 0) bgDraw(); // ~30 fps is plenty for ambience
   if (!reduced()) BG.raf = requestAnimationFrame(bgLoop);
 }
