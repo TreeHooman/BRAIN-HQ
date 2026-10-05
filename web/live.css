@@ -618,3 +618,4 @@ html, body { overflow-x: hidden; }
 .up-box { display: grid; justify-items: center; gap: 10px; padding: 26px 34px; border-radius: 16px; border: 1px solid var(--border2, #234); background: var(--surface, #0b1020); text-align: center; }
 .up-spin { width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(111, 242, 255, .15); border-top-color: #6ff2ff; animation: hqspin .9s linear infinite; }
 #view h2.fold.open + .card, #view h2.fold.open + div > .card:first-child { margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; border-top-color: transparent; }
+.up-log pre { max-height: 220px; overflow: auto; white-space: pre-wrap; font: 11.5px/1.45 var(--mono); color: var(--text2); background: rgba(0, 0, 0, .3); border-radius: 8px; padding: 10px; margin: 6px 0 0; }

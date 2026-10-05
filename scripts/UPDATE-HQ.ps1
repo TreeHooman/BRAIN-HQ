@@ -2,9 +2,9 @@
 # ($zf, not $zip: PowerShell names are case-insensitive, so $zip would be the [string] $Zip parameter.)
 # Replaces src, web, config and scripts; keeps brain\, data\ and config\hq.local.json. Backs up first; restores the backup if
 # copying fails; always restarts HQ.
-param([string]$Zip = "", [string]$Sha = "", [int]$HqPid = 0)
+param([string]$Zip = "", [string]$Sha = "", [int]$HqPid = 0, [string]$Root = "")
 $ErrorActionPreference = "Stop"
-$hq = Split-Path -Parent $PSScriptRoot
+$hq = if ($Root) { $Root } else { Split-Path -Parent $PSScriptRoot }  # -Root: HQ runs this from a temp copy
 $auto = $Sha -match '^[0-9a-f]{40}$'
 if ($auto) { New-Item -ItemType Directory "$hq\data" -Force | Out-Null; Start-Transcript -Path "$hq\data\update.log" -Force | Out-Null; Start-Sleep -Seconds 2 }
 if ($Zip) { $zf = Get-Item -LiteralPath $Zip } else { $zf = Get-ChildItem "$env:USERPROFILE\Downloads" -Filter "brain-hq*.zip" | Sort-Object LastWriteTime -Descending | Select-Object -First 1 }

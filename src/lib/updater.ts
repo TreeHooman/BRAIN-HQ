@@ -18,7 +18,16 @@ const SHA_RE = /^[0-9a-f]{40}$/;
 const MAX_ZIP = 80 * 1024 * 1024;
 
 type Latest = { sha: string; msg: string; date: string };
-const st: { latest?: Latest; behind?: number; notes?: string[]; checkedAt?: number; error?: string; busy?: string } = {};
+const st: { latest?: Latest; behind?: number; notes?: string[]; checkedAt?: number; error?: string; busy?: string; startedAt?: number } = {};
+const ULOG = path.join(DATA, "update.log"), LLOG = path.join(DATA, "update-launch.log");
+const tail = (f: string) => { try { return fs.readFileSync(f, "utf8").replace(/\0/g, "").slice(-1500); } catch { return ""; } };
+const mtime = (f: string) => { try { return fs.statSync(f).mtimeMs; } catch { return 0; } };
+// If the installer hasn't written its log ~25 s after starting, it didn't run: stop showing "Installing…" and say why.
+function watchdog() {
+  if (!st.busy || !st.startedAt || Date.now() - st.startedAt < 25e3) return;
+  if (mtime(ULOG) >= st.startedAt) { if (Date.now() - st.startedAt > 120e3) { st.busy = ""; st.error = "Update stopped partway. Details below."; } return; }
+  st.busy = ""; st.error = "The installer didn't start. Details below.";
+}
 
 function settings() {
   const u = loadConfig().update || {};
@@ -43,9 +52,10 @@ function ghError(code: number, repo: string, token: string) {
 }
 
 export function status() {
+  watchdog();
   const s = settings(), v = installed();
   const available = !!st.latest && st.latest.sha !== v.sha;
-  return { repo: s.repo, branch: s.branch, hasToken: !!s.token, installed: v, latest: st.latest || null, available, behind: st.behind ?? null, notes: st.notes || [], checkedAt: st.checkedAt || 0, error: st.error || "", busy: st.busy || "", canApply: process.platform === "win32" };
+  return { repo: s.repo, branch: s.branch, hasToken: !!s.token, installed: v, latest: st.latest || null, available, behind: st.behind ?? null, notes: st.notes || [], checkedAt: st.checkedAt || 0, error: st.error || "", busy: st.busy || "", canApply: process.platform === "win32", log: st.error && st.startedAt ? (tail(LLOG) + "\n" + tail(ULOG)).trim().slice(-2500) : "" };
 }
 
 export async function check(fresh = false) {
@@ -101,10 +111,15 @@ export async function apply(sha: string) {
     if (buf.length > MAX_ZIP || buf.length < 1000 || buf[0] !== 0x50 || buf[1] !== 0x4b) throw new Error("Download isn't a valid zip");
     const zip = path.join(os.tmpdir(), `hq-update-${sha.slice(0, 12)}.zip`);
     fs.writeFileSync(zip, buf);
-    const ps1 = path.join(ROOT, "scripts", "UPDATE-HQ.ps1");
-    // Started through a short-lived launcher so the installer isn't part of HQ's process tree (stopping HQ won't stop it).
-    const inner = `-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "${ps1}" -Zip "${zip}" -Sha ${sha} -HqPid ${process.pid}`;
-    spawn("powershell.exe", ["-NoProfile", "-WindowStyle", "Hidden", "-Command", `Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '${inner.replace(/'/g, "''")}'`], { detached: true, stdio: "ignore", windowsHide: true }).unref();
+    // Run a copy of the installer from %TEMP% (it overwrites scripts\ while it runs), through a tiny .cmd started with
+    // "start": the installer then isn't in HQ's process tree, so stopping HQ doesn't stop it. Its console output
+    // (including any error before its own log starts) goes to data\update-launch.log.
+    const tmpPs1 = path.join(os.tmpdir(), "hq-update.ps1"), launcher = path.join(os.tmpdir(), "hq-update.cmd");
+    fs.copyFileSync(path.join(ROOT, "scripts", "UPDATE-HQ.ps1"), tmpPs1);
+    fs.writeFileSync(launcher, `@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -File "${tmpPs1}" -Zip "${zip}" -Sha ${sha} -HqPid ${process.pid} -Root "${ROOT}" > "${LLOG}" 2>&1\r\n`);
+    try { fs.rmSync(ULOG, { force: true }); } catch {}
+    st.startedAt = Date.now(); st.error = "";
+    spawn("cmd.exe", ["/d", "/c", `start "" /min "${launcher}"`], { detached: true, stdio: "ignore", windowsHide: true, windowsVerbatimArguments: true }).unref();
     st.busy = "Installing… HQ restarts in a few seconds";
     return status();
   } catch (e) { st.busy = ""; throw e; }

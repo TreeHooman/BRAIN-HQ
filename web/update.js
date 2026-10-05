@@ -21,6 +21,7 @@ function upCard() {
   return `<h2>Updates</h2><div class="card form" id="upCard">
     <div class="between"><div>${state}</div><button type="button" class="btn sm ghost" id="upChk">Check now</button></div>
     <div class="small muted">Installed <code>${esc(upShort(s.installed?.sha))}</code>${s.installed?.at ? " · " + esc(upWhen(s.installed.at)) : ""}${s.latest ? ` · newest <code>${esc(upShort(s.latest.sha))}</code> · ${esc(upWhen(s.latest.date))}` : ""}${s.behind ? ` · ${s.behind} change${s.behind > 1 ? "s" : ""} behind` : ""}</div>
+    ${s.log ? `<details class="up-log" open><summary class="small">What the installer said</summary><pre>${esc(s.log)}</pre></details>` : ""}
     ${s.available ? `${notes}<div class="row"><button type="button" class="btn primary" id="upGo" ${s.canApply ? "" : "disabled"}>Update now</button><span class="small muted">${s.canApply ? "Backs up first, keeps your brain, data and keys. Takes about 20 seconds." : "Run the update on the HQ PC."}</span></div>` : ""}
     <details class="up-key" ${s.hasToken ? "" : "open"}><summary class="small">GitHub key ${s.hasToken ? "· saved ✓" : "· needed (private repo)"}</summary>
       <ol class="small muted">
