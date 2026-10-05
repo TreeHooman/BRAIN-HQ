@@ -274,10 +274,10 @@ async function vProject(el) {
   if (projTab === "summary" || projTab === "plan") body = `<div class="card">${doc(projTab)}</div>`;
   else if (projTab === "log") body = `<div class="card"><form id="logForm" class="row"><input class="grow" name="text" placeholder="Add a log entry: what happened, what you learned…"><button class="btn">Add</button></form></div><div class="card" style="margin-top:12px">${md(d.log)}</div>`;
   else if (projTab === "chats") body = `<div class="card tight">${(d.chats || []).length ? d.chats.map(c => `
-      <div class="row" role="button" tabindex="0" style="cursor:pointer;padding:8px 4px" data-chat="${esc(c.id)}"><div class="grow"><div>${esc(c.title)}${c.current ? ' <span class="pill blue">current</span>' : ""}</div>
+      <div class="row" role="button" tabindex="0" style="cursor:pointer;padding:8px 4px" data-chat="${esc(c.id)}"><div class="grow"><div>${esc(c.title)} <span class="pill ${c.source === "claude" ? "green" : ""}">${c.source === "claude" ? "Claude app" : "dashboard"}</span>${c.current ? ' <span class="pill blue">current</span>' : ""}</div>
         <div class="small faint">${esc(c.at.slice(0, 16).replace("T", " "))} · ${c.count} messages${c.project ? " · " + esc(projName(c.project)) : ""}</div></div></div>
-      ${openChat === c.id && d.chat ? `<div class="card" style="margin:6px 0 12px">${d.chat.messages.map(m => `<div style="margin-bottom:10px"><div class="small faint">${m.role === "you" ? "You" : esc(S.settings.assistantName || "Luthor")} · ${esc(String(m.at).slice(0, 16).replace("T", " "))}</div>${m.role === "you" ? `<div style="white-space:pre-wrap">${esc(m.text)}</div>` : md(m.text)}</div>`).join("")}</div>` : ""}`).join("")
-      : `<div class="empty">No chats yet. Talk to ${esc(S.settings.assistantName || "Luthor")} and they show up here.</div>`}</div>`;
+      ${openChat === c.id && d.chat ? `<div class="card" style="margin:6px 0 12px">${c.resumable ? `<div class="row between" style="margin-bottom:10px"><button class="btn sm primary" data-continue="${esc(c.id)}">✦ Continue in ${esc(S.settings.assistantName || "Luthor")}</button>${d.chat.sessionId ? `<span class="small faint">Claude app / terminal (HQ folder): <code>claude --resume ${esc(d.chat.sessionId)}</code></span>` : ""}</div>` : ""}${d.chat.messages.map(m => `<div style="margin-bottom:10px"><div class="small faint">${m.role === "you" ? "You" : esc(S.settings.assistantName || "Luthor")} · ${esc(String(m.at).slice(0, 16).replace("T", " "))}</div>${m.role === "you" ? `<div style="white-space:pre-wrap">${esc(m.text)}</div>` : md(m.text)}</div>`).join("")}</div>` : ""}`).join("")
+      : `<div class="empty">No chats yet. Chats from the dashboard and from Claude Code sessions opened on the HQ folder show up here.</div>`}</div>`;
   else if (projTab === "work") body = `
     <div class="cols"><div>
       <h2 style="margin-top:0">Run a mission on this project</h2>
@@ -318,6 +318,7 @@ async function vProject(el) {
   const reload = async msg => { delete projCache[slug]; if (msg) toast(msg); await refresh(); render(); };
   $$("[data-tab]", el).forEach(b => b.onclick = () => { projTab = b.dataset.tab; editing = null; render(); });
   $$("[data-chat]", el).forEach(r => r.onclick = () => { openChat = openChat === r.dataset.chat ? null : r.dataset.chat; render(); });
+  $$("[data-continue]", el).forEach(b => b.onclick = async e => { e.stopPropagation(); await api(`/chats/${b.dataset.continue}/continue`, "POST").then(() => { chatState = null; location.hash = "assistant"; }).catch(x => toast(x.message)); });
   $("#headForm").onsubmit = async e => { e.preventDefault(); await api(`/project/${slug}`, "PUT", Object.fromEntries(new FormData(e.target))).catch(x => toast(x.message)); reload("Saved"); };
   $("#askAbout").onclick = () => { sessionStorage.setItem("chatProject", slug); };
   const de = $("#docEdit"); if (de) de.onclick = () => { editing = projTab; render(); };

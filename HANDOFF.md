@@ -99,3 +99,4 @@ The owner asked for (1) a cleaner, modern, easier-on-the-eyes UI with better fin
 ## 2026-10-05: JARVIS renamed to Luthor
 - Assistant name/persona: `config/hq.json` → `assistant` (`project: "luthor"` picks the page that lists chats).
 - New brain project `luthor`; its page has a **Chats** tab (current + archived). API: `GET /api/chats`, `GET /api/chats/:id`. Raw chats stay in `data/chat/` (gitignored).
+- Chats are unified: `src/lib/transcripts.ts` reads Claude Code session files for the HQ folder (read-only, text only). `POST /api/chats/:id/continue` makes any chat the live Luthor chat (resumes its session).

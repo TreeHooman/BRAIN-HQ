@@ -103,6 +103,7 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/chat$/, (_, b) => { void orch.sendChat(String(b.text || ""), { project: b.project, tier: b.tier }).catch(() => {}); return { ok: true }; }],
   ["GET", /^\/api\/chats$/, () => orch.listChats()],
   ["GET", /^\/api\/chats\/([\w-]{1,64})$/, m => { const c = orch.getChat(m[1]); if (!c) throw Object.assign(new Error("Not found"), { code: 404 }); return c; }],
+  ["POST", /^\/api\/chats\/([\w-]{1,64})\/continue$/, m => orch.continueChat(m[1])],
   ["POST", /^\/api\/chat\/new$/, () => { orch.newChat(); return { ok: true }; }],
 
   ["POST", /^\/api\/settings$/, (_, b) => {
