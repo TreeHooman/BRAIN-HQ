@@ -130,3 +130,4 @@
   .ws-mail { order: 4; width: 100%; flex: none; }
   .ws-sw { order: 5; width: 100%; }
 }
+[data-theme] .cal .ev.gcal.c-acct, .cal .ev.gcal.c-acct { background: color-mix(in srgb, var(--gc) 14%, transparent); color: color-mix(in srgb, var(--gc) 65%, #fff); border-color: var(--gc); }

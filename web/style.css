@@ -261,3 +261,5 @@ li:hover .icon-btn, .icon-btn:focus-visible, .phase-row .icon-btn { opacity: 1; 
 }
 .masked { -webkit-text-security: disc; text-security: disc; }
 .masked:focus { -webkit-text-security: none; }
+
+.cal .ev.gcal.c-acct { background: color-mix(in srgb, var(--gc) 14%, transparent); color: color-mix(in srgb, var(--gc) 70%, #fff); border-color: var(--gc) !important; }

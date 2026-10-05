@@ -117,7 +117,7 @@ const routes: [string, RegExp, Handler][] = [
     const from = day(url.searchParams.get("from"), new Date(now.getTime() - 7 * 864e5));
     let to = day(url.searchParams.get("to"), new Date(now.getTime() + 60 * 864e5));
     if (to.getTime() - from.getTime() > 400 * 864e5) to = new Date(from.getTime() + 400 * 864e5);
-    cal.kick();
+    cal.kick(from, to);
     return { feeds: cal.feedStatus(), events: cal.events(from, to) };
   }],
   ["POST", /^\/api\/calendar\/feeds$/, (_, b) => cal.addFeed(String(b.name || ""), String(b.url || ""))],

@@ -3,6 +3,7 @@
 // (the dashboard gets id/name/host/status, never the URL; errors never include it).
 import crypto from "node:crypto";
 import { loadConfig, saveLocal } from "./config.ts";
+import * as google from "./google.ts";
 
 export type Feed = { id: string; name: string; url: string; color?: string };
 export type CalEvent = { id: string; feed: string; title: string; start: string; end: string; allDay: boolean; location?: string };
@@ -23,6 +24,9 @@ function hostOf(url: string): string { try { return new URL(url).hostname; } cat
 
 /** Safe view for the dashboard: never includes the URL. */
 export function feedStatus() {
+  return [...google.calFeeds(), ...icsStatus()];
+}
+function icsStatus() {
   return feeds().map(f => {
     const c = cache.get(f.id);
     return { id: f.id, name: f.name, color: f.color || "teal", host: hostOf(f.url), ok: c ? c.ok : null, error: c?.error || null, lastSync: c?.at ? new Date(c.at).toISOString() : null, count: c?.events.length || 0 };
@@ -109,9 +113,15 @@ function refreshFeed(f: Feed, force = false): Promise<void> {
 }
 
 /** Non-blocking: refresh stale feeds in the background. */
-export function kick(): void { for (const f of feeds()) void refreshFeed(f); }
+export function kick(from?: Date, to?: Date): void {
+  for (const f of feeds()) void refreshFeed(f);
+  const now = new Date(); google.calKick(from || new Date(now.getTime() - 7 * 864e5), to || new Date(now.getTime() + 60 * 864e5));
+}
 /** Blocking refresh (Sync now, MCP tool). */
-export async function syncAll(force = true): Promise<void> { await Promise.all(feeds().map(f => refreshFeed(f, force))); }
+export async function syncAll(force = true): Promise<void> {
+  const now = new Date();
+  await Promise.all([...feeds().map(f => refreshFeed(f, force)), google.calSync(new Date(now.getTime() - 7 * 864e5), new Date(now.getTime() + 60 * 864e5)).catch(() => {})]);
+}
 
 /** Expanded events overlapping [from, to), from cache. */
 export function events(from: Date, to: Date): CalEvent[] {
@@ -120,6 +130,7 @@ export function events(from: Date, to: Date): CalEvent[] {
     const c = cache.get(f.id);
     if (c) out.push(...expandAll(c.events, f.id, from.getTime(), to.getTime()));
   }
+  out.push(...google.calEvents(from, to));
   return out.sort((a, b) => a.start.localeCompare(b.start)).slice(0, 2000);
 }
 

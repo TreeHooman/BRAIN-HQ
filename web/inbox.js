@@ -2,6 +2,7 @@
 // (latest Gmail, read-only, through the claude.ai connector; refreshed by LUTHUR every 30 min while turned on).
 "use strict";
 const Mail = { st: null, t: 0, loading: false };
+const PHONE = () => matchMedia("(max-width: 760px)").matches;
 const mailGet = async () => { Mail.st = await api("/mail").catch(() => Mail.st); return Mail.st; };
 const fromName = f => String(f || "").replace(/<[^>]*>/g, "").replace(/"/g, "").trim() || String(f || "").replace(/[<>]/g, "");
 
@@ -14,13 +15,13 @@ function upcomingHTML() {
   S.milestones.filter(m => !m.done).forEach(m => { const s = toDate(m.date + "T09:00"); if (s >= start && s < end) items.push({ s, t: m.title, k: m.kind === "deadline" ? "dl" : "ms", all: true, sub: m.project ? projName(m.project) : "", p: m.project }); });
   items.sort((a, b) => a.s - b.s);
   let html = "", day = "";
-  for (const x of items.slice(0, 6)) {
+  for (const x of items.slice(0, PHONE() ? 3 : 6)) {
     const d = `${DOW[x.s.getDay()]} ${x.s.getDate()} ${MON[x.s.getMonth()]}`;
     if (d !== day) { day = d; html += `<div class="nv-now" style="color:var(--text3)">${esc(d.toUpperCase())}</div>`; }
     html += `<a class="nv-row ${x.k === "ev" ? "t-ev" : x.k === "dl" ? "sev-red" : "t-rem"}" href="${x.p ? "#project/" + esc(x.p) : x.k === "ev" ? "#calendar" : "#roadmap"}"><span class="tm">${x.all ? "all day" : `${pad(x.s.getHours())}:${pad(x.s.getMinutes())}`}</span><div style="min-width:0"><div class="t">${esc(x.t)}</div><small>${x.k === "ev" ? "CALENDAR" : x.k === "dl" ? "DEADLINE" : x.k === "ms" ? "MILESTONE" : "REMINDER"}${x.sub ? " · " + esc(x.sub).slice(0, 40) : ""}</small></div></a>`;
   }
   const feeds = (S.calendar?.feeds || []).length;
-  return `<div class="card nv-panel" id="nvUp"><div class="ttl">Upcoming <b>${items.length ? items.length + " this week" : "clear"}</b></div>${html}${items.length > 6 ? `<a class="nv-empty" href="#calendar" style="display:block;margin-top:6px">+${items.length - 6} more in Calendar</a>` : ""}${html ? "" : `<div class="nv-empty">Nothing in the next 7 days.${feeds ? "" : ` <a href="#settings">Connect your calendar</a>`}</div>`}</div>`;
+  return `<div class="card nv-panel" id="nvUp"><div class="ttl">Upcoming <b>${items.length ? items.length + " this week" : "clear"}</b></div>${html}${items.length > (PHONE() ? 3 : 6) ? `<a class="nv-empty" href="#calendar" style="display:block;margin-top:6px">+${items.length - (PHONE() ? 3 : 6)} more in Calendar</a>` : ""}${html ? "" : `<div class="nv-empty">Nothing in the next 7 days.${feeds ? "" : ` <a href="#settings">Connect your calendar</a>`}</div>`}</div>`;
 }
 
 function inboxHTML() {
@@ -61,5 +62,14 @@ async function mailPoll() {
   Mail.t = setTimeout(mailPoll, Mail.st?.busy ? 4000 : 60000);
 }
 const _cmdFillX = cmdFill;
-cmdFill = function (q) { _cmdFillX(q); try { cmdExtras(); } catch (e) { console.warn(e); } if (!Mail.st) mailGet().then(cmdExtras); clearTimeout(Mail.t); Mail.t = setTimeout(mailPoll, Mail.st?.busy ? 4000 : 60000); };
+function cmdTiersFold() {
+  const t = document.querySelector("#view .lv-tiers"); if (!t || !PHONE() || t.dataset.fold) return;
+  t.dataset.fold = "1"; t.classList.add("ph-fold");
+  const lbl = () => { const on = [...t.querySelectorAll(".tiers button.on, .tiers .on")].map(b => b.textContent.replace(/\s+/g, " ").trim().split(" ")[0]); return on.join(" · ") || "Model"; };
+  const b = document.createElement("button"); b.type = "button"; b.className = "ph-tier-btn"; b.innerHTML = `<span>${esc(lbl())}</span> ▾`;
+  b.onclick = () => { t.classList.toggle("open"); b.classList.toggle("on"); };
+  t.addEventListener("click", () => setTimeout(() => { b.querySelector("span").textContent = lbl(); }, 50));
+  t.before(b);
+}
+cmdFill = function (q) { _cmdFillX(q); try { cmdTiersFold(); } catch {} try { cmdExtras(); } catch (e) { console.warn(e); } if (!Mail.st) mailGet().then(cmdExtras); clearTimeout(Mail.t); Mail.t = setTimeout(mailPoll, Mail.st?.busy ? 4000 : 60000); };
 document.addEventListener("visibilitychange", () => { if (!document.hidden && route.view === "command") mailPoll(); });

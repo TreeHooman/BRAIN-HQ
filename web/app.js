@@ -359,6 +359,7 @@ function vCalendar(el) {
   S.reminders.forEach(r => add(r.due.slice(0, 10), { t: r.title, cls: r.done ? "done" : "", time: r.due.slice(11, 16) }));
   S.milestones.forEach(m => add(m.date, { t: m.title, cls: `${m.kind || "milestone"} ${m.done ? "done" : ""}` }));
   const feeds = S.calendar?.feeds || [], fcol = Object.fromEntries(feeds.map(f => [f.id, f.color || "teal"]));
+  const fcls = id => /^#/.test(fcol[id] || "") ? "gcal c-acct" : `gcal c-${fcol[id]}`, fsty = id => /^#/.test(fcol[id] || "") ? fcol[id] : "";
   const key = ymd(start);
   if (feeds.length && (calFeed.key !== key || Date.now() - calFeed.at > 120e3)) {
     const end = new Date(start); end.setDate(start.getDate() + 42);
@@ -366,8 +367,8 @@ function vCalendar(el) {
     api(`/calendar?from=${key}&to=${ymd(end)}`).then(r => { if (calFeed.key !== key) return; calFeed.events = r.events || []; if (route.view === "calendar") render(); }).catch(() => {});
   }
   if (feeds.length) calFeed.events.forEach(e => {
-    if (e.allDay) { for (let d = toDate(e.start); ymd(d) < e.end; d.setDate(d.getDate() + 1)) add(ymd(d), { t: e.title, cls: `gcal c-${fcol[e.feed]}`, ev: e }); }
-    else { const d = new Date(e.start); add(ymd(d), { t: e.title, cls: `gcal c-${fcol[e.feed]}`, time: `${pad(d.getHours())}:${pad(d.getMinutes())}`, ev: e }); }
+    if (e.allDay) { for (let d = toDate(e.start); ymd(d) < e.end; d.setDate(d.getDate() + 1)) add(ymd(d), { t: e.title, cls: fcls(e.feed), c: fsty(e.feed), ev: e }); }
+    else { const d = new Date(e.start); add(ymd(d), { t: e.title, cls: fcls(e.feed), c: fsty(e.feed), time: `${pad(d.getHours())}:${pad(d.getMinutes())}`, ev: e }); }
   });
   Object.values(events).forEach(l => l.sort((a, b) => (a.ev ? (a.ev.allDay ? "" : a.time) : "~") .localeCompare(b.ev ? (b.ev.allDay ? "" : b.time) : "~")));
   let cells = "";
@@ -375,7 +376,7 @@ function vCalendar(el) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     const k = ymd(d), ev = events[k] || [];
     cells += `<div class="day ${d.getMonth() !== first.getMonth() ? "out" : ""} ${k === today ? "today" : ""}" data-day="${k}">
-      <div class="num">${d.getDate()}</div>${ev.slice(0, 4).map(e => `<div class="ev ${e.cls}" title="${esc(e.t + (e.ev?.location ? " @ " + e.ev.location : ""))}">${e.time ? e.time + " " : ""}${esc(e.t)}</div>`).join("")}${ev.length > 4 ? `<div class="small faint">+${ev.length - 4} more</div>` : ""}</div>`;
+      <div class="num">${d.getDate()}</div>${ev.slice(0, 4).map(e => `<div class="ev ${e.cls}"${e.c ? ` style="--gc:${esc(e.c)}"` : ""} title="${esc(e.t + (e.ev?.location ? " @ " + e.ev.location : ""))}">${e.time ? e.time + " " : ""}${esc(e.t)}</div>`).join("")}${ev.length > 4 ? `<div class="small faint">+${ev.length - 4} more</div>` : ""}</div>`;
   }
   const evWhen = e => e.allDay ? e.start : (d => `${ymd(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`)(new Date(e.start));
   const upcoming = [...S.reminders.filter(r => !r.done).map(r => ({ d: r.due, t: r.title, k: "reminder", p: r.project })), ...S.milestones.filter(m => !m.done).map(m => ({ d: m.date, t: m.title, k: m.kind, p: m.project })),
@@ -647,8 +648,8 @@ function vSettings(el) {
         <div class="row end"><button type="button" class="btn" id="replayBoot">Replay boot</button><button type="button" class="btn" id="powerDown">Power down</button></div></div>
       <h2>Calendar</h2>
       <div class="card form" id="calCard">
-        ${(S.calendar?.feeds || []).map(f => `<div class="row"><span class="dot ${f.ok === false ? "risk" : f.ok ? "good" : "unknown"}"></span><div class="grow"><b>${esc(f.name)}</b> <span class="small faint">${esc(f.host)}</span>
-          <div class="small ${f.ok === false ? "" : "muted"}">${f.ok === false ? esc(f.error || "Sync failed") : f.lastSync ? `Synced ${esc(ago(f.lastSync))} · ${f.count} events` : "Syncing…"}</div></div><button type="button" class="btn sm ghost" data-calrm="${esc(f.id)}">Remove</button></div>`).join("") || `<div class="small muted">No calendar connected.</div>`}
+        ${(S.calendar?.feeds || []).map(f => `<div class="row"><span class="dot ${f.ok === false ? "risk" : f.ok ? "good" : "unknown"}" ${f.google ? `style="background:${esc(f.color)}"` : ""}></span><div class="grow"><b>${esc(f.name)}</b> <span class="small faint">${esc(f.host)}${f.google ? " · Google account" : ""}</span>
+          <div class="small ${f.ok === false ? "" : "muted"}">${f.ok === false ? esc(f.error || "Sync failed") : f.lastSync ? `Synced ${esc(ago(f.lastSync))} · ${f.count} events` : "Syncing…"}</div></div>${f.google ? `<a class="btn sm ghost" href="#workspace">${f.needsReconnect ? "Reconnect" : "Manage"}</a>` : `<button type="button" class="btn sm ghost" data-calrm="${esc(f.id)}">Remove</button>`}</div>`).join("") || `<div class="small muted">No calendar connected.</div>`}
         <div class="two"><label class="f">Name<input id="calName" placeholder="Personal" maxlength="40" autocomplete="off"></label>
           <label class="f">Secret address (iCal)<input id="calUrl" type="text" class="masked" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" autocomplete="new-password" data-lpignore="true" data-1p-ignore spellcheck="false"></label></div>
         <div class="note blue small"><b>Google Calendar:</b> calendar.google.com → Settings → click your calendar on the left → <b>Integrate calendar</b> → copy <b>Secret address in iCal format</b>. Outlook and iCloud .ics links work too.<br>Read-only. The address stays on this PC (<code>config/hq.local.json</code>) and is never shown again. If it leaks, press “Reset” next to it in Google and add the new one.</div>

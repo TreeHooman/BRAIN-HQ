@@ -17,12 +17,15 @@ const DRIVE = "https://www.googleapis.com/drive/v3";
 const SHEETS = "https://sheets.googleapis.com/v4/spreadsheets";
 const WRITE_SCOPES = ["https://www.googleapis.com/auth/gmail.send", "https://www.googleapis.com/auth/documents", "https://www.googleapis.com/auth/spreadsheets"];
 const DOCS = "https://docs.googleapis.com/v1/documents";
-const SCOPES = ["openid", "email", "profile", "https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/drive.readonly"];
+const CAL_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+const SCOPES = ["openid", "email", "profile", "https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/drive.readonly", CAL_SCOPE];
+const CAL = "https://www.googleapis.com/calendar/v3";
 const TIMEOUT = 15e3, MAX_ACCOUNTS = 12;
 const COLORS = ["#38bdf8", "#a78bfa", "#f59e0b", "#f472b6", "#34d399", "#fb7185", "#60a5fa", "#facc15", "#2dd4bf", "#c084fc", "#fb923c", "#4ade80"];
 
 type Account = { id: string; email: string; name: string; label: string; color: string; refresh: string | null; addedAt: string; scopes?: string };
 type Pending = { verifier: string; at: number; redirect: string; write: boolean };
+const hasCal = (a: Account) => String(a.scopes || "").includes(CAL_SCOPE);
 const canWrite = (a: Account) => WRITE_SCOPES.every(x => String(a.scopes || "").includes(x));
 const pending = new Map<string, Pending>();
 const access = new Map<string, { token: string; exp: number }>();
@@ -44,7 +47,7 @@ export function status(port: number) {
   const c = conf();
   return {
     configured: !!(c.clientId && c.clientSecret), clientId: c.clientId ? String(c.clientId).slice(0, 10) + "…" : null, redirectUri: redirectUri(port),
-    accounts: accounts().map(a => ({ id: a.id, email: a.email, name: a.name, label: a.label, color: a.color, ok: !!a.refresh, write: canWrite(a) })),
+    accounts: accounts().map(a => ({ id: a.id, email: a.email, name: a.name, label: a.label, color: a.color, ok: !!a.refresh, write: canWrite(a), cal: hasCal(a) })),
   };
 }
 
@@ -165,7 +168,7 @@ async function gget(a: Account, url: string, kind: "json" | "text" = "json", ret
   if (r.ok) return kind === "text" ? (await r.text()).slice(0, 400_000) : r.json();
   const j: any = await r.json().catch(() => null);
   const reason = String(j?.error?.errors?.[0]?.reason || j?.error?.status || "");
-  const api = url.includes("gmail") ? "Gmail API" : url.includes("sheets") ? "Google Sheets API" : "Google Drive API";
+  const api = url.includes("gmail") ? "Gmail API" : url.includes("sheets") ? "Google Sheets API" : url.includes("/calendar/") ? "Google Calendar API" : "Google Drive API";
   if (/accessNotConfigured|SERVICE_DISABLED/i.test(reason) || /has not been used|is disabled/i.test(String(j?.error?.message || ""))) throw err(`Turn on the ${api} in Google Cloud (Workspace → Setup, step 2), wait a minute, then retry.`);
   if (r.status === 404) throw err("Not found (it may have been deleted or you lost access).", 404);
   if (r.status === 403) throw err(/insufficient/i.test(reason) ? `${a.label}: reconnect and tick every box on Google's page.` : /domainPolicy|admin/i.test(reason + (j?.error?.message || "")) ? `${a.label}: the company's Google admin blocks this. Ask them to allow LUTHUR's Client ID.` : "Google didn't allow that.");
@@ -439,4 +442,58 @@ export async function raw(acc: string, id: string): Promise<{ type: string; body
   const body = Buffer.from(await r.arrayBuffer());
   if (body.length > 25e6) throw err("Too big to preview here.");
   return { type: f.mime, body };
+}
+
+// ---------------- Calendar (read-only; shown in LUTHUR's Calendar, Upcoming and briefings) ----------------
+export type GCalEvent = { id: string; feed: string; title: string; start: string; end: string; allDay: boolean; location?: string };
+type CalMonth = { at: number; events: GCalEvent[]; inflight?: Promise<void> };
+const calCache = new Map<string, CalMonth>(); // `${acct}|${yyyy-mm}`
+const calState = new Map<string, { ok: boolean | null; error: string | null; at: number }>();
+const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+function monthsBetween(from: Date, to: Date): Date[] { const out: Date[] = []; const d = new Date(from.getFullYear(), from.getMonth(), 1); while (d < to && out.length < 14) { out.push(new Date(d)); d.setMonth(d.getMonth() + 1); } return out; }
+
+async function calFetch(a: Account, month: Date): Promise<GCalEvent[]> {
+  const from = new Date(month), to = new Date(month); to.setMonth(to.getMonth() + 1);
+  const list = await gget(a, `${CAL}/users/me/calendarList?minAccessRole=reader&maxResults=50`);
+  const cals = (list.items || []).filter((c: any) => c && c.selected !== false && !c.hidden && typeof c.id === "string").slice(0, 15);
+  const out: GCalEvent[] = [];
+  await pool(cals, 4, async (c: any) => {
+    const q = new URLSearchParams({ timeMin: from.toISOString(), timeMax: to.toISOString(), singleEvents: "true", orderBy: "startTime", maxResults: "250", fields: "items(id,status,summary,location,start,end)" });
+    const r = await gget(a, `${CAL}/calendars/${encodeURIComponent(c.id)}/events?${q}`).catch(() => null);
+    for (const e of r?.items || []) {
+      if (e.status === "cancelled" || !e.start) continue;
+      const allDay = !!e.start.date;
+      out.push({ id: crypto.createHash("sha1").update(`${a.id}|${c.id}|${e.id}`).digest("hex").slice(0, 16), feed: "g:" + a.id, title: clip(e.summary, 200) || "(busy)", location: clip(e.location, 200) || undefined, allDay,
+        start: allDay ? String(e.start.date) : new Date(e.start.dateTime).toISOString(), end: allDay ? String(e.end?.date || e.start.date) : new Date(e.end?.dateTime || e.start.dateTime).toISOString() });
+    }
+  });
+  return out;
+}
+/** Starts background fetches for stale months (10 min TTL). Non-blocking. */
+export function calKick(from: Date, to: Date) {
+  for (const a of accounts().filter(x => x.refresh && hasCal(x))) for (const m of monthsBetween(from, to)) {
+    const key = `${a.id}|${monthKey(m)}`, c = calCache.get(key) || { at: 0, events: [] };
+    if (c.inflight || (c.at && Date.now() - c.at < 10 * 60e3)) continue;
+    c.inflight = calFetch(a, m).then(ev => { c.events = ev; calState.set(a.id, { ok: true, error: null, at: Date.now() }); })
+      .catch((e: any) => calState.set(a.id, { ok: false, error: String(e?.message || e).slice(0, 200), at: Date.now() }))
+      .finally(() => { c.at = Date.now(); c.inflight = undefined; });
+    calCache.set(key, c);
+    if (calCache.size > 200) calCache.delete(calCache.keys().next().value!);
+  }
+}
+export async function calSync(from: Date, to: Date) { for (const [k] of calCache) calCache.get(k)!.at = 0; calKick(from, to); await Promise.all([...calCache.values()].map(c => c.inflight)); }
+export function calEvents(from: Date, to: Date): GCalEvent[] {
+  const f = from.getTime(), t = to.getTime(), seen = new Set<string>(), out: GCalEvent[] = [];
+  for (const a of accounts().filter(x => hasCal(x))) for (const m of monthsBetween(from, to)) for (const e of calCache.get(`${a.id}|${monthKey(m)}`)?.events || []) {
+    const s = Date.parse(e.allDay ? e.start + "T00:00" : e.start), en = Date.parse(e.allDay ? e.end + "T00:00" : e.end);
+    if (s < t && Math.max(en, s + 1) > f && !seen.has(e.id)) { seen.add(e.id); out.push(e); }
+  }
+  return out;
+}
+/** Calendar "feeds" for the dashboard: one per connected account (managed in Workspace, not removable here). */
+export function calFeeds() {
+  return accounts().map(a => {
+    const st = calState.get(a.id), n = [...calCache.entries()].filter(([k]) => k.startsWith(a.id + "|")).reduce((s, [, v]) => s + v.events.length, 0);
+    return { id: "g:" + a.id, name: a.label, color: a.color, host: a.email, google: true, needsReconnect: !hasCal(a), ok: !hasCal(a) ? false : st ? st.ok : null, error: !hasCal(a) ? "Press Reconnect in Workspace → Accounts to show this calendar." : st?.error || null, lastSync: st?.at ? new Date(st.at).toISOString() : null, count: n };
+  });
 }

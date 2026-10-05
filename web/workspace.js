@@ -56,14 +56,14 @@ function wsManage() {
   const st = WS.st, here = onPC();
   const steps = `<ol class="ws-steps">
     <li>Open <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener noreferrer">Google Cloud → New project</a>, name it <b>LUTHUR</b>, press <b>Create</b>. Free; no billing needed.</li>
-    <li>Turn on 4 APIs (open each, press <b>Enable</b>): <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener noreferrer">Gmail API</a>, <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer">Google Drive API</a>, <a href="https://console.cloud.google.com/apis/library/sheets.googleapis.com" target="_blank" rel="noopener noreferrer">Google Sheets API</a>, <a href="https://console.cloud.google.com/apis/library/docs.googleapis.com" target="_blank" rel="noopener noreferrer">Google Docs API</a>.</li>
+    <li>Turn on 5 APIs (open each, press <b>Enable</b>): <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener noreferrer">Gmail API</a>, <a href="https://console.cloud.google.com/apis/library/drive.googleapis.com" target="_blank" rel="noopener noreferrer">Google Drive API</a>, <a href="https://console.cloud.google.com/apis/library/sheets.googleapis.com" target="_blank" rel="noopener noreferrer">Google Sheets API</a>, <a href="https://console.cloud.google.com/apis/library/docs.googleapis.com" target="_blank" rel="noopener noreferrer">Google Docs API</a>, <a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener noreferrer">Google Calendar API</a>.</li>
     <li>Open <a href="https://console.cloud.google.com/auth/overview" target="_blank" rel="noopener noreferrer">Google Auth Platform</a> → <b>Get started</b>. App name <b>LUTHUR</b>, your email, Audience <b>External</b>, finish.</li>
     <li>Go to <b>Audience</b> → <b>Publish app</b> → Confirm. (If you leave it in “Testing”, Google signs you out every 7 days.)</li>
     <li>Go to <b>Clients</b> → <b>Create client</b> → Application type <b>Desktop app</b>, name <b>LUTHUR</b> → <b>Create</b>. Copy the <b>Client ID</b> and <b>Client secret</b> into the boxes below.</li></ol>`;
   const rows = st.accounts.map(a => `<div class="ws-acc" data-id="${esc(a.id)}">
       <i class="ws-dot" style="--c:${esc(a.color)}"></i>
       <input class="ws-lbl" value="${esc(a.label)}" maxlength="24" aria-label="Label for ${esc(a.email)}">
-      <span class="ws-mail">${esc(a.email)}${a.ok ? "" : ` <b class="ws-warn">signed out</b>`}${a.write ? ` <b class="ws-wr">writing on</b>` : ""}</span>
+      <span class="ws-mail">${esc(a.email)}${a.ok ? "" : ` <b class="ws-warn">signed out</b>`}${a.write ? ` <b class="ws-wr">writing on</b>` : ""}${a.ok && !a.cal ? ` <b class="ws-warn">calendar off: press Reconnect</b>` : ""}</span>
       <span class="ws-sw">${PC.map(c => `<button type="button" data-c="${c}" style="--c:${c}" class="${c === a.color ? "on" : ""}" aria-label="Colour"></button>`).join("")}</span>
       ${a.write ? "" : `<button type="button" class="btn sm" data-wr ${here ? "" : "disabled"} title="Send email (after you approve), create and edit Docs and Sheets">Allow writing</button>`}
       <button type="button" class="btn sm ghost" data-re ${here ? "" : "disabled"}>${a.ok ? "Reconnect" : "Sign in again"}</button>
@@ -242,7 +242,8 @@ inboxHTML = function () {
   const m = WS.cmd;
   if (!m) return `<div class="card nv-panel" id="nvMail"><div class="ttl">Inbox</div><div class="nv-empty">Loading…</div></div>`;
   const unread = m.items.filter(x => x.unread).length;
-  const rows = m.items.slice(0, 7).map(x => `<a class="nv-row ml-row ${x.unread ? "unread" : ""}" href="#workspace/mail/${esc(x.acct)}/${esc(x.id)}" style="--c:${esc(wsAcc(x.acct)?.color || "#888")}">${wsDot(x.acct)}<div style="min-width:0"><div class="t"><b>${esc(wsFrom(x.from)).slice(0, 40)}</b>${esc(x.subject)}</div><small>${esc(wsAcc(x.acct)?.label || "")} · ${esc(x.snippet).slice(0, 90)} · ${esc(wsWhen(x.date))}</small></div></a>`).join("");
+  const ph = matchMedia("(max-width: 760px)").matches;
+  const rows = m.items.slice(0, ph ? 3 : 7).map(x => `<a class="nv-row ml-row ${x.unread ? "unread" : ""}" href="#workspace/mail/${esc(x.acct)}/${esc(x.id)}" style="--c:${esc(wsAcc(x.acct)?.color || "#888")}">${wsDot(x.acct)}<div style="min-width:0"><div class="t"><b>${esc(wsFrom(x.from)).slice(0, 40)}</b>${esc(x.subject)}</div><small>${esc(wsAcc(x.acct)?.label || "")} · ${esc(x.snippet).slice(0, 90)} · ${esc(wsWhen(x.date))}</small></div></a>`).join("");
   return `<div class="card nv-panel" id="nvMail"><div class="ttl">Inbox <b>${unread ? unread + " unread" : m.items.length ? "read" : ""}</b></div>
     ${(m.errors || []).length ? `<div class="nv-empty" style="color:var(--amber)">${esc(m.errors.map(e => (wsAcc(e.acct)?.label ? wsAcc(e.acct).label + ": " : "") + e.error).join(" · ")).slice(0, 220)}</div>` : ""}
     ${rows || `<div class="nv-empty">Inbox clear.</div>`}
