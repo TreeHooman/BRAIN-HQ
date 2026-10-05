@@ -17,7 +17,7 @@ async function musicPoll() {
   if (document.hidden || !Music.st?.connected) return;
   const n = await api("/spotify/now").catch(e => ({ error: e.message }));
   if (n.connected === false) { Music.st.connected = false; Music.now = null; musicChrome(); return; }
-  if (!n.error) Music.now = n;
+  if (!n.error) { Music.now = n; Music.at = Date.now(); }
   musicChrome();
   Music.t = setTimeout(musicPoll, Music.open || (route.view === "command" && Music.now?.playing) ? 3000 : Music.now?.playing ? 6000 : 15000);
 }
@@ -31,6 +31,39 @@ async function musicPlay(query) {
   try { const r = await api("/spotify/play", "POST", { query }); toast(`Playing ${r.playing}`); speakAlways?.(`Playing ${r.playing}`); setTimeout(musicPoll, 600); return true; }
   catch (e) { toast(e.message, 5000); speakAlways?.(e.message); return true; }
 }
+
+// ---------------- seek: click or drag the progress bar ----------------
+const mmss = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+/** Where the song is now: last poll + time since, so the bar moves smoothly between polls. */
+function musicPos() { const n = Music.now; if (!n?.duration) return 0; return Math.min(n.duration, n.progress + (n.playing && Music.at ? Date.now() - Music.at : 0)); }
+function musicBarPaint(root, pre) {
+  const n = Music.now, bar = root.querySelector(`#${pre}Bar`); if (!bar) return;
+  if (bar.dataset.drag) return;
+  const pos = musicPos(), pct = n?.duration ? Math.min(100, pos / n.duration * 100) : 0;
+  bar.style.setProperty("--p", pct + "%");
+  root.querySelector(`#${pre}E`).textContent = n?.duration ? mmss(pos) : "";
+  root.querySelector(`#${pre}L`).textContent = n?.duration ? mmss(n.duration) : "";
+}
+function musicSeekBar(bar) {
+  if (!bar) return;
+  const frac = e => { const r = bar.getBoundingClientRect(); return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)); };
+  const show = f => { const n = Music.now; bar.style.setProperty("--p", f * 100 + "%"); const t = bar.parentElement.querySelector("[id$=E]"); if (t && n?.duration) t.textContent = mmss(f * n.duration); };
+  bar.addEventListener("pointerdown", e => {
+    if (!Music.now?.duration) return; e.preventDefault(); e.stopPropagation();
+    bar.setPointerCapture(e.pointerId); bar.dataset.drag = "1"; bar.classList.add("drag"); show(frac(e));
+    const mv = ev => show(frac(ev));
+    const up = ev => {
+      bar.removeEventListener("pointermove", mv); bar.removeEventListener("pointerup", up); bar.removeEventListener("pointercancel", up);
+      const f = frac(ev), ms = Math.round(f * Music.now.duration);
+      delete bar.dataset.drag; bar.classList.remove("drag");
+      Music.now.progress = ms; Music.at = Date.now(); // jump right away; the next poll confirms
+      musicDo("seek", ms);
+    };
+    bar.addEventListener("pointermove", mv); bar.addEventListener("pointerup", up); bar.addEventListener("pointercancel", up);
+  });
+  bar.addEventListener("click", e => e.stopPropagation());
+}
+setInterval(() => { if (!Music.now?.playing || document.hidden) return; const h = document.getElementById("musHud"); if (h) musicBarPaint(h, "mh"); const p = document.getElementById("musPop"); if (p) musicBarPaint(p, "mp"); }, 500);
 
 // top-bar button + popover
 function musicChrome() {
@@ -58,10 +91,11 @@ function musicHud() {
     h = document.createElement("div"); h.id = "musHud"; h.className = "mus-hud";
     h.innerHTML = `<div class="mh-lbl"><i class="mus-eq"><s></s><s></s><s></s></i><span id="mhSt"></span></div>
       <div class="mh-row"><button type="button" class="mh-art" id="mhArt" aria-label="Open music"></button><div class="mh-txt"><b id="mhT"></b><small id="mhA"></small></div></div>
-      <div class="mh-bar"><i id="mhP"></i></div>
+      <div class="mh-bar mus-seek" id="mhBar"><i id="mhP"></i><b class="ms-knob"></b></div><div class="ms-time"><span id="mhE"></span><span id="mhL"></span></div>
       <div class="mh-ctl"><button type="button" data-mh="previous" aria-label="Previous">${MI.prev}</button><button type="button" data-mh="toggle" id="mhPlay" aria-label="Play or pause"></button><button type="button" data-mh="next" aria-label="Next">${MI.next}</button><span id="mhD"></span></div>`;
     stage.appendChild(h);
     h.querySelectorAll("[data-mh]").forEach(x => x.onclick = e => { e.stopPropagation(); musicDo(x.dataset.mh); });
+    musicSeekBar(h.querySelector("#mhBar"));
     h.querySelector("#mhArt").onclick = e => { e.stopPropagation(); musicToggle(true); };
     h.addEventListener("click", e => e.stopPropagation());
   }
@@ -69,7 +103,7 @@ function musicHud() {
   h.querySelector("#mhSt").textContent = n.playing ? "NOW PLAYING" : "PAUSED";
   h.querySelector("#mhArt").innerHTML = n.art ? `<img src="${esc(n.art)}" alt="" referrerpolicy="no-referrer">` : NOTE_SVG;
   h.querySelector("#mhT").textContent = n.track; h.querySelector("#mhA").textContent = n.artist;
-  h.querySelector("#mhP").style.width = n.duration ? `${Math.min(100, n.progress / n.duration * 100)}%` : "0";
+  musicBarPaint(h, "mh");
   h.querySelector("#mhPlay").innerHTML = n.playing ? MI.pause : MI.play;
   h.querySelector("#mhD").textContent = n.device?.name ? "· " + n.device.name.toUpperCase() : "";
 }
@@ -88,12 +122,13 @@ async function musicPopFill(full) {
   const n = Music.now || {};
   if (full || !p.querySelector(".mp-ctl")) {
     p.innerHTML = `<div class="mp-head"><div class="mp-art" id="mpArt"></div><div class="mp-txt"><b id="mpT"></b><small id="mpA"></small><small id="mpD" class="faint"></small></div></div>
-      <div class="mp-bar"><i id="mpP"></i></div>
+      <div class="mp-bar mus-seek" id="mpBar"><i id="mpP"></i><b class="ms-knob"></b></div><div class="ms-time"><span id="mpE"></span><span id="mpL"></span></div>
       <div class="mp-ctl"><button type="button" data-m="previous" aria-label="Previous">${MI.prev}</button><button type="button" class="mp-play" data-m="toggle" aria-label="Play or pause"></button><button type="button" data-m="next" aria-label="Next">${MI.next}</button></div>
       <label class="mp-vol"><span>Volume</span><input type="range" min="0" max="100" step="5" id="mpVol" aria-label="Volume"></label>
       <form class="mp-ask" id="mpAsk"><input id="mpQ" placeholder="Play… a song, artist or playlist" aria-label="What to play" autocomplete="off"><button class="btn sm primary">Play</button></form>
       <div class="mp-dev" id="mpDev"></div>`;
     p.querySelectorAll("[data-m]").forEach(x => x.onclick = () => musicDo(x.dataset.m));
+    musicSeekBar(p.querySelector("#mpBar"));
     const vol = p.querySelector("#mpVol"); vol.onchange = () => musicDo("volume", Number(vol.value));
     p.querySelector("#mpAsk").onsubmit = e => { e.preventDefault(); const q = p.querySelector("#mpQ").value.trim(); if (q) { musicPlay(q); p.querySelector("#mpQ").value = ""; } };
     musicDevices();
@@ -102,7 +137,7 @@ async function musicPopFill(full) {
   p.querySelector("#mpT").textContent = n.active ? n.track : "Nothing playing";
   p.querySelector("#mpA").textContent = n.active ? n.artist : "Pick something below, or say “Hey LUTHUR, play …”";
   p.querySelector("#mpD").textContent = n.device ? `on ${n.device.name}` : "";
-  p.querySelector("#mpP").style.width = n.duration ? `${Math.min(100, n.progress / n.duration * 100)}%` : "0";
+  musicBarPaint(p, "mp");
   p.querySelector(".mp-play").innerHTML = n.playing ? MI.pause : MI.play;
   const vol = p.querySelector("#mpVol"); if (document.activeElement !== vol && n.device?.volume != null) vol.value = n.device.volume;
 }

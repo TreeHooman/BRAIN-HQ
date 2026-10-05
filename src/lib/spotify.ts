@@ -151,6 +151,7 @@ export async function control(action: string, value?: unknown) {
     case "previous": await call("POST", "/me/player/previous"); break;
     case "volume": { const v = Math.max(0, Math.min(100, Math.round(Number(value)))); if (!Number.isFinite(v)) throw err("Bad volume"); await call("PUT", `/me/player/volume?volume_percent=${v}`); break; }
     case "volume-step": { const p = await call("GET", "/me/player"); const cur = p?.device?.volume_percent ?? 50; await control("volume", cur + (Number(value) || 10)); break; }
+    case "seek": { const ms = Math.round(Number(value)); if (!Number.isFinite(ms) || ms < 0 || ms > 864e5) throw err("Bad position"); await call("PUT", `/me/player/seek?position_ms=${ms}`); break; }
     case "shuffle": await call("PUT", `/me/player/shuffle?state=${value ? "true" : "false"}`); break;
     case "transfer": { const id = String(value || ""); if (!ID.test(id)) throw err("Bad device"); await call("PUT", "/me/player", { device_ids: [id], play: true }); break; }
     default: throw err("Unknown action");

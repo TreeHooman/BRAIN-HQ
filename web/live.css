@@ -544,3 +544,12 @@ html, body { overflow-x: hidden; }
   .nv-quick { display: none !important; }
   .nv-more { font: 11px var(--mono); color: var(--text3); padding: 4px 0 8px 14px; letter-spacing: .06em; }
 }
+
+/* music seek bar: click or drag to jump */
+.mus-seek { position: relative; height: 4px !important; overflow: visible !important; cursor: pointer; touch-action: none; border-radius: 3px; }
+.mus-seek::before { content: ""; position: absolute; inset: -9px 0; } /* bigger hit area */
+.mus-seek > i { width: var(--p, 0%) !important; transition: none !important; border-radius: 3px; }
+.mus-seek .ms-knob { position: absolute; top: 50%; left: var(--p, 0%); width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px var(--accent); opacity: 0; transform: scale(.6); transition: opacity .15s, transform .15s; pointer-events: none; }
+.mus-seek:hover .ms-knob, .mus-seek.drag .ms-knob { opacity: 1; transform: scale(1); }
+.mus-seek:hover, .mus-seek.drag { height: 6px !important; }
+.ms-time { display: flex; justify-content: space-between; font: 10px var(--mono); color: var(--text3); letter-spacing: .05em; margin: -2px 0 4px; font-variant-numeric: tabular-nums; }
