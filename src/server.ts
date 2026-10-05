@@ -8,6 +8,7 @@ import * as brain from "./lib/brain.ts";
 import * as orch from "./lib/orchestrator.ts";
 import { notify, ntfy } from "./lib/notify.ts";
 import { describe } from "./lib/schedule.ts";
+import * as cal from "./lib/calendar.ts";
 
 ensureLocalConfig();
 const cfg = loadConfig();
@@ -29,6 +30,8 @@ async function body(req: http.IncomingMessage): Promise<any> {
 
 function snapshot() {
   const c = loadConfig();
+  cal.kick();
+  const today = new Date(); today.setHours(0, 0, 0, 0);
   return {
     now: new Date().toISOString(),
     projects: brain.listProjects(),
@@ -36,6 +39,7 @@ function snapshot() {
     milestones: brain.listMilestones(),
     inbox: brain.listInbox(),
     goals: brain.listGoals(),
+    calendar: { feeds: cal.feedStatus(), upcoming: cal.events(today, new Date(today.getTime() + 15 * 864e5)).slice(0, 80) },
     decisions: brain.recentDecisions(30),
     brief: brain.latestBrief(),
     missions: orch.missions().map(m => ({ ...m, scheduleText: describe(m.schedule) })),
@@ -59,7 +63,7 @@ function missionTemplates(): any[] {
   try { return fs.readdirSync(dir).filter(f => f.endsWith(".json")).map(f => readJson(path.join(dir, f), null)).filter(Boolean); } catch { return []; }
 }
 
-type Handler = (m: RegExpMatchArray, b: any) => unknown | Promise<unknown>;
+type Handler = (m: RegExpMatchArray, b: any, url: URL) => unknown | Promise<unknown>;
 const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/state$/, () => snapshot()],
   ["GET", /^\/api\/project\/([a-z0-9-]+)$/, m => {
@@ -98,6 +102,18 @@ const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/runs\/([\w-]+)$/, m => orch.getRun(m[1]) || {}],
   ["POST", /^\/api\/approvals\/([\w-]+)$/, (m, b) => orch.decideApproval(m[1], !!b.approve)],
 
+  ["GET", /^\/api\/calendar$/, (_m, _b, url) => {
+    const day = (v: string | null, d: Date) => /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? new Date(v + "T00:00") : d;
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    const from = day(url.searchParams.get("from"), new Date(now.getTime() - 7 * 864e5));
+    let to = day(url.searchParams.get("to"), new Date(now.getTime() + 60 * 864e5));
+    if (to.getTime() - from.getTime() > 400 * 864e5) to = new Date(from.getTime() + 400 * 864e5);
+    cal.kick();
+    return { feeds: cal.feedStatus(), events: cal.events(from, to) };
+  }],
+  ["POST", /^\/api\/calendar\/feeds$/, (_, b) => cal.addFeed(String(b.name || ""), String(b.url || ""))],
+  ["DELETE", /^\/api\/calendar\/feeds\/([\w-]+)$/, m => { cal.removeFeed(m[1]); return { ok: true }; }],
+  ["POST", /^\/api\/calendar\/sync$/, async () => { await cal.syncAll(); return { feeds: cal.feedStatus() }; }],
   ["GET", /^\/api\/live$/, () => orch.liveOps()],
   ["GET", /^\/api\/chat$/, () => orch.chat()],
   ["POST", /^\/api\/chat$/, (_, b) => { void orch.sendChat(String(b.text || ""), { project: b.project, tier: b.tier }).catch(() => {}); return { ok: true }; }],
@@ -132,7 +148,7 @@ const server = http.createServer(async (req, res) => {
       if (url.pathname === "/api/search" && req.method === "GET") return send(res, 200, brain.searchBrain(url.searchParams.get("q") || ""));
       for (const [method, re, h] of routes) {
         const m = url.pathname.match(re);
-        if (m && req.method === method) return send(res, 200, await h(m, req.method === "GET" ? {} : await body(req)));
+        if (m && req.method === method) return send(res, 200, await h(m, req.method === "GET" ? {} : await body(req), url));
       }
       return send(res, 404, { error: "No such endpoint" });
     }
@@ -157,6 +173,7 @@ server.on("error", (e: any) => {
 server.listen(PORT, HOST, () => {
   console.log(`HQ running → http://localhost:${PORT}`);
   if (!process.env.HQ_NO_ORCHESTRATOR) orch.start();
+  cal.kick();
 });
 const shutdown = () => { orch.stop(); process.exit(0); };
 process.on("SIGINT", shutdown);

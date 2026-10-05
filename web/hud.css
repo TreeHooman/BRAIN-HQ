@@ -96,6 +96,10 @@
 [data-theme="hud"] .cal .ev { background: rgba(0, 229, 255, .12); color: #aef4ff; border-left: 2px solid var(--accent); border-radius: 0; }
 [data-theme="hud"] .cal .ev.deadline { background: rgba(255, 59, 92, .14); color: #ffb3c0; border-color: var(--red); }
 [data-theme="hud"] .cal .ev.milestone { background: rgba(157, 140, 255, .14); color: #d6cfff; border-color: var(--violet); }
+[data-theme="hud"] .cal .ev.gcal { background: rgba(61, 255, 181, .1); color: #b5ffe3; border-color: var(--green); }
+[data-theme="hud"] .cal .ev.gcal.c-amber { background: rgba(255, 196, 0, .1); color: #ffe6a3; border-color: var(--amber); }
+[data-theme="hud"] .cal .ev.gcal.c-violet { background: rgba(157, 140, 255, .1); color: #d6cfff; border-color: var(--violet); }
+[data-theme="hud"] .cal .ev.gcal.c-blue { background: rgba(0, 229, 255, .08); color: #aef4ff; border-color: var(--accent); }
 [data-theme="hud"] .road-head, [data-theme="hud"] .road-label { background: rgba(3, 12, 20, .92); }
 [data-theme="hud"] .road-bar { border-radius: 0; clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%); }
 [data-theme="hud"] .road-bar.active { background: rgba(0, 229, 255, .2); border-color: var(--accent); color: #e9fcff; box-shadow: 0 0 14px rgba(0, 229, 255, .25); }

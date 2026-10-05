@@ -703,10 +703,17 @@ function cmdFill(quiet) {
   S.projects.filter(p => p.health === "risk" && p.stage !== "done").forEach(p => alerts.push(["red", `${p.name} at risk`, esc(p.nextStep || "").slice(0, 60).toUpperCase(), "#project/" + p.slug]));
   S.projects.filter(p => p.health === "watch" && p.stage !== "done").forEach(p => alerts.push(["amber", `${p.name}: watch`, "HEALTH", "#project/" + p.slug]));
 
+  // calendar feed: what's left today + the next few days
+  const feedOn = (S.calendar?.feeds || []).length > 0;
+  const evs = (S.calendar?.upcoming || []).map(e => ({ ...e, s: e.allDay ? toDate(e.start + "T00:00") : new Date(e.start), en: e.allDay ? toDate(e.end + "T00:00") : new Date(e.end) })).filter(e => e.en > now);
+  evs.filter(e => !e.allDay && e.s > now && e.s - now <= 45 * 60e3).forEach(e => alerts.unshift(["amber", e.title, `STARTS IN ${Math.max(1, Math.round((e.s - now) / 60e3))} MIN${e.location ? " · " + esc(e.location).toUpperCase().slice(0, 40) : ""}`, "#calendar"]));
+  const evTime = e => e.allDay ? "ALL DAY" : `${pad(e.s.getHours())}:${pad(e.s.getMinutes())}`;
+  const sched = evs.slice(0, 6).map(e => { const live = !e.allDay && e.s <= now; const day = ymd(e.s) === ymd(now) || e.allDay && e.s <= now ? "" : fmtWhen(ymd(e.s)).toUpperCase() + " · ";
+    return `<div class="alert-row"><span class="led ${live ? "" : "off"}"></span><div><a href="#calendar">${esc(e.title)}</a><small>${live ? "NOW · " : day}${evTime(e)}${e.location ? " · " + esc(e.location).toUpperCase().slice(0, 40) : ""}</small></div></div>`; }).join("");
   const upcoming = S.milestones.filter(m => !m.done && toDate(m.date + "T23:59") >= now).sort((a, b) => a.date.localeCompare(b.date));
   const nextDl = upcoming.find(m => m.kind === "deadline") || upcoming[0];
   const horizon = 60;
-  const blips = [...upcoming.map(m => ({ d: toDate(m.date + "T12:00"), p: m.project, k: m.kind })), ...open.map(r => ({ d: toDate(r.due), p: r.project, k: "rem" }))]
+  const blips = [...upcoming.map(m => ({ d: toDate(m.date + "T12:00"), p: m.project, k: m.kind })), ...open.map(r => ({ d: toDate(r.due), p: r.project, k: "rem" })), ...evs.map(e => ({ d: e.s, p: e.feed, k: "rem" }))]
     .map(x => ({ ...x, days: (x.d - now) / 864e5 })).filter(x => x.days >= 0 && x.days <= horizon).slice(0, 18);
   const hash = s => [...String(s || "hq")].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
   const runsByDay = Array.from({ length: 14 }, (_, i) => { const d = ymd(new Date(now.getTime() - (13 - i) * 864e5)); return S.runs.filter(r => (r.createdAt || "").slice(0, 10) === d).length; });
@@ -715,6 +722,7 @@ function cmdFill(quiet) {
   const sys = [["runs", `${st.today}`, `RUNS TODAY / ${st.maxRunsPerDay}`], ["queued", st.queued, "QUEUED"], ["rem", open.length, "OPEN REMINDERS"], ["inbox", S.inbox.length, "INBOX"], ["ap", pend.length, "APPROVALS"], ["proj", projs.filter(p => ["building", "live"].includes(p.stage)).length, "ACTIVE PROJECTS"]];
   R.innerHTML = `<div class="card tilt"><div class="panel-title">Alerts <small>${alerts.length || "clear"}</small></div>
       ${alerts.slice(0, 8).map(a => `<div class="alert-row"><span class="led ${a[0]}"></span><div><a href="${a[3]}">${esc(a[1])}</a><small>${a[2]}</small></div></div>`).join("") || `<div class="alert-row"><span class="led"></span><div>All clear<small>NO ALERTS</small></div></div>`}</div>
+    ${feedOn ? `<div class="card tilt"><div class="panel-title">Schedule <small>${evs.length ? evs.length + " upcoming" : "clear"}</small></div>${sched || `<div class="alert-row"><span class="led off"></span><div>Nothing scheduled<small>NEXT 14 DAYS</small></div></div>`}</div>` : ""}
     <div class="card tilt"><div class="panel-title">System <small>live</small></div>
       <div class="sysgrid">${sys.map(([k, v, l]) => `<div><b data-count="${v}">${quiet ? v : 0}</b><span>${l}</span></div>`).join("")}</div>
       <svg class="spark" viewBox="0 0 200 32" preserveAspectRatio="none" aria-label="Runs over the last 14 days"><path d="${spark}" ${quiet ? 'style="animation:none;stroke-dashoffset:0"' : ""}/></svg></div>

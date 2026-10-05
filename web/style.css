@@ -170,6 +170,8 @@ li:hover .icon-btn, .icon-btn:focus-visible, .phase-row .icon-btn { opacity: 1; 
 .cal .ev { font-size: 11.5px; padding: 1px 7px; border-radius: 5px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: var(--accent-bg); color: #b8cdff; }
 .cal .ev.deadline { background: var(--red-bg); color: #f6aaa5; } .cal .ev.milestone { background: var(--violet-bg); color: #cfc1f7; }
 .cal .ev.done { text-decoration: line-through; opacity: .5; }
+.cal .ev.gcal { background: var(--green-bg); color: var(--green); } .cal .ev.gcal.c-amber { background: var(--amber-bg); color: var(--amber); }
+.cal .ev.gcal.c-violet { background: var(--violet-bg); color: var(--violet); } .cal .ev.gcal.c-blue { background: var(--accent-bg); color: var(--accent); }
 
 /* ---------- roadmap ---------- */
 .road { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); }

@@ -20,12 +20,13 @@ The new look is built but the running HQ is still the old version. Restart it:
 - **Ctrl+K** searches everything. Mission Planner: drag steps, click for details, tick when done.
 - Settings → Look & feel: HUD or Calm theme, sound on/off.
 - Uses the full screen width now.
+- **Google Calendar (read-only):** Settings → Calendar → paste your Google "Secret address in iCal format" (calendar.google.com → ⚙ Settings → your calendar → Integrate calendar). Events show on Calendar and Command (Schedule panel + "starts in N min" alerts). The address stays on your PC only.
 
 ## Prompt to paste in a new session (folder: Project Secrets\HQ)
 > Read HANDOFF.md ("handoff #4") and CLAUDE.md first. The JARVIS HUD is built. Check HQ is restarted (curl localhost:8800/api/live should return JSON), then send one real JARVIS chat and confirm the live operations panel shows the steps correctly. Fix anything off. Then help me hook up Google Calendar and Gmail (read-only) using the options in HANDOFF.md "Not done / next" item 4. Ask me which option before building.
 
 ## Questions waiting for you
 - Should **Power down** also stop the HQ server? (Right now it only turns the screen off.)
-- Calendar + Gmail: which way to connect? (Options are in HANDOFF.md.)
+- Calendar: done (iCal link). Gmail: next up is option 2, a daily read-only digest mission.
 - NeuroWeb (not found), GenBot (= GenBets-P?), Blueprint Estimator (keep or archive?).
 - Phone alerts: install ntfy, subscribe in Settings → Notifications, press Send test.

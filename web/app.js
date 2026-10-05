@@ -6,6 +6,7 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": 
 let S = null;            // latest /api/state snapshot
 let route = { view: "command", arg: null };
 let calMonth = null;     // Date for the calendar view
+let calFeed = { key: "", events: [], at: 0 }; // calendar-feed events for the shown month
 let projTab = "summary";
 let editing = null;      // "summary" | "plan" while editing a doc
 let projCache = {};      // slug -> /api/project/:slug
@@ -137,6 +138,7 @@ function render() {
   // Don't clobber a field the user is typing in during background refreshes.
   const active = document.activeElement;
   if (render.background && active && $("#view").contains(active) && /INPUT|TEXTAREA|SELECT/.test(active.tagName)) return;
+  if (render.background && $("#calUrl")?.value) return; // keep a pasted calendar address
   const el = $("#view"), bg = !!render.background;
   el.dataset.view = route.view;
   Promise.resolve(fn(el)).then(() => { if (typeof hudAfterRender === "function") hudAfterRender(el, bg); });
@@ -347,19 +349,33 @@ function vCalendar(el) {
   const add = (k, e) => (events[k] = events[k] || []).push(e);
   S.reminders.forEach(r => add(r.due.slice(0, 10), { t: r.title, cls: r.done ? "done" : "", time: r.due.slice(11, 16) }));
   S.milestones.forEach(m => add(m.date, { t: m.title, cls: `${m.kind || "milestone"} ${m.done ? "done" : ""}` }));
+  const feeds = S.calendar?.feeds || [], fcol = Object.fromEntries(feeds.map(f => [f.id, f.color || "teal"]));
+  const key = ymd(start);
+  if (feeds.length && (calFeed.key !== key || Date.now() - calFeed.at > 120e3)) {
+    const end = new Date(start); end.setDate(start.getDate() + 42);
+    calFeed = { key, events: calFeed.key === key ? calFeed.events : [], at: Date.now() };
+    api(`/calendar?from=${key}&to=${ymd(end)}`).then(r => { if (calFeed.key !== key) return; calFeed.events = r.events || []; if (route.view === "calendar") render(); }).catch(() => {});
+  }
+  if (feeds.length) calFeed.events.forEach(e => {
+    if (e.allDay) { for (let d = toDate(e.start); ymd(d) < e.end; d.setDate(d.getDate() + 1)) add(ymd(d), { t: e.title, cls: `gcal c-${fcol[e.feed]}`, ev: e }); }
+    else { const d = new Date(e.start); add(ymd(d), { t: e.title, cls: `gcal c-${fcol[e.feed]}`, time: `${pad(d.getHours())}:${pad(d.getMinutes())}`, ev: e }); }
+  });
+  Object.values(events).forEach(l => l.sort((a, b) => (a.ev ? (a.ev.allDay ? "" : a.time) : "~") .localeCompare(b.ev ? (b.ev.allDay ? "" : b.time) : "~")));
   let cells = "";
   for (let i = 0; i < 42; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     const k = ymd(d), ev = events[k] || [];
     cells += `<div class="day ${d.getMonth() !== first.getMonth() ? "out" : ""} ${k === today ? "today" : ""}" data-day="${k}">
-      <div class="num">${d.getDate()}</div>${ev.slice(0, 4).map(e => `<div class="ev ${e.cls}" title="${esc(e.t)}">${e.time ? e.time + " " : ""}${esc(e.t)}</div>`).join("")}${ev.length > 4 ? `<div class="small faint">+${ev.length - 4} more</div>` : ""}</div>`;
+      <div class="num">${d.getDate()}</div>${ev.slice(0, 4).map(e => `<div class="ev ${e.cls}" title="${esc(e.t + (e.ev?.location ? " @ " + e.ev.location : ""))}">${e.time ? e.time + " " : ""}${esc(e.t)}</div>`).join("")}${ev.length > 4 ? `<div class="small faint">+${ev.length - 4} more</div>` : ""}</div>`;
   }
-  const upcoming = [...S.reminders.filter(r => !r.done).map(r => ({ d: r.due, t: r.title, k: "reminder", p: r.project })), ...S.milestones.filter(m => !m.done).map(m => ({ d: m.date, t: m.title, k: m.kind, p: m.project }))]
-    .filter(x => toDate(x.d.length <= 10 ? x.d + "T23:59" : x.d) >= new Date()).sort((a, b) => a.d.localeCompare(b.d)).slice(0, 14);
-  el.innerHTML = `<div class="between"><div><h1>${MON[first.getMonth()]} ${first.getFullYear()}</h1><p class="sub">Reminders (blue), milestones (violet) and deadlines (red). Click a day to add a reminder.</p></div>
+  const evWhen = e => e.allDay ? e.start : (d => `${ymd(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`)(new Date(e.start));
+  const upcoming = [...S.reminders.filter(r => !r.done).map(r => ({ d: r.due, t: r.title, k: "reminder", p: r.project })), ...S.milestones.filter(m => !m.done).map(m => ({ d: m.date, t: m.title, k: m.kind, p: m.project })),
+    ...(S.calendar?.upcoming || []).map(e => ({ d: evWhen(e), t: e.title, k: "event", p: null, loc: e.location }))]
+    .filter(x => toDate(x.d.length <= 10 ? x.d + "T23:59" : x.d) >= new Date()).sort((a, b) => toDate(a.d.length <= 10 ? a.d + "T00:00" : a.d.replace(" ", "T")) - toDate(b.d.length <= 10 ? b.d + "T00:00" : b.d.replace(" ", "T"))).slice(0, 14);
+  el.innerHTML = `<div class="between"><div><h1>${MON[first.getMonth()]} ${first.getFullYear()}</h1><p class="sub">Reminders (blue), milestones (violet), deadlines (red)${S.calendar?.feeds?.length ? ", calendar events (green)" : ` · <a href="#settings">connect your calendar</a>`}. Click a day to add a reminder.</p></div>
       <div class="row"><button class="btn" id="calPrev">←</button><button class="btn" id="calToday">Today</button><button class="btn" id="calNext">→</button></div></div>
     <div class="cal">${DOW.map(d => `<div class="dow">${d}</div>`).join("")}${cells}</div>
-    <h2>Next up</h2><div class="card"><ul class="list">${upcoming.map(x => `<li><span class="when">${fmtWhen(x.d)}</span><div class="grow">${esc(x.t)}<div class="small faint">${x.p ? esc(projName(x.p)) : ""}</div></div><span class="pill ${x.k === "deadline" ? "red" : x.k === "milestone" ? "violet" : "blue"}">${x.k}</span></li>`).join("") || `<div class="empty">Nothing coming up.</div>`}</ul></div>`;
+    <h2>Next up</h2><div class="card"><ul class="list">${upcoming.map(x => `<li><span class="when">${fmtWhen(x.d)}</span><div class="grow">${esc(x.t)}<div class="small faint">${x.p ? esc(projName(x.p)) : esc(x.loc || "")}</div></div><span class="pill ${x.k === "deadline" ? "red" : x.k === "milestone" ? "violet" : x.k === "event" ? "green" : "blue"}">${x.k}</span></li>`).join("") || `<div class="empty">Nothing coming up.</div>`}</ul></div>`;
   $("#calPrev").onclick = () => { calMonth.setMonth(calMonth.getMonth() - 1); render(); };
   $("#calNext").onclick = () => { calMonth.setMonth(calMonth.getMonth() + 1); render(); };
   $("#calToday").onclick = () => { calMonth = null; render(); };
@@ -619,6 +635,14 @@ function vSettings(el) {
         <div class="row"><span class="small muted" style="min-width:110px">Sound effects</span><div class="chips"><button type="button" class="chip ${Snd.on() ? "on" : ""}" data-sound="1">On</button><button type="button" class="chip ${Snd.on() ? "" : "on"}" data-sound="0">Off</button></div></div>
         <div class="small muted">Animations follow your Windows “reduce motion” setting. Shortcuts: <kbd class="kbd">Ctrl K</kbd> search, <kbd class="kbd">Ctrl 1–9</kbd> switch project (<kbd class="kbd">Ctrl 0</kbd> all), <kbd class="kbd">Alt J</kbd> talk, <kbd class="kbd">/</kbd> capture.</div>
         <div class="row end"><button type="button" class="btn" id="replayBoot">Replay boot</button><button type="button" class="btn" id="powerDown">⏻ Power down</button></div></div>
+      <h2>Calendar</h2>
+      <div class="card form" id="calCard">
+        ${(S.calendar?.feeds || []).map(f => `<div class="row"><span class="dot ${f.ok === false ? "risk" : f.ok ? "good" : "unknown"}"></span><div class="grow"><b>${esc(f.name)}</b> <span class="small faint">${esc(f.host)}</span>
+          <div class="small ${f.ok === false ? "" : "muted"}">${f.ok === false ? "⚠ " + esc(f.error || "Sync failed") : f.lastSync ? `Synced ${esc(ago(f.lastSync))} · ${f.count} events` : "Syncing…"}</div></div><button type="button" class="btn sm ghost" data-calrm="${esc(f.id)}">Remove</button></div>`).join("") || `<div class="small muted">No calendar connected.</div>`}
+        <div class="two"><label class="f">Name<input id="calName" placeholder="Personal" maxlength="40" autocomplete="off"></label>
+          <label class="f">Secret address (iCal)<input id="calUrl" type="password" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" autocomplete="off" spellcheck="false"></label></div>
+        <div class="note blue small"><b>Google Calendar:</b> calendar.google.com → ⚙ Settings → click your calendar on the left → <b>Integrate calendar</b> → copy <b>Secret address in iCal format</b>. Outlook and iCloud .ics links work too.<br>Read-only. The address stays on this PC (<code>config/hq.local.json</code>) and is never shown again. If it leaks, press “Reset” next to it in Google and add the new one.</div>
+        <div class="row end">${S.calendar?.feeds?.length ? `<button type="button" class="btn" id="calSync">Sync now</button>` : ""}<button type="button" class="btn primary" id="calAdd">Connect</button></div></div>
       <h2>Notifications</h2>
       <div class="card form">
         <label class="row"><input type="checkbox" id="toastOn" ${s.toast ? "checked" : ""}> Windows pop-ups</label>
@@ -638,6 +662,15 @@ function vSettings(el) {
     </div></div>`;
   $$("[data-theme-set]", el).forEach(b => b.onclick = () => setTheme(b.dataset.themeSet));
   $$("[data-sound]", el).forEach(b => b.onclick = () => setSound(b.dataset.sound === "1"));
+  $("#calAdd").onclick = async () => {
+    const url = $("#calUrl").value.trim(); if (!url) return toast("Paste the secret address first");
+    const b = $("#calAdd"); b.disabled = true; b.textContent = "Checking…";
+    const r = await act(() => api("/calendar/feeds", "POST", { name: $("#calName").value, url }));
+    if (r) { toast(`Calendar connected · ${r.count} events`); calFeed.key = ""; }
+    else { b.disabled = false; b.textContent = "Connect"; }
+  };
+  if ($("#calSync")) $("#calSync").onclick = () => act(() => api("/calendar/sync", "POST").then(r => { calFeed.key = ""; return r; }), "Calendar synced");
+  $$("[data-calrm]", el).forEach(b => b.onclick = () => { if (confirm("Remove this calendar from HQ?")) act(() => api(`/calendar/feeds/${b.dataset.calrm}`, "DELETE"), "Calendar removed"); });
   $("#replayBoot").onclick = () => hudBoot(false);
   $("#powerDown").onclick = () => hudShutdown();
   $("#retry").onclick = () => act(() => api("/claude/retry", "POST"), "Retrying: watch the status");

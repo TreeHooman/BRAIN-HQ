@@ -6,13 +6,14 @@ import path from "node:path";
 import readline from "node:readline";
 import { DROP, uid, writeJson } from "../lib/store.ts";
 import * as brain from "../lib/brain.ts";
+import * as cal from "../lib/calendar.ts";
 
 const LEVEL = process.env.HQ_LEVEL || "plan";
 const RUN_ID = process.env.HQ_RUN_ID || "interactive";
 const CAN_WRITE = LEVEL !== "read";
 const IS_CHAT = RUN_ID.startsWith("chat-") || RUN_ID === "interactive";
 
-type Tool = { name: string; description: string; inputSchema: any; write?: boolean; chatOnly?: boolean; run: (a: any) => unknown };
+type Tool = { name: string; description: string; inputSchema: any; write?: boolean; chatOnly?: boolean; run: (a: any) => unknown | Promise<unknown> };
 const S = (props: Record<string, any>, required: string[] = []) => ({ type: "object", properties: props, required });
 const str = (description: string) => ({ type: "string", description });
 const PART = { type: "string", enum: ["summary", "plan", "log", "json"], description: "summary = SUMMARY.md (short), plan = plan.md, log = log.md (dated entries), json = project.json fields" };
@@ -35,6 +36,15 @@ const tools: Tool[] = [
   { name: "list_milestones", description: "Key dates and deadlines across projects.",
     inputSchema: S({ project: str("optional project slug") }),
     run: a => JSON.stringify(brain.listMilestones().filter(m => !a.project || m.project === a.project), null, 1) },
+  { name: "calendar_events", description: "The owner's calendar events (read-only, from their connected calendars). Times are ISO; all-day events have YYYY-MM-DD dates.",
+    inputSchema: S({ days: { type: "number", description: "days ahead from today (default 1 = today only, max 31)" } }),
+    run: async a => {
+      if (!cal.feeds().length) return "No calendar connected (Settings → Calendar).";
+      await cal.syncAll(false);
+      const from = new Date(); from.setHours(0, 0, 0, 0);
+      const ev = cal.events(from, new Date(from.getTime() + Math.min(31, Math.max(1, a.days || 1)) * 864e5));
+      return ev.length ? ev.map(e => `${e.allDay ? e.start + " (all day)" : new Date(e.start).toLocaleString()} – ${e.title}${e.location ? " @ " + e.location : ""}`).join("\n") : "No events.";
+    } },
   { name: "list_inbox", description: "Unsorted brain-dump notes waiting to be filed.",
     inputSchema: S({}), run: () => JSON.stringify(brain.listInbox(), null, 1) },
   { name: "recent_decisions", description: "Recent decisions (newest first), optionally for one project.",
@@ -119,12 +129,9 @@ rl.on("line", line => {
     } else if (method === "tools/call") {
       const t = visible.find(x => x.name === params?.name);
       if (!t) return reply(id, { content: [{ type: "text", text: `Unknown or not allowed at level ${LEVEL}: ${params?.name}` }], isError: true });
-      try {
-        const out = t.run(params?.arguments || {});
-        reply(id, { content: [{ type: "text", text: String(out ?? "ok") }] });
-      } catch (e: any) {
-        reply(id, { content: [{ type: "text", text: `Error: ${e?.message || e}` }], isError: true });
-      }
+      Promise.resolve().then(() => t.run(params?.arguments || {}))
+        .then(out => reply(id, { content: [{ type: "text", text: String(out ?? "ok") }] }))
+        .catch((e: any) => reply(id, { content: [{ type: "text", text: `Error: ${e?.message || e}` }], isError: true }));
     } else if (method === "ping") reply(id, {});
     else reply(id, undefined, { code: -32601, message: `Method not found: ${method}` });
   } catch (e: any) {
