@@ -16,3 +16,4 @@ tunnel-token.txt
 node_modules/
 *.log
 *.tmp
+backgrounds/

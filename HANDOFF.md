@@ -176,3 +176,7 @@ The owner asked for (1) a cleaner, modern, easier-on-the-eyes UI with better fin
   - "Write with LUTHUR" uses `src/lib/compose.ts`: a no-tools Sonnet run, with any quoted email passed as data. It returns `{subject, body}`.
   - Docs and Sheets: `createFile` (doc or sheet), `sheetSet` (batchUpdate with USER_ENTERED; edited from the preview grid with "Edit cells", which adds 3 spare rows and 1 spare column), `docAppend` and `docReplace` (replaceAllText). Each is confirmed in the UI and logged to `data/activity.jsonl` as `google-*`.
   - Nothing can delete mail or files, or share them. The Docs API must be enabled (setup step 2).
+
+## 2026-10-05 handoff #14: space backgrounds
+- The holo grid floor is gone. `SCENE_FS` in nova.js has 4 vistas: s0 nebula plus ringed gas giant, s1 sunrise over a planet's limb, s2 black hole with a lensed sky, s3 spiral galaxy. They crossfade through `uA`/`uN`/`uX` and slowly push in (`uZ`). Mouse parallax moves near objects more than far stars.
+- `web/space.js`: the playlist (`spaceView()` feeds the shader) plus the owner's wallpapers in `HQ\backgrounds\`. That folder is created at startup and listed at `/api/backgrounds`; files are served at `/bg/<name>` with a strict name regex, an extension whitelist and Range support for video. Wallpapers render as `#nova-wall` img/video with a crossfade and Ken Burns push-in. The Settings card "Background" picks which views, the interval, and Next view, saved per viewer in `hq-space`.

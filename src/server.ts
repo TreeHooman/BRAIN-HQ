@@ -181,6 +181,8 @@ const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/google\/drive\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})$/, m => google.driveFile(m[1], m[2])],
   ["GET", /^\/api\/google\/preview\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})$/, (m, _, u) => google.preview(m[1], m[2], u.searchParams.get("tab") || undefined)],
 
+  ["GET", /^\/api\/backgrounds$/, () => ({ files: backgrounds() })],
+
   ["POST", /^\/api\/settings$/, (_, b) => {
     const patch: any = {};
     if (b.budget) patch.budget = { preset: b.budget };
@@ -200,6 +202,13 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/claude\/retry$/, () => { orch.clearAuth(); return { ok: true }; }],
   ["POST", /^\/api\/pause\/clear$/, () => { orch.clearPause(); return { ok: true }; }],
 ];
+
+// The owner's own background images/videos: HQ\backgrounds\ (created on first start). Only plain media files, by exact name.
+const BGDIR = path.join(ROOT, "backgrounds");
+const BG_RE = /^[\w .()-]{1,120}\.(jpe?g|png|webp|gif|mp4|webm)$/i;
+const BG_MIME: Record<string, string> = { ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif", ".mp4": "video/mp4", ".webm": "video/webm" };
+try { fs.mkdirSync(BGDIR, { recursive: true }); } catch {}
+function backgrounds(): string[] { try { return fs.readdirSync(BGDIR).filter(f => BG_RE.test(f) && !f.startsWith(".")).sort().slice(0, 60); } catch { return []; } }
 
 // DNS-rebinding guard: a web page on some other domain must not be able to point that domain at this PC and read the API.
 // Allowed: IPs, localhost, single-word LAN names, Tailscale (*.ts.net) and anything listed in config "allowedHosts".
@@ -236,6 +245,20 @@ const server = http.createServer(async (req, res) => {
         if (m && req.method === method) return send(res, 200, await h(m, req.method === "GET" ? {} : await body(req), url));
       }
       return send(res, 404, { error: "No such endpoint" });
+    }
+    if (url.pathname.startsWith("/bg/")) {
+      const name = decodeURIComponent(url.pathname.slice(4));
+      if (!BG_RE.test(name) || !backgrounds().includes(name)) return send(res, 404, "Not found");
+      const file = path.join(BGDIR, name), size = fs.statSync(file).size, type = BG_MIME[path.extname(name).toLowerCase()];
+      const m = String(req.headers.range || "").match(/^bytes=(\d*)-(\d*)$/); // videos seek with Range
+      if (m) {
+        const start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2])), end = m[1] && m[2] ? Math.min(size - 1, Number(m[2])) : size - 1;
+        if (start >= size || start > end) { res.writeHead(416, { "Content-Range": `bytes */${size}` }); return res.end(); }
+        res.writeHead(206, { "Content-Type": type, "Content-Range": `bytes ${start}-${end}/${size}`, "Accept-Ranges": "bytes", "Content-Length": end - start + 1, "Cache-Control": "max-age=3600" });
+        return void fs.createReadStream(file, { start, end }).pipe(res);
+      }
+      res.writeHead(200, { "Content-Type": type, "Content-Length": size, "Accept-Ranges": "bytes", "Cache-Control": "max-age=3600" });
+      return void fs.createReadStream(file).pipe(res);
     }
     let p = decodeURIComponent(url.pathname);
     if (p === "/") p = "/index.html";

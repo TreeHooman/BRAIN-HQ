@@ -29,28 +29,93 @@ float n3(vec3 x){vec3 i=floor(x),f=fract(x);f=f*f*(3.-2.*f);
             mix(mix(h31(i+vec3(0,0,1)),h31(i+vec3(1,0,1)),f.x),mix(h31(i+vec3(0,1,1)),h31(i+vec3(1,1,1)),f.x),f.y),f.z);}
 float fbm3(vec3 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*n3(p);p=p*2.02+vec3(1.7,9.2,3.1);a*=.5;}return v;}`;
 
-// ---------------- background: deep space, nebula, parallax starfield, holo floor ----------------
+// ---------------- background: cycling space vistas (nebula + ringed giant, planet sunrise, black hole, galaxy) ----------------
+// One fullscreen shader. uA/uB are scene ids, uX the crossfade between them (space.js drives the playlist).
+// The mouse parallaxes every layer, so near objects move more than far stars.
 const SCENE_FS = `precision highp float;
-uniform vec2 uR;uniform float uT,uB,uS;uniform vec2 uM;
+uniform vec2 uR;uniform float uT,uB,uS,uX;uniform vec2 uM;uniform float uA,uN,uZ;
 ${GLSL_NOISE}
 vec3 stars(vec2 uv,float sc,float sz){vec2 p=uv*sc,id=floor(p),f=fract(p)-.5;float r=h21(id);if(r<.93)return vec3(0.);
  vec2 o=vec2(h21(id+3.1),h21(id+7.7))-.5;float d=length(f-o*.7);float tw=.55+.45*sin(uT*(.6+r*2.5)+r*50.);
  return smoothstep(.05*sz,0.,d)*tw*mix(vec3(.75,.92,1.),vec3(1.,.82,1.),h21(id+1.3));}
+vec3 sky(vec2 uv,vec2 m,float t,float neb){
+ vec3 col=vec3(.003,.006,.02);
+ col+=stars(uv+m*.006,64.,1.)*.55+stars(uv+m*.016+vec2(t*.1,0.),36.,1.4)*.8+stars(uv+m*.035,19.,2.)*.95;
+ if(neb>0.){vec2 q=uv*1.25+m*.04;float w=fbm(q*1.1+vec2(t,-t*.6));float nb=fbm(q*2.1+w*1.7+vec2(-t*.8,t*.5));
+  vec3 c=mix(vec3(.0,.32,.46),vec3(.26,.12,.52),smoothstep(.3,.8,w));c=mix(c,vec3(.55,.08,.38),smoothstep(.55,.95,nb)*.4);
+  col+=c*pow(smoothstep(.32,1.,nb),1.7)*.55*neb;}
+ return col;}
+vec3 glow(vec2 uv,vec2 p,vec3 c,float k){return c*k/(dot(uv-p,uv-p)*400.+1.);}
+// 0: nebula + ringed gas giant
+vec3 s0(vec2 uv,vec2 m,float t){
+ vec3 col=sky(uv,m,t,1.);
+ vec2 P=vec2(.62,-.2)-m*.07; float R=.27; vec2 d=uv-P;
+ float ca=cos(-.38),sa=sin(-.38); vec2 rp=mat2(ca,-sa,sa,ca)*d; vec2 re=vec2(rp.x,rp.y/.24); float rr=length(re)/R;
+ float ring=smoothstep(1.3,1.36,rr)*smoothstep(2.25,2.1,rr)*(.55+.45*n2(vec2(rr*38.,1.)))*(1.-.6*smoothstep(1.7,1.75,rr)*smoothstep(1.82,1.77,rr));
+ vec3 rc=mix(vec3(.85,.72,.55),vec3(.55,.75,.95),.35)*ring*.75*(.6+.4*smoothstep(-.3,.3,rp.x/R));
+ float dd=length(d);
+ if(rp.y>0.)col+=rc; // far half of the rings, behind the planet
+ if(dd<R){vec3 n=vec3(d/R,sqrt(max(0.,1.-dot(d,d)/(R*R))));vec3 L=normalize(vec3(-.65,.35,.55));
+  float lat=n.y*.92+n.x*.18; float b=fbm(vec2(lat*7.,n.x*1.2+t*.25))*.6+.5*sin(lat*22.+fbm(vec2(lat*3.,t*.1))*4.);
+  vec3 base=mix(vec3(.62,.38,.22),vec3(.95,.82,.62),.5+.5*b); base=mix(base,vec3(.3,.55,.8),.08);
+  float dif=max(0.,dot(n,L)); float shadow=1.-.85*smoothstep(.0,.05,abs(rp.y)/R*1.)*0.;
+  col=base*(dif*1.1+.03)*shadow+vec3(.2,.5,.9)*pow(1.-n.z,3.)*.6*dif;}
+ col+=vec3(.25,.55,1.)*exp(-max(0.,dd-R)*38.)*.35*smoothstep(.0,.4,dot(normalize(d+1e-4),normalize(vec2(-.65,.35)))+.3);
+ if(rp.y<=0.)col=mix(col,col*.25+rc,ring>0.?.9:0.); // near half crosses in front
+ col+=glow(uv,vec2(-.75,.42)-m*.02,vec3(1.,.9,.75),.08); // distant sun
+ return col;}
+// 1: sunrise over a planet's limb
+vec3 s1(vec2 uv,vec2 m,float t){
+ vec3 col=sky(uv,m*.5,t,.35);
+ vec2 C=vec2(0.,-2.05)-m*vec2(.05,.03); float R=1.8; vec2 d=uv-C; float r=length(d);
+ vec2 S=vec2(-.32,-.2)-m*vec2(.05,.03)+vec2(0.,.004*sin(t*.5)); // sun peeking over the limb
+ float h=r-R;
+ if(h<0.){vec3 n=vec3(d/R,sqrt(max(0.,1.-r*r/(R*R))));
+  vec2 g=n.xy*3.+vec2(t*.08,0.); float land=smoothstep(.52,.6,fbm(g*1.7)); float cl=smoothstep(.45,.85,fbm(g*2.6+vec2(t*.12,3.)));
+  vec3 surf=mix(vec3(.02,.09,.22),vec3(.12,.18,.08),land); surf=mix(surf,vec3(.85,.9,1.),cl*.85);
+  float lit=smoothstep(.0,.6,dot(normalize(d),normalize(S-C))*1.6-.9);
+  float city=land*(1.-lit)*(1.-cl)*step(.82,h21(floor(n.xy*300.)))*.6;
+  col=surf*(lit*.9+.02)+vec3(1.,.7,.35)*city;
+  col+=vec3(.3,.6,1.)*pow(1.-n.z,4.)*(.4+lit);}
+ float atm=exp(-abs(h)*(h>0.?55.:140.));
+ float sunSide=pow(max(0.,dot(normalize(d),normalize(S-C))),40.);
+ col+=mix(vec3(.25,.55,1.),vec3(1.,.6,.3),sunSide)*atm*(.55+1.8*sunSide);
+ float sd=length(uv-S); col+=vec3(1.,.92,.8)*(.012/(sd*sd*60.+.012))*(h>-.01?1.:.3);
+ float sp=max(0.,1.-abs((uv-S).y)*90.)*exp(-abs((uv-S).x)*3.)+max(0.,1.-abs((uv-S).x)*120.)*exp(-abs((uv-S).y)*14.);
+ col+=vec3(1.,.85,.7)*sp*.35; col+=glow(uv,S,vec3(.5,.7,1.),.25);
+ return col;}
+// 2: black hole with accretion disk and lensed sky
+vec3 s2(vec2 uv,vec2 m,float t){
+ vec2 C=vec2(.05,.02)-m*.06; vec2 d=uv-C; float r=length(d); float rs=.11;
+ vec2 lens=uv-d/(r*r+1e-3)*rs*rs*1.6; vec3 col=sky(lens,m,t,.55)*smoothstep(rs,rs*1.6,r);
+ float tilt=.22; vec2 e=vec2(d.x,d.y/tilt); float er=length(e); float ang=atan(e.y,e.x);
+ float disk=smoothstep(rs*1.5,rs*1.9,er)*smoothstep(rs*5.,rs*2.6,er);
+ float sw=fbm(vec2(ang*3.-t*1.6/(er*6.+.2),er*14.)); float dop=.55+.45*cos(ang+.3);
+ vec3 dc=mix(vec3(1.,.45,.12),vec3(1.,.93,.8),smoothstep(rs*3.,rs*1.6,er))*disk*(.35+.9*sw)*(.4+1.2*dop);
+ float halo=smoothstep(rs*1.15,rs*1.35,r)*smoothstep(rs*2.4,rs*1.45,r)*(.5+.5*fbm(vec2(atan(d.y,d.x)*4.+t*.6,r*20.)));
+ vec3 hc=vec3(1.,.6,.25)*halo*(.6+.6*(.5+.5*cos(atan(d.y,d.x)+.3)))*smoothstep(-.02,.06,d.y+.03);
+ if(d.y>0.)col+=dc*.8; col+=hc*1.1; col*=smoothstep(rs*.98,rs*1.03,r); if(d.y<=0.)col+=dc;
+ col+=vec3(1.,.75,.45)*.004/(abs(r-rs*1.25)+.004)*.25*smoothstep(rs*.9,rs*1.2,r);
+ return col;}
+// 3: spiral galaxy
+vec3 s3(vec2 uv,vec2 m,float t){
+ vec3 col=sky(uv,m*.6,t,.25);
+ vec2 C=vec2(-.05,.0)-m*.05; vec2 d=uv-C; float ca=cos(.5),sa=sin(.5); d=mat2(ca,-sa,sa,ca)*d; d.y/=.45;
+ float r=length(d); float a=atan(d.y,d.x)+t*.06;
+ float arms=pow(.5+.5*cos(2.*(a-log(r+.02)*2.6)),3.5); float dust=fbm(vec2(a*2.,r*9.)+t*.02);
+ float body=exp(-r*2.6); vec3 armc=mix(vec3(.45,.65,1.),vec3(.9,.6,1.),dust);
+ col+=armc*arms*body*(.35+.9*dust)*1.3; col-=vec3(.25,.2,.12)*smoothstep(.55,.8,dust)*arms*body*1.2;
+ col+=vec3(1.,.85,.6)*exp(-r*11.)*1.2+vec3(1.,.7,.45)*.02/(r*r*30.+.02)*.4;
+ return max(col,0.);}
+vec3 pick(float id,vec2 uv,vec2 m,float t){if(id<.5)return s0(uv,m,t);if(id<1.5)return s1(uv,m,t);if(id<2.5)return s2(uv,m,t);return s3(uv,m,t);}
 void main(){
- vec2 uv=(gl_FragCoord.xy-.5*uR)/uR.y; vec2 m=uM-.5; float t=uT*.022*(1.+uB*2.);
- vec2 q=uv*1.25+m*.06+vec2(0.,uS*.00012);
- float w=fbm(q*1.1+vec2(t,-t*.6)); float nb=fbm(q*2.1+w*1.7+vec2(-t*.8,t*.5));
- vec3 c1=vec3(.0,.32,.46),c2=vec3(.26,.12,.52),c3=vec3(.55,.08,.38);
- vec3 col=mix(c1,c2,smoothstep(.3,.8,w)); col=mix(col,c3,smoothstep(.55,.95,nb)*.4);
- col*=pow(smoothstep(.32,1.,nb),1.7)*(.5+uB*.25);
- col+=vec3(.003,.007,.025)+vec3(0.,.025,.05)*max(0.,1.-length(uv));
- col+=stars(uv+m*.008,64.,1.)*.55; col+=stars(uv+m*.022+vec2(t*.15,0.),36.,1.4)*.8; col+=stars(uv+m*.05,19.,2.)*.95;
- float hz=-.3+m.y*.03;
- if(uv.y<hz){float z=1./(hz-uv.y+.002);vec2 g=vec2((uv.x+m.x*.05)*z,z+uT*.35*(1.+uB*2.5));vec2 gf=abs(fract(g*.5)-.5);
-  float ln=1.-smoothstep(0.,.035*min(z,6.),min(gf.x,gf.y)); float fd=exp(-z*.16)*smoothstep(0.,.25,hz-uv.y+.02);
-  col+=mix(vec3(.25,.85,1.),vec3(.7,.5,1.),uB)*ln*fd*.32;}
- col+=vec3(.35,.85,1.)*exp(-abs(uv.y-hz)*55.)*.1;
- vec2 mp=m*vec2(uR.x/uR.y,1.); col+=vec3(.05,.25,.4)*.05/(length(uv-mp)+.25);
+ vec2 uv=(gl_FragCoord.xy-.5*uR)/uR.y; vec2 m=uM-.5; m.y=-m.y; float t=uT*.022*(1.+uB*2.);
+ uv/=1.+uZ*.04; uv.y+=uS*.00004;
+ vec3 col=pick(uA,uv,m,t); if(uX>0.001)col=mix(col,pick(uN,uv,m,t),uX);
+ col*=1.+uB*.15;
+ vec2 mp=m*vec2(uR.x/uR.y,1.); col+=vec3(.05,.25,.4)*.035/(length(uv-mp)+.25);
+ col*=1.-.35*dot(uv*.6,uv*.6); // vignette
+ col=col/(1.+col*.35); // soft tone map
  gl_FragColor=vec4(col,1.);}`;
 const Scene = { c: null, gl: null, p: null, raf: 0, scale: .6, frame: 0, ok: false };
 function sceneStart() {
@@ -74,6 +139,8 @@ function sceneDraw() {
   const { gl, p } = Scene, t = (performance.now() - NV.t0) / 1000;
   gl.uniform2f(p.u("uR"), Scene.c.width, Scene.c.height); gl.uniform1f(p.u("uT"), reduced() ? 12 : t);
   gl.uniform1f(p.u("uB"), NV.busy); gl.uniform1f(p.u("uS"), NV.scroll); gl.uniform2f(p.u("uM"), NV.sx, NV.sy ?? .5);
+  const v = typeof spaceView === "function" ? spaceView() : { a: 0, n: 0, x: 0, z: 0 };
+  gl.uniform1f(p.u("uA"), v.a); gl.uniform1f(p.u("uN"), v.n); gl.uniform1f(p.u("uX"), v.x); gl.uniform1f(p.u("uZ"), v.z);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 }
 function sceneLoop() {
