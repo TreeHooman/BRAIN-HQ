@@ -398,8 +398,14 @@ function orbitBuild(fresh) {
   const stage = document.getElementById("nvStage");
   if (stage && !stage._drag) {
     stage._drag = 1;
-    stage.addEventListener("pointerdown", e => { if (e.target.closest(".nv-core, .nv-tip")) return; Orb.drag = { x: e.clientX, th: Orb.th, t: performance.now() }; Orb.dragMoved = false; });
-    addEventListener("pointermove", e => { if (!Orb.drag) return; const dx = e.clientX - Orb.drag.x; if (Math.abs(dx) > 4) Orb.dragMoved = true; const nt = Orb.drag.th - dx / (innerWidth < 500 ? 160 : 260) /* front projects follow the finger */; Orb.vel = (nt - Orb.th) * 60; Orb.th = nt; orbitStart(); });
+    // swipe anywhere in the middle column (orb included, and the band around it on phones); a drag never counts as a tap
+    const zone = stage.closest(".nv-mid") || stage;
+    if (!zone._drag) {
+      zone._drag = 1;
+      zone.addEventListener("pointerdown", e => { if (e.button > 0 || e.target.closest("input, textarea, select, a, .nv-tip, .nv-panel, .card, button:not(.nv-sat)")) return; Orb.drag = { x: e.clientX, th: Orb.th, t: performance.now() }; Orb.dragMoved = false; });
+      zone.addEventListener("click", e => { if (Orb.dragMoved) { e.stopPropagation(); e.preventDefault(); } }, true);
+    }
+    addEventListener("pointermove", e => { if (!Orb.drag) return; const dx = e.clientX - Orb.drag.x; if (Math.abs(dx) > 8) Orb.dragMoved = true; const nt = Orb.drag.th - dx / (innerWidth < 500 ? 160 : 260) /* front projects follow the finger */; Orb.vel = (nt - Orb.th) * 60; Orb.th = nt; orbitStart(); });
     const end = () => { if (Orb.drag) { Orb.drag = null; setTimeout(() => { Orb.dragMoved = false; }, 30); } };
     addEventListener("pointerup", end); addEventListener("pointercancel", end);
   }
