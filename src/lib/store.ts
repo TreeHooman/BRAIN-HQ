@@ -17,7 +17,8 @@ export function readText(file: string, fallback = ""): string {
 }
 
 export function readJson<T>(file: string, fallback: T): T {
-  try { return JSON.parse(fs.readFileSync(file, "utf8")) as T; } catch { return fallback; }
+  // strip a UTF-8 BOM: Windows PowerShell / Notepad add one, and JSON.parse rejects it
+  try { return JSON.parse(fs.readFileSync(file, "utf8").replace(/^\uFEFF/, "")) as T; } catch { return fallback; }
 }
 
 export function writeText(file: string, text: string): void {

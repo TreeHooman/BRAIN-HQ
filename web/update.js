@@ -63,12 +63,13 @@ function upWait(sha) {
   const o = document.createElement("div"); o.className = "up-over";
   o.innerHTML = `<div class="up-box"><div class="up-spin"></div><b>Updating LUTHUR…</b><div class="small muted" id="upMsg">Downloading and installing</div></div>`;
   document.body.append(o);
-  const t0 = Date.now(); let down = false;
+  const t0 = Date.now(); let down = false, up = 0;
   const tick = async () => {
     try {
       const r = await fetch("/api/update", { headers: { "X-HQ": "1" }, cache: "no-store" }); const j = await r.json();
       if (j.installed?.sha === sha) { o.querySelector("#upMsg").textContent = "Done. Reloading…"; return setTimeout(() => location.reload(), 600); }
-      if (down) o.querySelector("#upMsg").textContent = "Starting back up…";
+      // back up after a restart: reload even if the version file can't be read
+      if (down && ++up >= 2) { o.querySelector("#upMsg").textContent = "Done. Reloading…"; return setTimeout(() => location.reload(), 600); }
     } catch { down = true; o.querySelector("#upMsg").textContent = "Restarting…"; }
     if (Date.now() - t0 > 180000) { o.querySelector("#upMsg").innerHTML = "Taking too long. Check <code>HQ\\data\\update.log</code>, or run START-HQ."; return; }
     setTimeout(tick, 2000);
