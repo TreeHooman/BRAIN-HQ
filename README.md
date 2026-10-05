@@ -5,7 +5,8 @@ A local dashboard plus an assistant that plans, tracks and works on all your pro
 ## First run (once)
 
 1. **Sign Claude in for background work:** double-click `scripts\SIGN-IN-CLAUDE.cmd` and sign in when your browser opens. Without this, reminders still work but the assistant and missions wait.
-2. **Open HQ:** double-click `scripts\START-HQ.cmd`. It also opens at every Windows sign-in (installed via `scripts\INSTALL-STARTUP.cmd`; undo with `REMOVE-STARTUP.cmd`).
+2. **Install the app (once):** double-click `scripts\INSTALL-APP.cmd`. It adds an **HQ** icon to your Desktop and Start menu (right-click it in Start → Pin to taskbar). Clicking it starts HQ if needed and opens it in its own window. Remove with `UNINSTALL-APP.cmd`.
+   **Open HQ:** the HQ icon, or `scripts\START-HQ.cmd`. It also opens at every Windows sign-in (installed via `scripts\INSTALL-STARTUP.cmd`; undo with `REMOVE-STARTUP.cmd`).
 3. **Phone alerts (optional):** install the free **ntfy** app, tap **+**, and subscribe to the topic shown in HQ → Settings → Notifications. Then press **Send test**.
 
 ## What's where
@@ -70,7 +71,7 @@ HQ/
   data/             ← runtime state: queue/runs, chat history, activity log (safe to delete)
   src/              ← server.ts, lib/ (brain, orchestrator, claude runner, notify), mcp/hq-brain.ts
   web/              ← the dashboard (plain HTML/CSS/JS) + legacy/ (old LoanCentral HQ page)
-  scripts/          ← START-HQ, STOP-HQ, SIGN-IN-CLAUDE, INSTALL-/REMOVE-STARTUP
+  scripts/          ← START-HQ, STOP-HQ, SIGN-IN-CLAUDE, INSTALL-/REMOVE-STARTUP, INSTALL-/UNINSTALL-APP
 ```
 
 Requires Node.js 24+ (TypeScript runs natively, with no build step and no npm packages).
