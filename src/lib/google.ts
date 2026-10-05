@@ -117,6 +117,9 @@ export async function callback(params: URLSearchParams): Promise<string> {
   saveAccounts(old ? list.map(a => a.id === id ? acc : a) : [...list, acc]);
   access.set(id, { token: j.access_token, exp: Date.now() + (Number(j.expires_in || 3600) - 60) * 1e3 });
   mailCache.clear();
+  // fresh permissions: forget this account's calendar results/errors so the next view refetches right away
+  for (const k of [...calCache.keys()]) if (k.startsWith(id + "|")) calCache.delete(k);
+  calState.delete(id);
   if (!hasCal(acc)) return `${acc.label} connected, but Calendar wasn't allowed. Press Reconnect and tick the Calendar box`;
   return p.write && !canWrite(acc) ? `${acc.label} connected, but writing wasn't allowed (tick every box on Google's page)` : `${acc.label} connected${canWrite(acc) ? " with writing on" : ""}`;
 }
@@ -476,7 +479,7 @@ export function calKick(from: Date, to: Date) {
     const key = `${a.id}|${monthKey(m)}`, c = calCache.get(key) || { at: 0, events: [] };
     if (c.inflight || (c.at && Date.now() - c.at < 10 * 60e3)) continue;
     c.inflight = calFetch(a, m).then(ev => { c.events = ev; calState.set(a.id, { ok: true, error: null, at: Date.now() }); })
-      .catch((e: any) => { const msg = String(e?.message || e); const need = /reconnect|insufficient|401/i.test(msg) || e?.code === 401; calState.set(a.id, { ok: false, need, error: need ? "Press Reconnect and tick the Calendar box on Google's page." : msg.slice(0, 220), at: Date.now() }); })
+      .catch((e: any) => { const msg = String(e?.message || e); const need = /reconnect|insufficient|401/i.test(msg) || e?.code === 401; calState.set(a.id, { ok: false, need, error: (need ? "Press Reconnect and tick the Calendar box on Google's page. " : "") + "Google said: " + msg.slice(0, 200), at: Date.now() }); })
       .finally(() => { c.at = Date.now(); c.inflight = undefined; });
     calCache.set(key, c);
     if (calCache.size > 200) calCache.delete(calCache.keys().next().value!);
