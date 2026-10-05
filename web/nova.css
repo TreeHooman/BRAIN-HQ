@@ -150,12 +150,12 @@
 @keyframes novaSweep { 0% { opacity: 1; background-position: 100% 0; } 100% { opacity: 0; background-position: -50% 0; } }
 
 /* ---------- cursor halo + click shockwave ---------- */
-#nova-cursor { position: fixed; left: 0; top: 0; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; pointer-events: none; z-index: 60; display: none;
-  border: 1px solid rgba(140, 240, 255, .55); box-shadow: 0 0 18px rgba(111, 242, 255, .35), inset 0 0 12px rgba(111, 242, 255, .2);
+#nova-cursor { position: fixed; left: 0; top: 0; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; pointer-events: none; z-index: 60; display: none;
+  border: 1px solid rgba(140, 240, 255, .5); box-shadow: 0 0 8px rgba(111, 242, 255, .3);
   transition: width .35s var(--spring), height .35s var(--spring), margin .35s var(--spring), border-color .3s, background .3s, opacity .3s; mix-blend-mode: screen; }
-#nova-cursor::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 1px dashed rgba(169, 139, 255, .5); animation: novaSpin 6s linear infinite; }
-#nova-cursor.hot { width: 54px; height: 54px; margin: -27px 0 0 -27px; border-color: rgba(140, 240, 255, .9); background: rgba(111, 242, 255, .06); }
-#nova-cursor.press { width: 24px; height: 24px; margin: -12px 0 0 -12px; }
+#nova-cursor::after { content: ""; display: none; position: absolute; inset: 0; border-radius: 50%; border: 1px dashed rgba(169, 139, 255, .5); animation: novaSpin 6s linear infinite; }
+#nova-cursor.hot { width: 28px; height: 28px; margin: -14px 0 0 -14px; border-color: rgba(140, 240, 255, .9); background: rgba(111, 242, 255, .06); }
+#nova-cursor.press { width: 12px; height: 12px; margin: -6px 0 0 -6px; }
 [data-theme="hud"] #nova-cursor.on { display: block; }
 .nova-shock { position: fixed; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; pointer-events: none; z-index: 59; border: 1.5px solid rgba(140, 240, 255, .9);
   box-shadow: 0 0 20px rgba(111, 242, 255, .7); animation: novaShock .7s var(--ease) forwards; }
