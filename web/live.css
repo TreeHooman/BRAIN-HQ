@@ -614,8 +614,46 @@ html, body { overflow-x: hidden; }
 .up-dot { position: relative; } .up-dot::after { content: ""; position: absolute; top: 8px; left: 24px; width: 7px; height: 7px; border-radius: 50%; background: var(--green, #4ade80); box-shadow: 0 0 8px var(--green, #4ade80); }
 .up-notes { margin: 4px 0 2px 18px; padding: 0; font-size: 12.5px; color: var(--text2); max-height: 160px; overflow: auto; } .up-notes li { margin: 2px 0; }
 .up-key summary { cursor: pointer; color: var(--text2); } .up-key ol { margin: 8px 0 8px 18px; padding: 0; } .up-key li { margin: 3px 0; }
-.up-over { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: rgba(3, 5, 12, .82); backdrop-filter: blur(6px); }
-.up-box { display: grid; justify-items: center; gap: 10px; padding: 26px 34px; border-radius: 16px; border: 1px solid var(--border2, #234); background: var(--surface, #0b1020); text-align: center; }
-.up-spin { width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(111, 242, 255, .15); border-top-color: #6ff2ff; animation: hqspin .9s linear infinite; }
 #view h2.fold.open + .card, #view h2.fold.open + div > .card:first-child { margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; border-top-color: transparent; }
 .up-log pre { max-height: 220px; overflow: auto; white-space: pre-wrap; font: 11.5px/1.45 var(--mono); color: var(--text2); background: rgba(0, 0, 0, .3); border-radius: 8px; padding: 10px; margin: 6px 0 0; }
+
+/* ---- update sequence ---- */
+.up-over { position: fixed; inset: 0; z-index: 9999; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 24px; text-align: center;
+  background: radial-gradient(ellipse at 50% 40%, rgba(10, 40, 64, .92), rgba(2, 4, 10, .97) 70%); backdrop-filter: blur(8px); color: var(--text, #e8f6ff); animation: upIn .5s ease; overflow: hidden; --uc: #6ff2ff; }
+.up-over.ok { --uc: #4ade80; } .up-over.bad { --uc: #ff6b81; }
+@keyframes upIn { from { opacity: 0; } }
+.up-grid { position: absolute; inset: -50%; pointer-events: none; opacity: .18; background-image: linear-gradient(rgba(111, 242, 255, .35) 1px, transparent 1px), linear-gradient(90deg, rgba(111, 242, 255, .35) 1px, transparent 1px);
+  background-size: 44px 44px; transform: perspective(600px) rotateX(62deg) translateY(10%); animation: upGrid 6s linear infinite; mask-image: radial-gradient(ellipse at 50% 30%, #000 20%, transparent 65%); }
+@keyframes upGrid { to { background-position: 0 44px, 0 0; } }
+.up-scan { position: absolute; left: 0; right: 0; height: 120px; top: -120px; pointer-events: none; background: linear-gradient(transparent, color-mix(in srgb, var(--uc) 10%, transparent), transparent); animation: upScan 3.2s linear infinite; }
+@keyframes upScan { to { top: 100%; } }
+.up-core { position: relative; width: min(46vw, 230px); aspect-ratio: 1; filter: drop-shadow(0 0 18px color-mix(in srgb, var(--uc) 45%, transparent)); }
+.up-core svg { width: 100%; height: 100%; overflow: visible; }
+.uc-ticks line { stroke: var(--uc); stroke-width: 1; opacity: .45; } .uc-ticks { transform-origin: 100px 100px; animation: ucSpin 24s linear infinite; }
+.uc-ring { fill: none; stroke: var(--uc); transform-origin: 100px 100px; }
+.uc-ring.a { stroke-width: 1; opacity: .25; }
+.uc-ring.b { stroke-width: 3; stroke-dasharray: 30 14 6 14; opacity: .7; animation: ucSpin 7s linear infinite reverse; }
+.uc-ring.c { stroke-width: 1.2; stroke-dasharray: 2 6; opacity: .6; animation: ucSpin 12s linear infinite; }
+.uc-prog { fill: none; stroke: var(--uc); stroke-width: 4; stroke-linecap: round; stroke-dasharray: calc(var(--p, 0) * 1) 100; transform: rotate(-90deg); transform-origin: 100px 100px; transition: stroke-dasharray .2s; filter: drop-shadow(0 0 4px var(--uc)); }
+.uc-eye { fill: rgba(2, 16, 26, .85); stroke: #e6fdff; stroke-width: 1.6; }
+.uc-iris { fill: none; stroke: var(--uc); stroke-width: 6; stroke-dasharray: 3 2.2; transform-origin: 100px 100px; animation: ucSpin 5s linear infinite; }
+.uc-pupil { fill: #e6fdff; animation: ucPulse 1.2s ease-in-out infinite; transform-origin: 100px 100px; }
+@keyframes ucSpin { to { transform: rotate(360deg); } } @keyframes ucPulse { 50% { transform: scale(.6); opacity: .7; } }
+.up-pct { position: absolute; left: 0; right: 0; bottom: 6%; font: 600 13px var(--mono, monospace); letter-spacing: .14em; color: var(--uc); }
+.up-title { position: relative; font: 700 clamp(18px, 3.4vw, 26px) var(--mono, monospace); letter-spacing: .32em; padding-left: .32em; text-shadow: 0 0 18px color-mix(in srgb, var(--uc) 60%, transparent); }
+.up-title::before, .up-title::after { content: attr(data-t); position: absolute; inset: 0; padding-left: .32em; opacity: .6; clip-path: inset(0 0 60% 0); animation: upGlitch 2.6s steps(1) infinite; }
+.up-title::before { color: #ff3df0; transform: translateX(-2px); } .up-title::after { color: #3df8ff; transform: translateX(2px); clip-path: inset(55% 0 0 0); animation-delay: .4s; }
+@keyframes upGlitch { 0%, 88%, 100% { opacity: 0; } 90%, 94% { opacity: .65; } }
+.up-ver { display: flex; align-items: center; gap: 10px; font: 12px var(--mono, monospace); color: var(--text3, #7f8dab); }
+.up-ver b { color: var(--uc); font-weight: 600; } .up-ver i { width: 54px; height: 1px; background: linear-gradient(90deg, transparent, var(--uc)); position: relative; }
+.up-ver i::after { content: ""; position: absolute; right: 0; top: -3px; border: 3.5px solid transparent; border-left-color: var(--uc); }
+.up-stages { display: flex; gap: 6px; list-style: none; margin: 4px 0 0; padding: 0; flex-wrap: wrap; justify-content: center; }
+.up-stages li { display: flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 99px; border: 1px solid rgba(150, 210, 255, .15); font: 500 11.5px var(--mono, monospace); letter-spacing: .08em; text-transform: uppercase; color: var(--text3, #7f8dab); transition: all .3s; }
+.up-stages li span { opacity: .6; } .up-stages li.on { color: var(--uc); border-color: var(--uc); box-shadow: 0 0 16px -4px var(--uc); animation: ucBlink 1.2s ease-in-out infinite; }
+.up-stages li.done { color: var(--text2, #b3c1da); border-color: color-mix(in srgb, var(--uc) 40%, transparent); } .up-stages li.done span::before { content: "✓ "; }
+@keyframes ucBlink { 50% { box-shadow: 0 0 4px -2px var(--uc); } }
+.up-bar { width: min(80vw, 380px); height: 3px; border-radius: 99px; background: rgba(150, 210, 255, .1); overflow: hidden; }
+.up-bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, transparent, var(--uc)); box-shadow: 0 0 12px var(--uc); transition: width .2s; }
+.up-msg { font: 13px var(--font, sans-serif); color: var(--text2, #b3c1da); min-height: 1.4em; } .up-msg code { color: var(--uc); }
+.up-log { max-width: min(90vw, 640px); display: grid; gap: 8px; justify-items: center; } .up-log pre { max-height: 200px; overflow: auto; text-align: left; white-space: pre-wrap; font: 11.5px/1.45 var(--mono, monospace); color: var(--text2); background: rgba(0, 0, 0, .35); border-radius: 8px; padding: 10px; margin: 0; }
+@media (prefers-reduced-motion: reduce) { .up-over *, .up-over *::before, .up-over *::after { animation: none !important; } }

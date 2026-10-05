@@ -58,23 +58,55 @@ function upDraw(wrap) {
   };
 }
 
-// Restart overlay: wait for the server to go away and come back on the new commit, then reload.
+// Restart overlay: a sci-fi "core update" sequence. Stages follow what's really happening: the installer is fetching →
+// HQ goes down (installing/restarting) → HQ answers again (online) → reload. If the installer reports a problem, it says so.
 function upWait(sha) {
-  const o = document.createElement("div"); o.className = "up-over";
-  o.innerHTML = `<div class="up-box"><div class="up-spin"></div><b>Updating LUTHUR…</b><div class="small muted" id="upMsg">Downloading and installing</div></div>`;
+  const from = (UP.s?.installed?.sha || "").slice(0, 7) || "current", to = String(sha).slice(0, 7);
+  const ticks = Array.from({ length: 60 }, (_, i) => { const a = i * 6 * Math.PI / 180, r1 = i % 5 ? 92 : 88; return `<line x1="${(100 + Math.cos(a) * r1).toFixed(1)}" y1="${(100 + Math.sin(a) * r1).toFixed(1)}" x2="${(100 + Math.cos(a) * 96).toFixed(1)}" y2="${(100 + Math.sin(a) * 96).toFixed(1)}"/>`; }).join("");
+  const o = document.createElement("div"); o.className = "up-over"; o.setAttribute("role", "status");
+  o.innerHTML = `<div class="up-grid"></div><div class="up-scan"></div>
+    <div class="up-core">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <g class="uc-ticks">${ticks}</g>
+        <circle class="uc-ring a" cx="100" cy="100" r="80"/><circle class="uc-ring b" cx="100" cy="100" r="70"/><circle class="uc-ring c" cx="100" cy="100" r="58"/>
+        <circle class="uc-prog" cx="100" cy="100" r="80" pathLength="100"/>
+        <path class="uc-eye" d="M52 100 Q100 62 148 100 Q100 138 52 100Z"/><circle class="uc-iris" cx="100" cy="100" r="17"/><circle class="uc-pupil" cx="100" cy="100" r="7"/>
+      </svg>
+      <div class="up-pct" id="upPct">0%</div>
+    </div>
+    <div class="up-title" data-t="UPDATING LUTHUR">UPDATING LUTHUR</div>
+    <div class="up-ver"><span>${esc(from)}</span><i></i><b>${esc(to)}</b></div>
+    <ol class="up-stages">${["Download", "Install", "Restart", "Online"].map((t, i) => `<li data-st="${i}"><span>${String(i + 1).padStart(2, "0")}</span>${t}</li>`).join("")}</ol>
+    <div class="up-bar"><i id="upBar"></i></div>
+    <div class="up-msg" id="upMsg">Downloading the new version…</div>
+    <div class="up-log" id="upLog" hidden></div>`;
   document.body.append(o);
-  const t0 = Date.now(); let down = false, up = 0;
+  const $o = q => o.querySelector(q);
+  let pct = 0, target = 30, stage = 0;
+  const set = (st, msg, tgt) => { stage = Math.max(stage, st); if (msg) $o("#upMsg").textContent = msg; if (tgt) target = Math.max(target, tgt);
+    o.querySelectorAll("[data-st]").forEach(li => { const i = +li.dataset.st; li.classList.toggle("done", i < stage); li.classList.toggle("on", i === stage); }); };
+  set(0);
+  // smooth progress that creeps toward the current stage's target, never claims 100% until it's really back
+  const anim = setInterval(() => { pct += Math.max(.08, (target - pct) * .04); pct = Math.min(pct, target); const v = Math.round(pct);
+    $o("#upPct").textContent = v + "%"; $o("#upBar").style.width = v + "%"; o.style.setProperty("--p", v); }, 60);
+  const done = () => { set(3, "Online. Reloading…", 100); pct = 99.5; o.classList.add("ok"); setTimeout(() => location.reload(), 1100); };
+  const t0 = Date.now(); let down = false, up = 0, failed = false;
+  setTimeout(() => { if (!down && !failed) set(1, "Installing: backing up and copying files…", 55); }, 4000);
   const tick = async () => {
     try {
       const r = await fetch("/api/update", { headers: { "X-HQ": "1" }, cache: "no-store" }); const j = await r.json();
-      if (j.installed?.sha === sha) { o.querySelector("#upMsg").textContent = "Done. Reloading…"; return setTimeout(() => location.reload(), 600); }
-      // back up after a restart: reload even if the version file can't be read
-      if (down && ++up >= 2) { o.querySelector("#upMsg").textContent = "Done. Reloading…"; return setTimeout(() => location.reload(), 600); }
-    } catch { down = true; o.querySelector("#upMsg").textContent = "Restarting…"; }
-    if (Date.now() - t0 > 180000) { o.querySelector("#upMsg").innerHTML = "Taking too long. Check <code>HQ\\data\\update.log</code>, or run START-HQ."; return; }
-    setTimeout(tick, 2000);
+      if (j.installed?.sha === sha) return done();
+      if (down && ++up >= 2) return done();
+      if (!down && j.error && !j.busy && /installer|stopped partway/i.test(j.error)) { // the installer reported a problem before restarting
+        failed = true; clearInterval(anim); o.classList.add("bad"); $o("#upMsg").textContent = j.error;
+        const lg = $o("#upLog"); lg.hidden = false; lg.innerHTML = `${j.log ? `<pre>${esc(j.log)}</pre>` : ""}<button type="button" class="btn sm" id="upClose">Close</button>`;
+        $o("#upClose").onclick = () => o.remove(); return;
+      }
+    } catch { if (!down) { down = true; set(2, "Restarting the core…", 85); } }
+    if (Date.now() - t0 > 180000) { clearInterval(anim); o.classList.add("bad"); $o("#upMsg").innerHTML = "Taking too long. Check <code>HQ\\data\\update.log</code>, or start LUTHUR again."; return; }
+    setTimeout(tick, 1500);
   };
-  setTimeout(tick, 3000);
+  setTimeout(tick, 2500);
 }
 
 const _vSettingsUp = vSettings;

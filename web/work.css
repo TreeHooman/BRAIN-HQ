@@ -142,3 +142,6 @@ body[data-view="projects"] .pgroup .grid { grid-template-columns: repeat(auto-fi
 .scr-cr:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
 .scr-cr img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; touch-action: none; }
 .scr-crload { position: absolute; top: 10px; right: 10px; padding: 6px; border-radius: 99px; background: rgba(5, 10, 20, .7); }
+.his-tabs { margin: 4px 0 12px; }
+.his-msg { display: grid; gap: 2px; padding: 8px 10px; border-radius: 8px; background: rgba(150, 210, 255, .03); } .his-msg.you { background: rgba(111, 242, 255, .07); }
+.his-msg > span { font: 600 10.5px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--text3); }

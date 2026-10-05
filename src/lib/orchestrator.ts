@@ -10,6 +10,7 @@ import type { Step } from "./narrate.ts";
 import { isDue, type Schedule } from "./schedule.ts";
 import { notify } from "./notify.ts";
 import * as brain from "./brain.ts";
+import * as transcripts from "./transcripts.ts";
 import * as outbox from "./outbox.ts";
 
 export type Mission = {
@@ -522,6 +523,58 @@ export function newChat() {
   const c = readJson<Chat | null>(F.chat, null);
   if (c?.messages?.length) writeJson(path.join(F.chatArchive, `${c.id}.json`), c);
   writeJson(F.chat, { id: uid("chat"), sessionId: null, messages: [] });
+}
+export type ChatRow = { id: string; title: string; at: string; count: number; source: "dashboard" | "claude"; project?: string | null; current: boolean; resumable: boolean };
+
+/** Every chat, newest first: Claude Code sessions in the HQ folder (dashboard + Claude app/terminal) plus any dashboard
+ *  chat with no transcript yet. A chat's id is its Claude session id when it has one, so both sides name it the same. */
+function hqChats(): Chat[] {
+  let files: string[] = [];
+  try { files = fs.readdirSync(F.chatArchive).filter(f => f.endsWith(".json")); } catch {}
+  const all = files.map(f => readJson<Chat | null>(path.join(F.chatArchive, f), null)).filter((c): c is Chat => !!c?.messages?.length);
+  const cur = readJson<Chat | null>(F.chat, null);
+  if (cur?.messages?.length && !all.some(c => c.id === cur.id)) all.push(cur);
+  return all;
+}
+export function listChats(): ChatRow[] {
+  const cur = readJson<Chat | null>(F.chat, null);
+  const hq = hqChats();
+  const bySession = new Map(hq.filter(c => c.sessionId).map(c => [c.sessionId as string, c]));
+  // LUTHUR's own background runs (explain, briefings, missions, checks) also leave session files here: only list
+  // real dashboard chats and sessions the owner started in Claude (app or terminal). The rest is on the History page.
+  const out: ChatRow[] = transcripts.listTranscripts().filter(t => t.source === "claude" || bySession.has(t.sessionId)).map(t => {
+    const h = bySession.get(t.sessionId);
+    return { id: t.sessionId, title: t.title, at: t.at, count: t.count, source: t.source || (h ? "dashboard" : "claude"), project: h?.project || null, current: cur?.sessionId === t.sessionId, resumable: true };
+  });
+  const seen = new Set(out.map(r => r.id));
+  for (const c of hq) {
+    if (c.sessionId && seen.has(c.sessionId)) continue;
+    const first = c.messages.find(m => m.role === "you")?.text || "(empty)";
+    out.push({ id: c.id, title: first.length > 80 ? first.slice(0, 79) + "…" : first, at: c.messages[c.messages.length - 1]?.at || "", count: c.messages.length,
+      source: "dashboard", project: c.project || null, current: cur?.id === c.id, resumable: !!c.sessionId });
+  }
+  return out.sort((a, b) => b.at.localeCompare(a.at));
+}
+export function getChat(id: string): { id: string; title: string; sessionId: string | null; messages: { role: string; text: string; at: string }[] } | null {
+  const t = transcripts.getTranscript(id);
+  if (t) return { id, title: t.title, sessionId: t.sessionId, messages: t.messages };
+  if (!/^[\w-]{1,64}$/.test(id)) return null;
+  const c = hqChats().find(x => x.id === id);
+  return c ? { id, title: c.messages[0]?.text.slice(0, 80) || "", sessionId: c.sessionId, messages: c.messages } : null;
+}
+/** Make any chat (incl. one started in the Claude app or terminal) the live Luthor chat; the next message resumes its session. */
+export function continueChat(id: string): Chat {
+  if (chatBusy) throw new Error("The assistant is still answering.");
+  const found = getChat(id);
+  if (!found?.sessionId) throw new Error("That chat can't be continued (no Claude session).");
+  const cur = readJson<Chat | null>(F.chat, null);
+  if (cur?.sessionId === found.sessionId) return cur;
+  newChat();
+  const hq = hqChats().find(c => c.sessionId === found.sessionId);
+  const next: Chat = { id: uid("chat"), sessionId: found.sessionId, project: hq?.project || null,
+    messages: found.messages.map(m => ({ role: m.role === "you" ? "you" : "hq", text: m.text, at: m.at })) };
+  writeJson(F.chat, next);
+  return next;
 }
 export async function sendChat(text: string, opts: { project?: string | null; tier?: string; effort?: string } = {}): Promise<void> {
   if (chatBusy) throw new Error("The assistant is still answering.");
