@@ -649,7 +649,7 @@ function vSettings(el) {
       <h2>Calendar</h2>
       <div class="card form" id="calCard">
         ${(S.calendar?.feeds || []).map(f => `<div class="row"><span class="dot ${f.ok === false ? "risk" : f.ok ? "good" : "unknown"}" ${f.google ? `style="background:${esc(f.color)}"` : ""}></span><div class="grow"><b>${esc(f.name)}</b> <span class="small faint">${esc(f.host)}${f.google ? " · Google account" : ""}</span>
-          <div class="small ${f.ok === false ? "" : "muted"}">${f.ok === false ? esc(f.error || "Sync failed") : f.lastSync ? `Synced ${esc(ago(f.lastSync))} · ${f.count} events` : "Syncing…"}</div></div>${f.google ? `<a class="btn sm ghost" href="#workspace">${f.needsReconnect ? "Reconnect" : "Manage"}</a>` : `<button type="button" class="btn sm ghost" data-calrm="${esc(f.id)}">Remove</button>`}</div>`).join("") || `<div class="small muted">No calendar connected.</div>`}
+          <div class="small ${f.ok === false ? "" : "muted"}">${f.ok === false ? esc(f.error || "Sync failed") : f.lastSync ? `Synced ${esc(ago(f.lastSync))} · ${f.count} events` : "Syncing…"}</div></div>${f.google ? (f.needsReconnect ? `<button type="button" class="btn sm primary" data-greco="${esc(String(f.id).slice(2))}">Reconnect</button>` : `<a class="btn sm ghost" href="#workspace">Manage</a>`) : `<button type="button" class="btn sm ghost" data-calrm="${esc(f.id)}">Remove</button>`}</div>`).join("") || `<div class="small muted">No calendar connected.</div>`}
         <div class="two"><label class="f">Name<input id="calName" placeholder="Personal" maxlength="40" autocomplete="off"></label>
           <label class="f">Secret address (iCal)<input id="calUrl" type="text" class="masked" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" autocomplete="new-password" data-lpignore="true" data-1p-ignore spellcheck="false"></label></div>
         <div class="note blue small"><b>Google Calendar:</b> calendar.google.com → Settings → click your calendar on the left → <b>Integrate calendar</b> → copy <b>Secret address in iCal format</b>. Outlook and iCloud .ics links work too.<br>Read-only. The address stays on this PC (<code>config/hq.local.json</code>) and is never shown again. If it leaks, press “Reset” next to it in Google and add the new one.</div>
@@ -684,6 +684,8 @@ function vSettings(el) {
     else { b.disabled = false; b.textContent = "Connect"; }
   };
   if ($("#calSync")) $("#calSync").onclick = () => act(() => api("/calendar/sync", "POST").then(r => { calFeed.key = ""; return r; }), "Calendar synced");
+  // Google calendars: Reconnect goes straight to Google's sign-in (adds the Calendar permission, keeps the rest)
+  $$("[data-greco]", el).forEach(b => b.onclick = async () => { try { const { url } = await api("/google/login", "POST", { reconnect: b.dataset.greco }); location.href = url; } catch (e) { toast("⚠ " + e.message, 5000); } });
   $$("[data-calrm]", el).forEach(b => b.onclick = () => { if (confirm("Remove this calendar from LUTHUR?")) act(() => api(`/calendar/feeds/${b.dataset.calrm}`, "DELETE"), "Calendar removed"); });
   connCardFill(false);
   $("#replayBoot").onclick = () => hudBoot(false);
