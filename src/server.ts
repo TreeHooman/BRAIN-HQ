@@ -239,6 +239,12 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(302, { Location: "/#workspace/auth" + (msg ? "?error=" + encodeURIComponent(msg.slice(0, 160)) : "?ok=" + encodeURIComponent(label)), "Cache-Control": "no-store" });
         return res.end();
       }
+      const rawM = url.pathname.match(/^\/api\/google\/raw\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})$/);
+      if (rawM && req.method === "GET") {
+        const r = await google.raw(rawM[1], rawM[2]);
+        res.writeHead(200, { "Content-Type": r.type, "Content-Length": r.body.length, "Content-Disposition": "inline", "X-Content-Type-Options": "nosniff", ...(r.type.startsWith("image/") ? { "Content-Security-Policy": "sandbox; default-src 'none'" } : {}), "Cache-Control": "private, max-age=300" });
+        return res.end(r.body);
+      }
       if (url.pathname === "/api/search" && req.method === "GET") return send(res, 200, brain.searchBrain(url.searchParams.get("q") || ""));
       for (const [method, re, h] of routes) {
         const m = url.pathname.match(re);

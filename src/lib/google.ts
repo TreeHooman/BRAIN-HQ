@@ -330,6 +330,7 @@ export async function preview(acc: string, id: string, tab?: string) {
     const t = await gget(a, `${DRIVE}/files/${id}?alt=media&supportsAllDrives=true`, "text");
     return f.mime === "text/csv" ? { file: f, kind: "sheet", tabs: [], tab: null, rows: parseCsv(t).slice(0, 500), cut: false } : { file: f, kind: "text", text: t.slice(0, 200_000) };
   }
+  if (RAW_OK.test(f.mime) && f.size <= 25e6) return { file: f, kind: f.mime === "application/pdf" ? "pdf" : "image" };
   return { file: f, kind: "link" };
 }
 
@@ -423,4 +424,19 @@ export async function docReplace(acc: string, id: string, find: unknown, repl: u
   const n = Number(res.replies?.[0]?.replaceAllText?.occurrencesChanged) || 0;
   wlog("google-doc-edited", a, { id, op: "replace", n });
   return { ok: true, changed: n };
+}
+
+// Raw bytes for in-app viewing of PDFs and images only (never HTML/SVG/scripts). Capped at 25 MB.
+const RAW_OK = /^(application\/pdf|image\/(png|jpeg|gif|webp|bmp))$/;
+export async function raw(acc: string, id: string): Promise<{ type: string; body: Buffer }> {
+  if (!FILE_ID.test(id)) throw err("Bad file id");
+  const f = await driveFile(acc, id), a = account(acc);
+  if (!RAW_OK.test(f.mime)) throw err("No preview for this type.");
+  if (f.size > 25e6) throw err("Too big to preview here (over 25 MB). Open it in Google.");
+  const t = await accessToken(a);
+  const r = await fetch(`${DRIVE}/files/${id}?alt=media&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${t}` }, signal: AbortSignal.timeout(60e3) });
+  if (!r.ok) throw err(`Google error (${r.status}).`);
+  const body = Buffer.from(await r.arrayBuffer());
+  if (body.length > 25e6) throw err("Too big to preview here.");
+  return { type: f.mime, body };
 }

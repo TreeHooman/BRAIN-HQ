@@ -102,6 +102,9 @@
 .ws-orig summary { cursor: pointer; color: var(--text3); font-size: 12.5px; }
 .ws-orig pre { max-height: 200px; overflow: auto; font-size: 12px; color: var(--text2); }
 
+.ws-pdf { width: 100%; height: calc(100vh - 300px); min-height: 420px; border: 1px solid var(--border2); border-radius: 4px; background: #fff; }
+.ws-img { max-width: 100%; max-height: calc(100vh - 300px); display: block; margin: 0 auto; border-radius: 4px; }
+
 /* Command inbox rows carry the account colour */
 #nvMail .ml-row .ws-dot { margin-top: 5px; }
 
