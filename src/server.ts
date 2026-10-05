@@ -75,6 +75,23 @@ function writeCheck() {
     });
   } catch {}
 }
+// Starter plans shipped in config/seed-goals.json: each one is added to the Mission Planner once (the brain is never
+// overwritten by updates). Ids are remembered, so a plan the owner deletes doesn't come back.
+function seedGoals() {
+  try {
+    const seed = readJson<any[]>(path.join(ROOT, "config", "seed-goals.json"), []); if (!Array.isArray(seed) || !seed.length) return;
+    const markF = path.join(DATA, "seed-goals-applied.json"), done = new Set(readJson<string[]>(markF, []));
+    const file = path.join(ROOT, "brain", "goals.json"), all = readJson<any[]>(file, []); let n = 0;
+    for (const g of seed) {
+      if (!g?.id || done.has(g.id)) continue; done.add(g.id);
+      if (all.some(x => x.id === g.id) || !brain.getProject(g.project)) continue;
+      all.push({ ...g, createdAt: new Date().toISOString(), steps: (g.steps || []).map((st: any) => ({ ...st, done: false, due: st.due || undefined })), due: g.due || undefined });
+      n++;
+    }
+    if (n) { writeJson(file, all); brain.regenerateIndex(); console.log(`Added ${n} starter plan${n > 1 ? "s" : ""} to the Mission Planner`); }
+    writeJson(markF, [...done]);
+  } catch (e) { console.warn("seed goals:", e); }
+}
 function snapshot() {
   const c = loadConfig();
   cal.kick();
@@ -362,6 +379,7 @@ server.listen(PORT, HOST, () => {
   outbox.recover();
   if (!process.env.HQ_NO_ORCHESTRATOR) mail.startAuto();
   if (!process.env.HQ_NO_ORCHESTRATOR) code.watchStart();
+  seedGoals();
 });
 const shutdown = () => { orch.stop(); killAll(); browser.stop(); process.exit(0); };
 process.on("exit", () => { killAll(); browser.stop(); });

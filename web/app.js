@@ -109,7 +109,7 @@ function renderChrome() {
   if (!S) return;
   const st = S.status;
   const navA = $('#nav a[data-view="assistant"] span'); if (navA) navA.textContent = S.settings.assistantName;
-  $("#nInbox").textContent = S.inbox.length || "";
+  const ni = $("#nInbox"); if (ni) ni.textContent = S.inbox.length || "";
   $("#nApprovals").textContent = st.pendingApprovals || "";
   const nOb = $("#nOutbox"); if (nOb) nOb.textContent = (S.outbox || []).filter(x => x.status === "draft" || x.status === "failed").length || "";
   const pills = [];
@@ -139,6 +139,7 @@ function render() {
   if (!S) return;
   $$("#nav a").forEach(a => a.classList.toggle("on", a.dataset.view === (route.view === "project" ? "projects" : route.view)));
   const views = { command: vCommand, planner: vPlanner, home: vHome, projects: vProjects, project: vProject, calendar: vCalendar, roadmap: vRoadmap, inbox: vInbox, assistant: vAssistant, missions: vMissions, settings: vSettings, code: vCode, outbox: vOutbox, tasks: vTasks, canvas: vCanvas, workspace: vWorkspace, history: typeof vHistory === "function" ? vHistory : vCommand };
+  if (route.view === "inbox") { location.replace("#assistant"); return; } // notes live in LUTHUR's mind dump now
   const fn = views[route.view] || vCommand;
   // Don't clobber a field the user is typing in during background refreshes.
   const active = document.activeElement;
@@ -197,7 +198,7 @@ function vHome(el) {
     <div class="tiles">
       <a class="tile ${urgent.some(r => toDate(r.due) < now) ? "red" : "amber"}" href="#calendar"><b>${urgent.length}</b><span>Due today${urgent.some(r => toDate(r.due) < now) ? " (some overdue)" : ""}</span></a>
       <a class="tile blue" href="#calendar"><b>${week.length}</b><span>Later this week</span></a>
-      <a class="tile ${S.inbox.length ? "amber" : ""}" href="#inbox"><b>${S.inbox.length}</b><span>Inbox to sort</span></a>
+      <a class="tile ${S.inbox.length ? "amber" : ""}" href="#assistant"><b>${S.inbox.length}</b><span>Inbox to sort</span></a>
       <a class="tile ${pend.length ? "amber" : "green"}" href="#missions"><b>${pend.length}</b><span>Need your OK</span></a>
     </div>
     <div class="cols">
@@ -357,9 +358,10 @@ function vCalendar(el) {
   const first = new Date(calMonth), start = new Date(first); start.setDate(1 - first.getDay());
   const today = ymd(new Date());
   const events = {};
-  const add = (k, e) => (events[k] = events[k] || []).push(e);
-  S.reminders.forEach(r => add(r.due.slice(0, 10), { t: r.title, cls: r.done ? "done" : "", time: r.due.slice(11, 16) }));
-  S.milestones.forEach(m => add(m.date, { t: m.title, cls: `${m.kind || "milestone"} ${m.done ? "done" : ""}` }));
+  // the same event on several calendars (holidays on every account) shows once
+  const add = (k, e) => { const l = events[k] = events[k] || []; if (!l.some(x => x.t === e.t && (x.time || "") === (e.time || ""))) l.push(e); };
+  S.reminders.forEach(r => add(r.due.slice(0, 10), { t: r.title, cls: r.done ? "done" : "", time: r.due.slice(11, 16), rem: r }));
+  S.milestones.forEach(m => add(m.date, { t: m.title, cls: `${m.kind || "milestone"} ${m.done ? "done" : ""}`, ms: m }));
   const feeds = S.calendar?.feeds || [], fcol = Object.fromEntries(feeds.map(f => [f.id, f.color || "teal"]));
   const fcls = id => /^#/.test(fcol[id] || "") ? "gcal c-acct" : `gcal c-${fcol[id]}`, fsty = id => /^#/.test(fcol[id] || "") ? fcol[id] : "";
   const key = ymd(start);
@@ -372,13 +374,14 @@ function vCalendar(el) {
     if (e.allDay) { for (let d = toDate(e.start); ymd(d) < e.end; d.setDate(d.getDate() + 1)) add(ymd(d), { t: e.title, cls: fcls(e.feed), c: fsty(e.feed), ev: e }); }
     else { const d = new Date(e.start); add(ymd(d), { t: e.title, cls: fcls(e.feed), c: fsty(e.feed), time: `${pad(d.getHours())}:${pad(d.getMinutes())}`, ev: e }); }
   });
-  Object.values(events).forEach(l => l.sort((a, b) => (a.ev ? (a.ev.allDay ? "" : a.time) : "~") .localeCompare(b.ev ? (b.ev.allDay ? "" : b.time) : "~")));
+  Object.values(events).forEach(l => l.sort((a, b) => (a.time || "").localeCompare(b.time || ""))); // all-day first, then by time
+  calDays = events;
   let cells = "";
   for (let i = 0; i < 42; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     const k = ymd(d), ev = events[k] || [];
     cells += `<div class="day ${d.getMonth() !== first.getMonth() ? "out" : ""} ${k === today ? "today" : ""}" data-day="${k}">
-      <div class="num">${d.getDate()}</div>${ev.slice(0, 4).map(e => `<div class="ev ${e.cls}"${e.c ? ` style="--gc:${esc(e.c)}"` : ""} title="${esc(e.t + (e.ev?.location ? " @ " + e.ev.location : ""))}">${e.time ? e.time + " " : ""}${esc(e.t)}</div>`).join("")}${ev.length > 4 ? `<div class="small faint">+${ev.length - 4} more</div>` : ""}</div>`;
+      <div class="num">${d.getDate()}</div>${ev.slice(0, ev.length > 4 ? 3 : 4).map(e => `<div class="ev ${e.cls}"${e.c ? ` style="--gc:${esc(e.c)}"` : ""} title="${esc(e.t + (e.ev?.location ? " @ " + e.ev.location : ""))}">${e.time ? e.time + " " : ""}${esc(e.t)}</div>`).join("")}${ev.length > 4 ? `<div class="small faint day-more">+${ev.length - 3} more</div>` : ""}</div>`;
   }
   const evWhen = e => e.allDay ? e.start : (d => `${ymd(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`)(new Date(e.start));
   const upcoming = [...S.reminders.filter(r => !r.done).map(r => ({ d: r.due, t: r.title, k: "reminder", p: r.project })), ...S.milestones.filter(m => !m.done).map(m => ({ d: m.date, t: m.title, k: m.kind, p: m.project })),
@@ -391,11 +394,20 @@ function vCalendar(el) {
   $("#calPrev").onclick = () => { calMonth.setMonth(calMonth.getMonth() - 1); render(); };
   $("#calNext").onclick = () => { calMonth.setMonth(calMonth.getMonth() + 1); render(); };
   $("#calToday").onclick = () => { calMonth = null; render(); };
-  $$("[data-day]", el).forEach(c => c.onclick = () => addOnDayModal(c.dataset.day));
+  $$("[data-day]", el).forEach(c => c.onclick = () => dayModal(c.dataset.day));
 }
-function addOnDayModal(day) {
-  modal(`<h3>Add on ${fmtWhen(day)}</h3><form class="form" id="dayForm">
-    <label class="f">What<input name="title" required autofocus></label>
+let calDays = {};
+/** A day's full list (time order) with done buttons for reminders, then the add form. */
+function dayModal(day) {
+  const items = calDays[day] || [], feeds = Object.fromEntries((S.calendar?.feeds || []).map(f => [f.id, f.name]));
+  const src = e => e.rem ? (e.rem.project ? projName(e.rem.project) + " · reminder" : "reminder") : e.ms ? (e.ms.project ? projName(e.ms.project) + " · " : "") + (e.ms.kind || "milestone") : (feeds[e.ev?.feed] || "calendar") + (e.ev?.location ? " · " + e.ev.location : "");
+  const list = items.length ? `<ul class="day-list">${items.map(e => `<li class="${e.cls}"${e.c ? ` style="--gc:${esc(e.c)}"` : ""}><span class="when">${e.time || "all day"}</span><div class="grow"><b>${esc(e.t)}</b><small>${esc(src(e))}</small></div>${e.rem && !e.rem.done ? `<button type="button" class="btn sm ghost" data-remdone="${esc(e.rem.id)}">Done</button>` : ""}</li>`).join("")}</ul>` : `<div class="empty small">Nothing on this day yet.</div>`;
+  addOnDayModal(day, `<h3>${(d => `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`)(new Date(day + "T12:00"))} <span class="faint small">${items.length || ""}</span></h3>${list}<div class="pd-sub" style="margin-top:12px">Add</div>`);
+  $$("[data-remdone]").forEach(b => b.onclick = async () => { await act(() => api(`/reminders/${b.dataset.remdone}`, "PATCH", { complete: true }), "Done"); closeModal(); dayModal(day); });
+}
+function addOnDayModal(day, head) {
+  modal(`${head || `<h3>Add on ${fmtWhen(day)}</h3>`}<form class="form" id="dayForm">
+    <label class="f">What<input name="title" required ${head ? "" : "autofocus"}></label>
     <div class="three"><label class="f">Type<select name="type"><option value="reminder">Reminder (alerts you)</option><option value="milestone">Milestone</option><option value="deadline">Deadline</option></select></label>
     <label class="f">Time (reminders)<input type="time" name="time" value="09:00"></label>
     <label class="f">Repeat<select name="repeat"><option value="">No</option><option>daily</option><option>weekly</option><option>monthly</option></select></label></div>

@@ -277,7 +277,7 @@ const TIER_OPTS = () => [["fast", `Fast · ${cap(tierModel("fast"))}`], ["balanc
 
 // ---------------- command palette (Ctrl+K) ----------------
 const Pal = { items: [], shown: [], sel: 0, remote: [], timer: 0, q: "" };
-const VIEWS = [["command", "War Room", "◎"], ["home", "Today", "▦"], ["assistant", "LUTHUR", "✦"], ["projects", "Projects", "▣"], ["planner", "Mission Planner", "⬡"], ["calendar", "Calendar", "▤"], ["roadmap", "Roadmap", "≡"], ["inbox", "Inbox", "⇩"], ["missions", "Missions", "➤"], ["settings", "Settings", "⚙"]];
+const VIEWS = [["command", "War Room", "◎"], ["home", "Today", "▦"], ["assistant", "LUTHUR", "✦"], ["projects", "Projects", "▣"], ["planner", "Mission Planner", "⬡"], ["calendar", "Calendar", "▤"], ["roadmap", "Roadmap", "≡"], ["missions", "Missions", "➤"], ["settings", "Settings", "⚙"]];
 function palBase() {
   const go = h => () => { location.hash = h; };
   const it = [];
@@ -305,7 +305,7 @@ function palBase() {
   S.milestones.filter(m => !m.done).forEach(m => it.push({ sec: "Milestones", ico: "◆", t: m.title, sub: `${m.date}${m.project ? " · " + projName(m.project) : ""}`, run: go("roadmap") }));
   S.missions.forEach(m => it.push({ sec: "Missions", ico: "➤", t: m.title, sub: m.scheduleText, run: go("missions") }));
   (S.goals || []).forEach(g => it.push({ sec: "Goals", ico: "⬡", t: g.title, sub: g.project ? projName(g.project) : "", run: go("planner") }));
-  S.inbox.forEach(n => it.push({ sec: "Inbox", ico: "⇩", t: n.text.slice(0, 90), run: go("inbox") }));
+  S.inbox.forEach(n => it.push({ sec: "Mind dump", ico: "⇩", t: n.text.slice(0, 90), run: go("assistant") }));
   (S.decisions || []).forEach(d => it.push({ sec: "Decisions", ico: "⚑", t: d.replace(/^-\s*/, "").replace(/\*\*/g, "").slice(0, 110), run: go("roadmap") }));
   return it;
 }
