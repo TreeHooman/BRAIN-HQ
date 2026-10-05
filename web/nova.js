@@ -356,7 +356,7 @@ async function vCommand(el) {
           </div>
           <div class="nv-tip" id="nvTip" role="tooltip"></div>
         </div>
-        <form class="nv-ask" id="cmdAsk" autocomplete="off"><button type="button" class="btn mic" id="cmdMic" title="Talk (Alt+J)" aria-label="Talk">${MIC_SVG}</button><input id="cmdText" placeholder="Ask ${esc(name)} anything…" aria-label="Ask ${esc(name)}"><button class="btn primary">Send</button></form>
+        <form class="nv-ask" id="cmdAsk" autocomplete="off"><button type="button" class="btn mic" id="cmdMic" title="Talk (Alt+J)" aria-label="Talk">${MIC_SVG}</button><input id="cmdText" placeholder="Ask, or: update a project · do a check · pull up a site…" aria-label="Ask ${esc(name)}"><button class="btn primary">Send</button></form>
         <div class="nv-under">${tierSwitch()}</div>
         <div class="card nv-reply" id="cmdReply"></div>
       </div>

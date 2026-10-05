@@ -16,6 +16,7 @@ let projCache = {};      // slug -> /api/project/:slug
 // ---------------- api ----------------
 async function api(path, method = "GET", body) {
   if (method === "POST" && body && (path === "/chat" || /^\/code\/[a-z0-9-]+$/.test(path)) && Date.now() - (window.hqVoiceAt || 0) < 6000) { body = { ...body, voice: true }; window.hqVoiceAt = 0; window.hqVoiceTurn = Date.now(); }
+  if (method === "POST" && body && path === "/chat" && typeof cmdContext === "function") { try { body = { ...body, context: cmdContext() }; } catch {} }
   const res = await fetch("/api" + path, { method, headers: { "Content-Type": "application/json", "X-HQ": "1" }, body: body === undefined ? undefined : JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || res.statusText);

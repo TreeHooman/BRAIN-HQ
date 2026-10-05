@@ -56,6 +56,45 @@ const tools: Tool[] = [
       drop("screen", { kind: a.kind, url: a.url ? String(a.url).slice(0, 2000) : undefined, acct, id, query: a.query ? String(a.query).slice(0, 200) : undefined, slug: a.slug, read_aloud: a.read_aloud === true, summarize: a.summarize === true });
       return `On the owner's screen${a.read_aloud ? "; the dashboard is reading it out" : a.summarize ? "; the dashboard will summarise it aloud" : ""}. Don't repeat its content.`;
     } },
+  { name: "hq_check", description: "Health check of HQ and the brain: Claude sign-in, running/failed missions, approvals waiting, HQ software update, Google/calendar connections, plus stale projects, missing next steps, overdue reminders and missed dates. Pass project to check one project. Use for 'do a check', 'status', 'what's broken'.",
+    inputSchema: S({ project: str("optional project slug") }),
+    run: a => {
+      const slug = /^[a-z0-9-]{1,60}$/.test(a.project || "") ? a.project : "";
+      const now = Date.now(), today = new Date().toISOString().slice(0, 10), out: string[] = [];
+      const ps = brain.listProjects().filter(p => p.stage !== "done" && (!slug || p.slug === slug));
+      if (slug && !ps.length) return `No active project "${slug}".`;
+      const ok = (x: string) => out.push("- " + x);
+      for (const p of ps) {
+        const age = Math.floor((now - Date.parse(p.updated || "")) / 864e5);
+        const bits = [p.health === "risk" ? "health RISK" : p.health === "watch" ? "health watch" : p.health === "unknown" ? "health not set" : "", !p.nextStep ? "no next step" : "", age > 14 ? `not updated in ${age} days` : ""].filter(Boolean);
+        if (bits.length || slug) ok(`${p.name} (${p.slug}, ${p.stage}): ${bits.join(", ") || "looks fine"}${slug ? ` · next: ${p.nextStep || "-"}` : ""}`);
+      }
+      const inScope = (x: { project?: string | null }) => !slug || x.project === slug;
+      const overdue = brain.listReminders().filter(r => !r.done && r.due.slice(0, 10) < today && inScope(r));
+      if (overdue.length) ok(`Overdue reminders (${overdue.length}): ${overdue.slice(0, 6).map(r => `${r.title} [${r.due.slice(0, 10)}, id ${r.id}]`).join("; ")}`);
+      const missed = brain.listMilestones().filter(m => !m.done && m.date < today && inScope(m));
+      if (missed.length) ok(`Past-due milestones (${missed.length}): ${missed.slice(0, 6).map(m => `${m.title} [${m.date}]`).join("; ")}`);
+      const soon = brain.listMilestones().filter(m => !m.done && m.date >= today && Date.parse(m.date) - now < 7 * 864e5 && inScope(m));
+      if (soon.length) ok(`Due this week: ${soon.map(m => `${m.title} [${m.date}]`).join("; ")}`);
+      if (!slug) { const n = brain.listInbox().length; if (n) ok(`${n} unsorted inbox note(s).`); }
+      const sys = (() => { try { return JSON.parse(fs.readFileSync(path.join(DATA, "hq-check.json"), "utf8")); } catch { return null; } })();
+      if (sys && !slug) {
+        const s2: string[] = [];
+        if (sys.claude !== "ok") s2.push(`Claude sign-in: ${sys.claude}`);
+        if (sys.pausedUntil) s2.push(`missions paused until ${sys.pausedUntil}`);
+        if (sys.running?.length) s2.push(`running: ${sys.running.join(", ")}`);
+        s2.push(`queued ${sys.queued}, runs today ${sys.runsToday}`);
+        if (sys.pendingApprovals) s2.push(`${sys.pendingApprovals} approval(s) waiting in Needs you`);
+        if (sys.outboxWaiting) s2.push(`${sys.outboxWaiting} draft(s) waiting in the Outbox`);
+        for (const f of sys.failed24h || []) s2.push(`failed in last 24h: ${f}`);
+        const u = sys.update || {};
+        s2.push(u.error ? `update check error: ${u.error}` : !u.keySet ? "updates: no GitHub key set (Settings → Updates)" : u.available ? `HQ update available: ${u.latest}` : `HQ up to date (${u.installed})`);
+        for (const g of sys.google || []) if (!g.signedIn || !g.calendar) s2.push(`Google ${g.email}: ${!g.signedIn ? "signed out" : "calendar not allowed"}`);
+        for (const c of sys.calendars || []) if (c.ok === false) s2.push(`calendar ${c.name}: ${c.error || "failing"}`);
+        out.push(`HQ system (as of ${sys.at}):`, ...s2.map(x => "  - " + x));
+      }
+      return out.length ? out.join("\n") : "All clear: nothing stale, overdue or failing.";
+    } },
   { name: "history_search", description: "Search LUTHUR's saved past answers (chats, Code sessions, explanations, quest briefings, missions, email drafts). Use when the owner refers to something discussed before. Newest first.",
     inputSchema: S({ query: str("words to find (all must match)"), project: str("optional project slug"), limit: { type: "number", description: "max results (default 5, max 20)" } }, ["query"]),
     run: a => {

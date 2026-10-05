@@ -596,7 +596,7 @@ export function continueChat(id: string): Chat {
   writeJson(F.chat, next);
   return next;
 }
-export async function sendChat(text: string, opts: { project?: string | null; tier?: string; effort?: string; voice?: boolean } = {}): Promise<void> {
+export async function sendChat(text: string, opts: { project?: string | null; tier?: string; effort?: string; voice?: boolean; context?: string } = {}): Promise<void> {
   if (chatBusy) throw new Error("The assistant is still answering.");
   const s = state();
   const c = readJson<Chat>(F.chat, { id: uid("chat"), sessionId: null, messages: [] });
@@ -626,8 +626,11 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
     "Turn loose thoughts into structure: reminders (reminder_add), dates (milestone_add), decisions (decision_log), project facts (project_update/project_log), new projects (project_create).",
     "Delegate anything that takes more than a minute (research, building, multi-step work) with queue_followup: it becomes a Task that runs in parallel and reports back to the owner. Say it's delegated; don't do long work in the chat.",
     "Say exactly what you changed in the brain. Ask one short question if something is ambiguous.",
+    "Commands like \"update X\", \"mark X done\", \"set X to Y\": do it now with the tools (project_update, project_log, reminder_done, goal_step_done, milestone_add...), then list each change in one line. \"This\"/\"here\" means what's on the Command screen, else the focused project.",
+    "\"Do a check\" / \"status check\" / \"what's broken\": call hq_check (with project for one project) and report problems first, worst first, each with the fix. If the check needs code, a repo or a live site inspected, open it with show_on_screen or delegate with queue_followup. Updating HQ's own software is the owner's: tell them to say \"update HQ\" in the Command box.",
     `Today is ${new Date().toDateString()}.`,
     proj ? `The chat is focused on project "${proj.slug}".` : "",
+    opts.context ? String(opts.context).slice(0, 700) : "",
   ].join("\n");
   const opId = `chat-${c.id}-${c.messages.length}`;
   let opOk = false;
