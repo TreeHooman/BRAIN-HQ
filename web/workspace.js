@@ -17,7 +17,7 @@ const WS_TYPE = { "application/vnd.google-apps.spreadsheet": ["SHEET", "#34d399"
 const wsType = m => WS_TYPE[m] || [/^image\//.test(m) ? "IMG" : /^video\//.test(m) ? "VID" : /csv|excel|spreadsheet/.test(m) ? "XLS" : "FILE", "#6c7581"];
 const WS_EXT = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>`;
 
-async function wsStatus() { WS.st = await api("/google").catch(() => WS.st); if (WS.st && WS.acct !== "all" && !wsAcc(WS.acct)) WS.acct = "all"; return WS.st; }
+async function wsStatus() { WS.st = await api("/google").catch(e => { WS.err = e.message; return WS.st; }); if (WS.st && WS.acct !== "all" && !wsAcc(WS.acct)) WS.acct = "all"; return WS.st; }
 
 async function vWorkspace(el) {
   WS.el = el;
@@ -26,7 +26,7 @@ async function vWorkspace(el) {
   if (back) { history.replaceState(null, "", "#workspace"); route.arg = null; toast(back[1] === "ok" ? `${decodeURIComponent(back[2])} connected` : decodeURIComponent(back[2]), 6000); if (back[1] === "error") WS.manage = true; }
   const deep = String(route.arg || "").match(/^mail\/(g-[a-f0-9]{10})\/([A-Za-z0-9]{8,40})$/);
   await wsStatus();
-  if (!WS.st) { el.innerHTML = `<h1>Workspace</h1><div class="card">LUTHUR server not reachable.</div>`; return; }
+  if (!WS.st) { el.innerHTML = `<h1>Workspace</h1><div class="card">${/no such endpoint/i.test(WS.err || "") ? "LUTHUR is still running the old version. Run <b>scripts\\STOP-HQ.cmd</b>, then <b>scripts\\START-HQ.cmd</b>, then press Ctrl+F5." : "LUTHUR server not reachable" + (WS.err ? ": " + esc(WS.err) : ".")}</div>`; return; }
   if (deep) { WS.tab = "mail"; history.replaceState(null, "", "#workspace"); route.arg = null; }
   wsShell();
   if (!WS.st.configured || !WS.st.accounts.length) { WS.manage = true; wsManage(); return; }
