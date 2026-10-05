@@ -6,6 +6,20 @@
 const Scr = { stack: [], cur: null, busy: false, quest: null };
 const SCR_VERB = /^(?:(?:hey|ok|yo)\s+luth[ou]r[,!.]?\s+)?(?:can you\s+|please\s+)?(pull up|bring up|put up|show me|show|open|display|look up|search(?: for)?|google|find)\s+(.+)$/i;
 const SCR_BRIEF = /^(?:(?:hey|ok|yo)\s+luth[ou]r[,!.]?\s+)?(?:can you\s+|please\s+)?(?:brief me(?: on)?|give me a briefing(?: on)?|look over|go over|review|break down|quest(?: me)?(?: on)?)\b\s*(.*)$/i;
+const SCR_ACT = /^(?:update|set|change|mark|rename|move|add|log|note|check|do a check|status|what'?s (?:broken|wrong|stuck)|fix|delete|remove|finish|complete)\b/i;
+// Google refuses sign-in inside a remote-controlled browser (by design; not something to work around). So Google links
+// open through HQ's own connected views instead: Gmail → the mail list, Docs/Sheets/Drive → the file preview.
+const SCR_GSIGN = /^(accounts\.google\.com|accounts\.youtube\.com)$/i;
+async function scrGoogle(u) {
+  let h = ""; try { h = new URL(/^https?:/i.test(u) ? u : "https://" + u).hostname.toLowerCase(); } catch { return null; }
+  if (SCR_GSIGN.test(h)) return { k: "gblock", url: u };
+  if (h === "mail.google.com" || h === "gmail.com") return { k: "mail", q: "" };
+  if (!/^(docs|drive|sheets|slides)\.google\.com$/.test(h)) return null;
+  const id = (String(u).match(/\/d\/([\w-]{20,})/) || String(u).match(/[?&]id=([\w-]{20,})/) || [])[1];
+  if (id) { const g = await api("/google").catch(() => null);
+    for (const a of g?.accounts || []) { if (!a.ok) continue; try { await api(`/google/preview/${a.id}/${id}`); return { k: "file", acct: a.id, id }; } catch {} } }
+  return id ? { k: "gblock", url: u } : { k: "drive", q: "" };
+}
 const scrHost = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
 const scrYT = u => { const m = String(u).match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/); return m ? m[1] : ""; };
 
@@ -33,6 +47,8 @@ function scrResolve(w) {
 }
 async function scrGo(v, push = true) {
   if (Scr.cur && push) Scr.stack.push(Scr.cur);
+  if (v.k === "page" && !v.gok) { const g = await scrGoogle(v.url); if (g) v = g; }
+  if (v.k === "page") v.reader = true; // reader view only: fast, and nothing from the site runs
   Scr.cur = v; Scr.quest = null; Scr.data = null; Scr.err = ""; scrPaint();
   try {
     if (v.k === "page" && !v.reader) { const u = /^https?:\/\//i.test(v.url) ? v.url : "https://" + v.url; Scr.data = await api("/browser/go", "POST", { url: u }); scrLiveStart(); }
@@ -51,7 +67,7 @@ async function scrGo(v, push = true) {
 function scrTitle(v) {
   const d = Scr.cur === v ? Scr.data : null;
   return v.k === "page" ? (d?.title && d.title !== "about:blank" ? d.title : scrHost(d?.url || v.url)) : v.k === "search" ? `Search: ${v.q}` : v.k === "mail" ? (v.q ? `Email: ${v.q}` : "Inbox") : v.k === "mailone" ? (d?.subject || "Email")
-    : v.k === "drive" ? (v.q ? `Drive: ${v.q}` : "Drive") : v.k === "file" ? (d?.file?.name || "File") : v.k === "project" ? projName(v.slug) : v.k === "agenda" ? (v.days === 1 ? "Today" : "Next 7 days") : v.k === "yt" ? "YouTube" : "Screen";
+    : v.k === "drive" ? (v.q ? `Drive: ${v.q}` : "Drive") : v.k === "file" ? (d?.file?.name || "File") : v.k === "project" ? projName(v.slug) : v.k === "agenda" ? (v.days === 1 ? "Today" : "Next 7 days") : v.k === "yt" ? "YouTube" : v.k === "gblock" ? "Google sign-in" : "Screen";
 }
 function scrOpenUrl() {
   const v = Scr.cur, d = Scr.data; if (!v) return "";
@@ -89,10 +105,36 @@ function scrAgenda(days) {
   return out.sort((a, b) => a.s - b.s).slice(0, 40);
 }
 
+// The home screen: tiles for everything worth pulling up, one click each (no browser, so it's instant).
+function scrLauncher() {
+  const now = new Date(), endDay = new Date(ymd(now) + "T23:59"), wk = new Date(now.getTime() + 7 * 864e5);
+  const today = scrAgenda(1).length, week = scrAgenda(7).length;
+  const overdue = S.reminders.filter(r => !r.done && toDate(r.due) < now).length, dueToday = S.reminders.filter(r => !r.done && toDate(r.due) >= now && toDate(r.due) <= endDay).length;
+  const pend = S.approvals.filter(a => a.status === "pending").length, drafts = (S.outbox || []).filter(x => x.status === "draft").length;
+  const dates = S.milestones.filter(m => !m.done && toDate(m.date) >= new Date(ymd(now)) && toDate(m.date) < wk).length;
+  const T = (go, ico, t, n, sub, hot) => `<button type="button" class="scr-tile ${hot ? "hot" : ""}" ${go}><i aria-hidden="true">${ico}</i><b>${esc(t)}</b>${n !== "" ? `<em>${esc(String(n))}</em>` : ""}<small>${esc(sub)}</small></button>`;
+  const projs = S.projects.filter(p => p.stage !== "done");
+  const links = projs.flatMap(p => (p.links || []).filter(l => /^https?:/i.test(l.url)).map(l => ({ ...l, p: p.name }))).slice(0, 8);
+  return `<div class="scr-home">
+    <div class="scr-grid">
+      ${T('data-scrv="agenda1"', "◷", "Today", today, today ? "events & reminders" : "nothing scheduled", overdue)}
+      ${T('data-scrv="agenda7"', "▦", "This week", week, dates ? `${dates} key date${dates > 1 ? "s" : ""}` : "next 7 days")}
+      ${T('data-scrv="mail"', "✉", "Email", "", "inbox, all accounts")}
+      ${T('data-scrv="drive"', "▤", "Drive", "", "docs, sheets, files")}
+      ${T('data-hash="missions"', "⚑", "Needs you", pend, pend ? "approvals waiting" : "all clear", pend)}
+      ${T('data-hash="outbox"', "➤", "Outbox", drafts, drafts ? "drafts to send" : "nothing waiting")}
+      ${T('data-scrx="do a check"', "✓", "Run a check", "", "what's stale or broken")}
+      ${T('data-hash="history"', "↺", "History", "", "past answers & chats")}
+    </div>
+    ${overdue || dueToday ? `<div class="scr-note">${overdue ? `<b>${overdue} overdue</b>` : ""}${overdue && dueToday ? " · " : ""}${dueToday ? `${dueToday} due today` : ""}</div>` : ""}
+    <div class="pd-sub">Projects</div>
+    <div class="scr-grid sm">${projs.map(p => `<button type="button" class="scr-tile proj h-${esc(p.health)}" data-scrp="${esc(p.slug)}"><b>${esc(p.name)}</b><small>${esc(p.nextStep || p.summary || p.stage)}</small></button>`).join("")}</div>
+    ${links.length ? `<div class="pd-sub">Links</div><div class="scr-ex left">${links.map(l => `<button type="button" data-scrurl="${esc(l.url)}" title="${esc(l.p)}">${esc(l.label)}${l.label.toLowerCase() === scrHost(l.url) ? "" : ` <span class="faint">${esc(scrHost(l.url))}</span>`}</button>`).join("")}</div>` : ""}
+  </div>`;
+}
 function scrBody() {
   const v = Scr.cur, d = Scr.data;
-  if (!v) return `<div class="scr-idle"><b>Tell me what to pull up.</b>
-    <div class="scr-ex">${["pull up loancentral.net", "show me my calendar", "open emails from Sam", "pull up the budget sheet", "search ntfy iphone setup", "brief me on this"].map(x => `<button type="button" data-scrx="${esc(x)}">“${esc(x)}”</button>`).join("")}</div></div>`;
+  if (!v) return scrLauncher();
   if (Scr.err) return `<div class="scr-msg bad">${esc(Scr.err)}</div>`;
   if (!d && v.k !== "agenda" && v.k !== "yt") return `<div class="scr-msg"><span class="scr-spin"></span>Pulling up ${esc(scrTitle(v))}…</div>`;
   if (v.k === "yt") return `<iframe class="scr-frame" src="https://www.youtube-nocookie.com/embed/${esc(v.id)}" title="YouTube" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>`;
@@ -103,6 +145,9 @@ function scrBody() {
       ${(d.blocks || []).map(b => b.t === "h" ? `<h3>${esc(b.x)}</h3>` : b.t === "li" ? `<p class="li">• ${esc(b.x)}</p>` : b.t === "pre" ? `<pre>${esc(b.x)}</pre>` : `<p>${esc(b.x)}</p>`).join("") || `<p class="faint">This page has little readable text. Use “Open in Chrome”.</p>`}
       ${(d.links || []).length ? `<div class="scr-links"><div class="pd-sub">Links</div>${d.links.slice(0, 30).map(l => `<button type="button" data-scrurl="${esc(l.url)}">${esc(l.text)} <span>${esc(scrHost(l.url))}</span></button>`).join("")}</div>` : ""}</article>`;
   }
+  if (v.k === "gblock") return `<div class="scr-msg scr-gb"><b>Google doesn't allow signing in here.</b><p>It blocks sign-in in any browser HQ controls, and that's a good thing: your Google password never goes through LUTHUR. Your connected accounts still work:</p>
+    <div class="row scr-act"><button type="button" class="btn sm" data-scrx="pull up my inbox">✉ My emails</button><button type="button" class="btn sm" data-scrx="pull up drive">📄 My Drive files</button><a class="btn sm ghost" href="${esc(/^https?:/i.test(v.url) ? v.url : "https://accounts.google.com")}" target="_blank" rel="noopener">Open in Chrome ↗</a></div>
+    <p class="small muted">Or say “pull up the budget sheet”, “read me the latest email from Sam”.</p></div>`;
   if (v.k === "search") return `<div class="scr-list">${(d.results || []).map(r => `<button type="button" class="scr-item" data-scrurl="${esc(r.url)}"><b>${esc(r.title)}</b><span class="scr-src">${esc(r.host)}</span><span class="small muted">${esc(r.snippet)}</span></button>`).join("") || `<div class="scr-msg">No results.</div>`}</div>`;
   if (v.k === "mail") return `<div class="scr-list">${(d.items || []).map(m => `<button type="button" class="scr-item" data-scrmail="${esc(m.acct)}|${esc(m.id)}"><b>${esc(m.subject)}</b><span class="scr-src">${esc(m.from)} · ${esc(ago(new Date(m.date).toISOString()))}</span><span class="small muted">${esc(m.snippet)}</span></button>`).join("") || `<div class="scr-msg">${(d.errors || []).length ? esc(d.errors[0].error) : "Nothing found."}</div>`}</div>`;
   if (v.k === "mailone") return `<article class="scr-read"><div class="scr-src">${esc(d.from)}</div><h2>${esc(d.subject)}</h2><pre class="scr-mail">${esc(d.body || "")}</pre>${(d.files || []).length ? `<div class="small muted">📎 ${d.files.map(f => esc(f.name)).join(", ")}</div>` : ""}</article>`;
@@ -115,7 +160,7 @@ function scrBody() {
     if (d.kind === "image") return `<img class="scr-img" src="/api/google/raw/${esc(f.acct)}/${esc(f.id)}" alt="${esc(f.name)}">`;
     return `<div class="scr-msg">This file type opens in Google. Use “Open in Chrome”.</div>`;
   }
-  if (v.k === "project") { const p = d.project || {}; return `<article class="scr-read"><div class="scr-src">${esc(p.stage)} · ${esc(p.health)}</div><h2>${esc(p.name)}</h2><p>${esc(p.summary || "")}</p><p><b>Next:</b> ${esc(p.nextStep || "—")}</p><div class="md small">${md(String(d.log || "").split(/^## /m).slice(1, 4).map(x => "## " + x).join(""))}</div></article>`; }
+  if (v.k === "project") { const p = d.project || {}; return `<article class="scr-read"><div class="scr-src">${esc(p.stage)} · ${esc(p.health)}</div><h2>${esc(p.name)}</h2><p>${esc(p.summary || "")}</p><p><b>Next:</b> ${esc(p.nextStep || "—")}</p><div class="row scr-act"><button type="button" class="btn sm" data-scract="check">✓ Check it</button><button type="button" class="btn sm" data-scract="update">✎ Update</button><button type="button" class="btn sm ghost" data-scract="log">+ Log note</button></div><div class="md small">${md(String(d.log || "").split(/^## /m).slice(1, 4).map(x => "## " + x).join(""))}</div></article>`; }
   if (v.k === "agenda") { const it = scrAgenda(v.days); return `<div class="scr-list">${it.map(i => `<div class="scr-item static"><b>${esc(i.t)}</b><span class="scr-src">${esc(i.when)}${i.sub ? " · " + esc(i.sub) : ""}</span></div>`).join("") || `<div class="scr-msg">Nothing scheduled.</div>`}</div>`; }
   return "";
 }
@@ -139,14 +184,23 @@ function scrPaint() {
   box.classList.toggle("on", !!v);
   box.innerHTML = `<div class="scr-bar"><span class="scr-tag">SCREEN</span>
       <button type="button" class="icon-btn" id="scrBack" ${Scr.stack.length ? "" : "disabled"} aria-label="Back">←</button>
-      <form id="scrF" class="scr-go" autocomplete="off"><input id="scrQ" placeholder="${v ? esc(scrTitle(v)) : "Pull up a site, project, email, file…"}" aria-label="What to pull up"></form>
+      <form id="scrF" class="scr-go" autocomplete="off"><input id="scrQ" placeholder="${v ? esc(scrTitle(v)) : "Search, or type a site, project, email, file…"}" aria-label="What to pull up"></form>
       ${v ? `<button type="button" class="btn sm" id="scrBrief" title="Turn this into a quest briefing">⚔ Brief me</button>` : ""}
       ${v?.k === "page" && !v.reader ? `<button type="button" class="icon-btn" id="scrFwd" aria-label="Forward">→</button><button type="button" class="icon-btn" id="scrReload" aria-label="Reload">↻</button><button type="button" class="btn sm ghost" id="scrReader" title="Plain text version">Reader</button>` : ""}
-      ${v?.k === "page" && v.reader ? `<button type="button" class="btn sm ghost" id="scrToLive">Live</button>` : ""}
       ${open ? `<a class="btn sm ghost" href="${esc(open)}" ${open.startsWith("#") ? "" : 'target="_blank" rel="noopener"'}>${open.startsWith("#") ? "Open" : "Open in Chrome ↗"}</a>` : ""}
-      ${v ? `<button type="button" class="icon-btn" id="scrX" aria-label="Clear screen">✕</button>` : ""}</div>
+      ${v ? `<button type="button" class="icon-btn" id="scrX" aria-label="Home" title="Home">⌂</button>` : ""}</div>
     ${scrQuest()}<div class="scr-body">${scrBody()}</div>`;
-  box.querySelector("#scrF").onsubmit = e => { e.preventDefault(); const t = box.querySelector("#scrQ").value.trim(); if (!t) return; if (!scrCommand(t)) scrGo(scrResolve(t)); };
+  // the bar also takes commands: "update next step to X", "check this", "mark it done" go to LUTHUR about what's on screen
+  box.querySelector("#scrF").onsubmit = e => { e.preventDefault(); const q = box.querySelector("#scrQ"), t = q.value.trim(); if (!t) return;
+    if (v && SCR_ACT.test(t)) { q.value = ""; return cmdSend(t); }
+    if (!scrCommand(t)) scrGo(scrResolve(t)); };
+  box.querySelectorAll("[data-scract]").forEach(b => b.onclick = async () => {
+    const p = Scr.data?.project; if (!p) return; const a = b.dataset.scract;
+    if (a === "check") return cmdSend(`Do a check on ${p.slug}`);
+    if (a === "update") { const i = document.getElementById("cmdText"); if (i) { i.value = `Update ${p.name}: `; i.focus(); i.setSelectionRange(i.value.length, i.value.length); } return; }
+    const note = prompt(`Log note for ${p.name}`); if (!note?.trim()) return;
+    try { await api(`/project/${p.slug}/log`, "POST", { text: note.trim() }); hudNotify("Logged to " + p.name); scrGo(v, false); } catch (e) { hudNotify("⚠ " + e.message); }
+  });
   box.querySelector("#scrBack").disabled = !(Scr.stack.length || (v?.k === "page" && !v.reader));
   box.querySelector("#scrBack").onclick = () => { if (v?.k === "page" && !v.reader) return api("/browser/input", "POST", { type: "back" }).catch(() => {}); const p = Scr.stack.pop(); if (p) scrGo(p, false); };
   const fw = box.querySelector("#scrFwd"); if (fw) fw.onclick = () => api("/browser/input", "POST", { type: "forward" }).catch(() => {});
@@ -163,7 +217,10 @@ function scrPaint() {
     for (const [i, s] of q.steps.entries()) { const d = new Date(base.getTime() + i * 864e5); await api("/reminders", "POST", { title: `${q.title}: ${s}`.slice(0, 200), due: `${ymd(d)} 10:00`, project: Scr.cur?.k === "project" ? Scr.cur.slug : activeProject() || undefined }).catch(() => {}); }
     toast(`Added ${q.steps.length} reminders (one a day from tomorrow)`); refresh();
   };
-  box.querySelectorAll("[data-scrx]").forEach(b => b.onclick = () => { const t = b.dataset.scrx; if (/^brief/.test(t)) return toast("Pull something up first, then press ⚔ Brief me"); scrCommand(t); });
+  box.querySelectorAll("[data-scrv]").forEach(b => b.onclick = () => { const k = b.dataset.scrv; scrGo(k === "agenda1" ? { k: "agenda", days: 1 } : k === "agenda7" ? { k: "agenda", days: 7 } : { k, q: "" }); });
+  box.querySelectorAll("[data-scrp]").forEach(b => b.onclick = () => scrGo({ k: "project", slug: b.dataset.scrp }));
+  box.querySelectorAll("[data-hash]").forEach(b => b.onclick = () => { location.hash = b.dataset.hash; });
+  box.querySelectorAll("[data-scrx]").forEach(b => b.onclick = () => { const t = b.dataset.scrx; if (/^brief/.test(t)) return toast("Pull something up first, then press ⚔ Brief me"); if (!scrCommand(t)) cmdSend(t); });
   box.querySelectorAll("[data-scrurl]").forEach(b => b.onclick = () => { const u = b.dataset.scrurl; scrGo(scrYT(u) ? { k: "yt", id: scrYT(u), url: u } : { k: "page", url: u }); });
   box.querySelectorAll("[data-scrmail]").forEach(b => b.onclick = () => { const [acct, id] = b.dataset.scrmail.split("|"); scrGo({ k: "mailone", acct, id }); });
   box.querySelectorAll("[data-scrfile]").forEach(b => b.onclick = () => { const [acct, id] = b.dataset.scrfile.split("|"); scrGo({ k: "file", acct, id }); });
@@ -178,6 +235,7 @@ function scrLiveStart() {
     if (!st.running) { scrLiveStop(); return; }
     // a YouTube video inside the browser → the normal player (with sound)
     const yt = scrYT(st.url); if (yt) { scrGo({ k: "yt", id: yt, url: st.url }); return; }
+    try { if (SCR_GSIGN.test(new URL(st.url).hostname)) { scrGo({ k: "gblock", url: st.url }, false); return; } } catch {}
     const changed = st.url !== Scr.data?.url || st.title !== Scr.data?.title; Scr.data = st;
     const ld = document.getElementById("scrCrLoad"); if (ld) ld.hidden = !st.loading;
     if (changed) { const q = document.getElementById("scrQ"); if (q && document.activeElement !== q) q.placeholder = scrTitle(Scr.cur); const o = document.querySelector("#nvScreen a.btn[target]"); if (o) o.href = st.url; }

@@ -145,3 +145,19 @@ body[data-view="projects"] .pgroup .grid { grid-template-columns: repeat(auto-fi
 .his-tabs { margin: 4px 0 12px; }
 .his-msg { display: grid; gap: 2px; padding: 8px 10px; border-radius: 8px; background: rgba(150, 210, 255, .03); } .his-msg.you { background: rgba(111, 242, 255, .07); }
 .his-msg > span { font: 600 10.5px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--text3); }
+.scr-act { gap: 6px; flex-wrap: wrap; margin: 2px 0 14px; }
+/* Screen home: one-click tiles */
+.scr-home { display: grid; gap: 10px; padding: 4px 2px 6px; }
+.scr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.scr-grid.sm { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+.scr-tile { position: relative; display: grid; gap: 2px; text-align: left; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--border); background: linear-gradient(160deg, rgba(120, 200, 255, .07), rgba(120, 200, 255, .02)); color: var(--text); font: 13px var(--font); cursor: pointer; transition: border-color .15s, transform .15s, background .15s; min-width: 0; }
+.scr-tile:hover, .scr-tile:focus-visible { border-color: var(--border2); background: linear-gradient(160deg, rgba(120, 220, 255, .13), rgba(120, 200, 255, .04)); transform: translateY(-1px); }
+.scr-tile i { font-style: normal; font-size: 16px; color: var(--accent, #6ff2ff); line-height: 1; margin-bottom: 4px; }
+.scr-tile b { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scr-tile small { color: var(--text3); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scr-tile em { position: absolute; top: 9px; right: 11px; font: 600 15px var(--mono, monospace); font-style: normal; color: var(--text2); }
+.scr-tile.hot em { color: var(--amber, #ffb84d); }
+.scr-tile.proj { border-left: 3px solid var(--text3); }
+.scr-tile.proj.h-good { border-left-color: var(--green); } .scr-tile.proj.h-watch { border-left-color: var(--amber); } .scr-tile.proj.h-risk { border-left-color: var(--red); }
+.scr-note { font-size: 12.5px; color: var(--text2); } .scr-note b { color: var(--amber, #ffb84d); }
+.scr-ex.left { justify-content: flex-start; }

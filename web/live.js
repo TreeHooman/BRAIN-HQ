@@ -912,7 +912,7 @@ hudBoot = function (short) {
       if (done) return; done = true; cancelAnimationFrame(raf); removeEventListener("resize", size); window.hqBooting = false; try { sceneStart?.(); starsStart?.(); } catch {}
       document.removeEventListener("keydown", finish, true);
       b.classList.add("out");
-      setTimeout(() => { b.hidden = true; b.className = "boot"; b.innerHTML = ""; delete b.dataset.locked; const v = document.getElementById("view"); v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in"); try { navGlide(); } catch {} resolve(); }, 420);
+      setTimeout(() => { b.hidden = true; b.className = "boot"; b.innerHTML = ""; delete b.dataset.locked; const v = document.getElementById("view"); window.nvAssembleLater = false; if (!(typeof nvAssemble === "function" && nvAssemble(v))) { v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in"); } try { navGlide(); } catch {} resolve(); }, 420);
     };
     b.onclick = finish;
     document.addEventListener("keydown", finish, true);

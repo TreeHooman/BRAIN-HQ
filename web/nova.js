@@ -253,6 +253,18 @@ function coreState() {
   const want = listening ? "LISTENING" : busy ? "THINKING" : window.speechSynthesis?.speaking ? "SPEAKING" : S?.status?.running ? "WORKING" : "ONLINE";
   if (lbl && lbl.dataset.v !== want) { lbl.dataset.v = want; scrambleTo(lbl, want, 400); }
 }
+/** The holographic entrance for a page (one play: the opening scan calls this when it ends instead of its own fade). */
+function nvAssemble(el) {
+  el = el || document.getElementById("view"); if (!el || reduced() || !isHud()) return false;
+  let i = 0;
+  for (const c of el.children) c.style.setProperty("--i", i++);
+  el.querySelectorAll(".cols > * > *, .tiles > *").forEach((c, j) => c.style.setProperty("--i", Math.min(14, 2 + j)));
+  el.classList.remove("assemble", "view-in"); void el.offsetWidth; el.classList.add("assemble");
+  clearTimeout(hudAfterRender.t); hudAfterRender.t = setTimeout(() => el.classList.remove("assemble"), 1700);
+  const sw = document.getElementById("nova-sweep"); if (sw) { sw.classList.remove("go"); void sw.offsetWidth; sw.classList.add("go"); }
+  Snd.blip(520, .05, "sine", .03); setTimeout(() => Snd.blip(780, .05, "sine", .02), 70);
+  return true;
+}
 function corePing() { NV.pulse = 1; }
 
 // ---------------- pointer: light, 3D tilt, magnetic, cursor halo, shockwave ----------------
@@ -328,15 +340,8 @@ function hudAfterRender(el, background) {
   navGlide();
   if (!background && route.view !== nvLastView) {
     nvLastView = route.view;
-    if (!reduced() && isHud()) {
-      let i = 0;
-      for (const c of el.children) c.style.setProperty("--i", i++);
-      el.querySelectorAll(".cols > * > *, .tiles > *").forEach((c, j) => c.style.setProperty("--i", Math.min(14, 2 + j)));
-      el.classList.remove("assemble", "view-in"); void el.offsetWidth; el.classList.add("assemble");
-      clearTimeout(hudAfterRender.t); hudAfterRender.t = setTimeout(() => el.classList.remove("assemble"), 1700);
-      const sw = document.getElementById("nova-sweep"); if (sw) { sw.classList.remove("go"); void sw.offsetWidth; sw.classList.add("go"); }
-      Snd.blip(520, .05, "sine", .03); setTimeout(() => Snd.blip(780, .05, "sine", .02), 70);
-    }
+    if (!reduced() && isHud() && !window.hqBooting) nvAssemble(el); // during the opening scan the scan's end plays it once
+    else if (window.hqBooting) window.nvAssembleLater = true;
   }
   if (route.view !== "command") orbitStop();
 }
