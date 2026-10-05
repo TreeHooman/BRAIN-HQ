@@ -7,6 +7,7 @@ import readline from "node:readline";
 import { DROP, uid, writeJson } from "../lib/store.ts";
 import * as brain from "../lib/brain.ts";
 import * as cal from "../lib/calendar.ts";
+import { validate as validateOut } from "../lib/outbox.ts";
 
 const LEVEL = process.env.HQ_LEVEL || "plan";
 const RUN_ID = process.env.HQ_RUN_ID || "interactive";
@@ -45,6 +46,12 @@ const tools: Tool[] = [
       const ev = cal.events(from, new Date(from.getTime() + Math.min(31, Math.max(1, a.days || 1)) * 864e5));
       return ev.length ? ev.map(e => `${e.allDay ? e.start + " (all day)" : new Date(e.start).toLocaleString()} – ${e.title}${e.location ? " @ " + e.location : ""}`).join("\n") : "No events.";
     } },
+  { name: "email_draft", write: true, description: "Draft an email for the owner to approve in HQ's Outbox. It is NOT sent until they press Send. Say so in your reply.",
+    inputSchema: S({ to: { type: "array", items: { type: "string" }, description: "recipient email addresses" }, cc: { type: "array", items: { type: "string" } }, subject: str("subject"), body: str("plain-text message"), note: str("optional: why, for the owner"), project: str("optional project slug") }, ["to", "subject", "body"]),
+    run: a => { const payload = validateOut("email", a); drop("outbox", { kind: "email", payload, note: a.note, project: a.project }); return "Drafted. It's waiting in HQ's Outbox for the owner to approve."; } },
+  { name: "calendar_draft", write: true, description: "Propose a Google Calendar change (create/update/delete) for the owner to approve in HQ's Outbox. Nothing changes until they approve. Times are local, like 2026-10-06T14:30 (date only = all day).",
+    inputSchema: S({ action: { type: "string", enum: ["create", "update", "delete"] }, title: str("event title (for update/delete: the event's current title)"), start: str("start, e.g. 2026-10-06T14:30"), end: str("end"), location: str("optional"), description: str("optional"), attendees: { type: "array", items: { type: "string" }, description: "optional guest emails" }, eventRef: str("update/delete: how to find the event (current time, calendar event id)"), note: str("optional: why"), project: str("optional project slug") }, ["action", "title"]),
+    run: a => { const payload = validateOut("calendar", a); drop("outbox", { kind: "calendar", payload, note: a.note, project: a.project }); return "Proposed. It's waiting in HQ's Outbox for the owner to approve."; } },
   { name: "list_inbox", description: "Unsorted brain-dump notes waiting to be filed.",
     inputSchema: S({}), run: () => JSON.stringify(brain.listInbox(), null, 1) },
   { name: "recent_decisions", description: "Recent decisions (newest first), optionally for one project.",

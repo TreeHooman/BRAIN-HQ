@@ -55,6 +55,8 @@ export type RunOptions = {
   prompt: string; model: string; fallbackModel?: string; level: Level;
   addDirs?: string[]; extraAllow?: string[]; resume?: string | null; timeoutMs: number;
   system?: string; runId?: string; onSpawn?: (pid: number) => void; onStep?: (s: Step) => void;
+  /** Outbox executor: no built-in tools, no hq-brain, no agent rules; only these MCP tool prefixes (account connectors). */
+  act?: { allow: string[] };
 };
 export type RunResult = {
   ok: boolean; text: string; sessionId: string | null; durationMs: number;
@@ -64,6 +66,13 @@ export type RunResult = {
 
 export function buildArgs(o: RunOptions): string[] {
   const perms = loadPermissions();
+  if (o.act) {
+    // Account connectors (claude.ai Gmail/Calendar) only load without --strict-mcp-config. Everything else stays off:
+    // no built-in tools, and only the approved connector's tools are allowed (the rest are denied in -p mode).
+    return ["-p", "--output-format", "stream-json", "--verbose", "--model", o.model, "--setting-sources", "project",
+      "--disable-slash-commands", "--tools", "", "--append-system-prompt", o.system || "",
+      "--allowedTools", ...o.act.allow, "--disallowedTools", ...(perms.hardDeny || [])];
+  }
   const lv = perms.levels?.[o.level] || perms.levels?.read || {};
   const hard: string[] = perms.hardDeny || [];
   const extra = (o.extraAllow || []).filter(t => !hard.includes(t));

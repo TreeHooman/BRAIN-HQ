@@ -10,6 +10,7 @@ import type { Step } from "./narrate.ts";
 import { isDue, type Schedule } from "./schedule.ts";
 import { notify } from "./notify.ts";
 import * as brain from "./brain.ts";
+import * as outbox from "./outbox.ts";
 
 export type Mission = {
   id: string; title: string; prompt: string; project?: string | null;
@@ -165,13 +166,13 @@ export function status() {
 
 // ---------------- live operations (in memory, for the dashboard's ops feed) ----------------
 export type Op = {
-  id: string; kind: "chat" | "mission"; title: string; project?: string | null; model: string; level?: string;
+  id: string; kind: "chat" | "mission" | "code"; title: string; project?: string | null; model: string; level?: string;
   startedAt: number; endedAt?: number; status: "running" | "done" | "failed";
   steps: Step[]; calls: number; added: number; removed: number;
 };
 const ops = new Map<string, Op>();
 const OP_KEEP_MS = 25_000; // finished tiles linger briefly so the UI can show the result
-function opStart(o: Omit<Op, "startedAt" | "status" | "steps" | "calls" | "added" | "removed">): (s: Step) => void {
+export function opStart(o: Omit<Op, "startedAt" | "status" | "steps" | "calls" | "added" | "removed">): (s: Step) => void {
   ops.set(o.id, { ...o, startedAt: Date.now(), status: "running", steps: [], calls: 0, added: 0, removed: 0 });
   return s => {
     const op = ops.get(o.id); if (!op) return;
@@ -184,7 +185,7 @@ function opStart(o: Omit<Op, "startedAt" | "status" | "steps" | "calls" | "added
     }
   };
 }
-function opEnd(id: string, ok: boolean) { const op = ops.get(id); if (op) { op.status = ok ? "done" : "failed"; op.endedAt = Date.now(); } }
+export function opEnd(id: string, ok: boolean) { const op = ops.get(id); if (op) { op.status = ok ? "done" : "failed"; op.endedAt = Date.now(); } }
 export function liveOps() {
   const now = Date.now();
   for (const [k, o] of ops) if (o.endedAt && now - o.endedAt > OP_KEEP_MS) ops.delete(k);
@@ -255,6 +256,9 @@ function ingestDrop() {
           permission: minLevel(d.permission || "plan", loadConfig().autonomy?.maxLevel || "build"), schedule: d.schedule || null, enabled: true, skipIfUnchanged: !!d.skipIfUnchanged });
         activity("mission-created", { mission: m.id, title: m.title });
       } catch (e) { activity("mission-dropped", { reason: String(e), title: d.title }); }
+    } else if (d.type === "outbox") {
+      try { outbox.add(String(d.kind), d.payload, String(d.fromRun || "jarvis"), { project: d.project, note: d.note }); }
+      catch (e) { activity("outbox-dropped", { reason: String(e) }); }
     } else if (d.type === "notify") {
       notify({ title: d.title || "HQ", body: d.body || "", priority: d.priority });
     }

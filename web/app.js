@@ -107,6 +107,7 @@ function renderChrome() {
   const navA = $('#nav a[data-view="assistant"] span'); if (navA) navA.textContent = S.settings.assistantName;
   $("#nInbox").textContent = S.inbox.length || "";
   $("#nApprovals").textContent = st.pendingApprovals || "";
+  const nOb = $("#nOutbox"); if (nOb) nOb.textContent = (S.outbox || []).filter(x => x.status === "draft" || x.status === "failed").length || "";
   const pills = [];
   if (st.auth === "needs-login" || !st.claudeBin) pills.push(`<a class="pill red" href="#settings">Claude not signed in</a>`);
   if (st.pausedUntil && new Date(st.pausedUntil) > new Date()) pills.push(`<a class="pill amber" href="#missions">Paused until ${fmtWhen(st.pausedUntil)}</a>`);
@@ -133,7 +134,7 @@ function parseHash() {
 function render() {
   if (!S) return;
   $$("#nav a").forEach(a => a.classList.toggle("on", a.dataset.view === (route.view === "project" ? "projects" : route.view)));
-  const views = { command: vCommand, planner: vPlanner, home: vHome, projects: vProjects, project: vProject, calendar: vCalendar, roadmap: vRoadmap, inbox: vInbox, assistant: vAssistant, missions: vMissions, settings: vSettings };
+  const views = { command: vCommand, planner: vPlanner, home: vHome, projects: vProjects, project: vProject, calendar: vCalendar, roadmap: vRoadmap, inbox: vInbox, assistant: vAssistant, missions: vMissions, settings: vSettings, code: vCode, outbox: vOutbox };
   const fn = views[route.view] || vCommand;
   // Don't clobber a field the user is typing in during background refreshes.
   const active = document.activeElement;
@@ -643,6 +644,8 @@ function vSettings(el) {
           <label class="f">Secret address (iCal)<input id="calUrl" type="password" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" autocomplete="off" spellcheck="false"></label></div>
         <div class="note blue small"><b>Google Calendar:</b> calendar.google.com → ⚙ Settings → click your calendar on the left → <b>Integrate calendar</b> → copy <b>Secret address in iCal format</b>. Outlook and iCloud .ics links work too.<br>Read-only. The address stays on this PC (<code>config/hq.local.json</code>) and is never shown again. If it leaks, press “Reset” next to it in Google and add the new one.</div>
         <div class="row end">${S.calendar?.feeds?.length ? `<button type="button" class="btn" id="calSync">Sync now</button>` : ""}<button type="button" class="btn primary" id="calAdd">Connect</button></div></div>
+      <h2>Email &amp; calendar sending</h2>
+      <div class="card form" id="connCard"></div>
       <h2>Notifications</h2>
       <div class="card form">
         <label class="row"><input type="checkbox" id="toastOn" ${s.toast ? "checked" : ""}> Windows pop-ups</label>
@@ -671,6 +674,7 @@ function vSettings(el) {
   };
   if ($("#calSync")) $("#calSync").onclick = () => act(() => api("/calendar/sync", "POST").then(r => { calFeed.key = ""; return r; }), "Calendar synced");
   $$("[data-calrm]", el).forEach(b => b.onclick = () => { if (confirm("Remove this calendar from HQ?")) act(() => api(`/calendar/feeds/${b.dataset.calrm}`, "DELETE"), "Calendar removed"); });
+  connCardFill(false);
   $("#replayBoot").onclick = () => hudBoot(false);
   $("#powerDown").onclick = () => hudShutdown();
   $("#retry").onclick = () => act(() => api("/claude/retry", "POST"), "Retrying: watch the status");
@@ -702,5 +706,5 @@ window.addEventListener("DOMContentLoaded", async () => {
   parseHash();
   await refresh();
   render();
-  setInterval(async () => { if (HUD.asleep) return; await refresh(); render.background = true; if (!["assistant", "project", "command", "planner"].includes(route.view) || route.view === "project" && editing === null && projTab === "work") render(); render.background = false; }, 6000);
+  setInterval(async () => { if (HUD.asleep) return; await refresh(); render.background = true; if (!["assistant", "project", "command", "planner", "code"].includes(route.view) || route.view === "project" && editing === null && projTab === "work") render(); render.background = false; }, 6000);
 });

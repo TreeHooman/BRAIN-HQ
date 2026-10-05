@@ -9,6 +9,8 @@ import * as orch from "./lib/orchestrator.ts";
 import { notify, ntfy } from "./lib/notify.ts";
 import { describe } from "./lib/schedule.ts";
 import * as cal from "./lib/calendar.ts";
+import * as outbox from "./lib/outbox.ts";
+import * as code from "./lib/code.ts";
 
 ensureLocalConfig();
 const cfg = loadConfig();
@@ -39,6 +41,7 @@ function snapshot() {
     milestones: brain.listMilestones(),
     inbox: brain.listInbox(),
     goals: brain.listGoals(),
+    outbox: outbox.list().filter(x => x.status !== "discarded").slice(0, 60), outboxBusy: outbox.busy(),
     calendar: { feeds: cal.feedStatus(), upcoming: cal.events(today, new Date(today.getTime() + 15 * 864e5)).slice(0, 80) },
     decisions: brain.recentDecisions(30),
     brief: brain.latestBrief(),
@@ -114,6 +117,17 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/calendar\/feeds$/, (_, b) => cal.addFeed(String(b.name || ""), String(b.url || ""))],
   ["DELETE", /^\/api\/calendar\/feeds\/([\w-]+)$/, m => { cal.removeFeed(m[1]); return { ok: true }; }],
   ["POST", /^\/api\/calendar\/sync$/, async () => { await cal.syncAll(); return { feeds: cal.feedStatus() }; }],
+  ["POST", /^\/api\/outbox$/, (_, b) => outbox.add(String(b.kind), b.payload, "you", { project: b.project })],
+  ["PUT", /^\/api\/outbox\/([\w-]+)$/, (m, b) => outbox.update(m[1], b.payload)],
+  ["DELETE", /^\/api\/outbox\/([\w-]+)$/, m => { outbox.discard(m[1]); return { ok: true }; }],
+  ["POST", /^\/api\/outbox\/([\w-]+)\/send$/, m => { outbox.precheck(m[1]); void outbox.send(m[1]).catch(e => outbox.fail(m[1], e?.message)); return { ok: true }; }],
+  ["GET", /^\/api\/connectors$/, (_m, _b, url) => outbox.discover(url.searchParams.get("force") === "1")],
+  ["POST", /^\/api\/connectors$/, (_, b) => { for (const k of ["email", "calendar"] as const) if (k in b) outbox.setConnector(k, b[k] ? String(b[k]).slice(0, 100) : null); return outbox.discover(); }],
+
+  ["GET", /^\/api\/code\/([a-z0-9-]+)$/, m => code.get(m[1])],
+  ["POST", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => { code.check(m[1], String(b.text || "")); void code.send(m[1], String(b.text || ""), b.tier).catch(() => {}); return { ok: true }; }],
+  ["POST", /^\/api\/code\/([a-z0-9-]+)\/stop$/, m => { code.stop(m[1]); return { ok: true }; }],
+  ["POST", /^\/api\/code\/([a-z0-9-]+)\/new$/, m => { code.reset(m[1]); return { ok: true }; }],
   ["GET", /^\/api\/live$/, () => orch.liveOps()],
   ["GET", /^\/api\/chat$/, () => orch.chat()],
   ["POST", /^\/api\/chat$/, (_, b) => { void orch.sendChat(String(b.text || ""), { project: b.project, tier: b.tier }).catch(() => {}); return { ok: true }; }],
@@ -174,6 +188,7 @@ server.listen(PORT, HOST, () => {
   console.log(`HQ running → http://localhost:${PORT}`);
   if (!process.env.HQ_NO_ORCHESTRATOR) orch.start();
   cal.kick();
+  outbox.recover();
 });
 const shutdown = () => { orch.stop(); process.exit(0); };
 process.on("SIGINT", shutdown);

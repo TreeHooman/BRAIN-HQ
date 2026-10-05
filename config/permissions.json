@@ -137,6 +137,8 @@
     "Read(**/tunnel-token.txt)",
     "Read(**/*.pem)",
     "Read(**/.credentials.json)",
-    "Read(./config/hq.local.json)"
+    "Read(./config/hq.local.json)",
+    "Edit(**/LoanCentral-Test/**)",
+    "Write(**/LoanCentral-Test/**)"
   ]
 }

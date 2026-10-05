@@ -22,6 +22,11 @@ The new look is built but the running HQ is still the old version. Restart it:
 - Uses the full screen width now.
 - **Google Calendar (read-only):** Settings → Calendar → paste your Google "Secret address in iCal format" (calendar.google.com → ⚙ Settings → your calendar → Integrate calendar). Events show on Calendar and Command (Schedule panel + "starts in N min" alerts). The address stays on your PC only.
 
+## New (round 3)
+- **Outbox:** JARVIS can draft emails and calendar changes; you approve each one before it goes out (uses the Gmail + Google Calendar connectors on your Claude account: claude.ai → Settings → Connectors, then HQ Settings → Check connectors).
+- **Code screen:** pick a project and code with Claude live, with every file edit and diff shown. Same usage as Claude Code desktop. Commits and pushes stay yours.
+- **New look:** 3D space scene, plasma core with orbiting projects, glass panels that light up under the cursor, smoother motion everywhere. Clutter (radar, charts, ticker) removed.
+
 ## Prompt to paste in a new session (folder: Project Secrets\HQ)
 > Read HANDOFF.md ("handoff #4") and CLAUDE.md first. The JARVIS HUD is built. Check HQ is restarted (curl localhost:8800/api/live should return JSON), then send one real JARVIS chat and confirm the live operations panel shows the steps correctly. Fix anything off. Then help me hook up Google Calendar and Gmail (read-only) using the options in HANDOFF.md "Not done / next" item 4. Ask me which option before building.
 
