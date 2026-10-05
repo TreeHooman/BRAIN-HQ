@@ -1,0 +1,42 @@
+/* Work pages polish. Crisp cards: solid-ish surface (stars don't bleed through text), 1px top light, soft drop shadow. */
+[data-theme="hud"] body[data-view="projects"] #view .card, [data-theme="hud"] body[data-view="calendar"] #view .card, [data-theme="hud"] body[data-view="roadmap"] #view .road,
+[data-theme="hud"] body[data-view="inbox"] #view .card, [data-theme="hud"] body[data-view="planner"] #view .card {
+  background: linear-gradient(180deg, rgba(20, 30, 56, .78), rgba(11, 17, 34, .82)); border-color: rgba(150, 215, 255, .13);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 14px 34px -22px rgba(0, 0, 0, .9); }
+body[data-view] #view h1 { letter-spacing: -.02em; font-weight: 600; }
+#view .when, #view .num, .road-months span, .wk-prog span { font-variant-numeric: tabular-nums; }
+
+/* projects */
+body[data-view="projects"] .pgroup .grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.wk-proj { transition: transform .18s cubic-bezier(.2, .8, .2, 1), border-color .18s, box-shadow .18s; }
+.wk-proj:hover, .wk-proj:focus-visible { transform: translateY(-3px); border-color: color-mix(in srgb, var(--hc, var(--accent)) 45%, transparent) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 18px 40px -20px color-mix(in srgb, var(--hc, var(--accent)) 45%, transparent) !important; }
+.wk-proj h3 { font-size: 16px; font-weight: 600; letter-spacing: -.01em; }
+.wk-proj .sum { line-height: 1.5; }
+.wk-prog { position: relative; height: 5px; border-radius: 99px; background: rgba(150, 210, 255, .1); margin-top: 4px; }
+.wk-prog i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--hc, var(--accent))); box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 50%, transparent); }
+.wk-prog span { position: absolute; right: 0; top: -17px; font: 500 10.5px var(--mono); color: var(--text3); }
+.wk-h { font-weight: 600; letter-spacing: .02em; padding: 2px 8px; border-radius: 99px; background: rgba(150, 210, 255, .08); }
+.wk-h.good { color: var(--green); background: color-mix(in srgb, var(--green) 14%, transparent); }
+.wk-h.watch { color: var(--amber); background: color-mix(in srgb, var(--amber) 14%, transparent); }
+.wk-h.risk { color: var(--red); background: color-mix(in srgb, var(--red) 15%, transparent); }
+
+/* calendar */
+.cal .day.we { background: rgba(120, 150, 255, .045); }
+.cal .day { position: relative; }
+.cal .day:not(.out):hover::after { content: "+"; position: absolute; right: 8px; top: 4px; font: 500 15px var(--font); color: var(--accent); opacity: .8; }
+.cal .day.today { box-shadow: 0 0 0 1px var(--accent), 0 0 24px -6px var(--accent); }
+.cal .ev { font-weight: 500; }
+
+/* roadmap: milestones on their own lane under the bars, so they never cover a phase name */
+.road-row { min-height: 58px; }
+.road-bar { top: 8px; height: 26px; line-height: 15px; }
+.road-ms { top: auto; bottom: 7px; width: 9px; height: 9px; transform: translateX(-4.5px) rotate(45deg); box-shadow: 0 0 0 2px rgba(8, 12, 26, .9), 0 0 8px currentColor; }
+.road-ms:hover { transform: translateX(-4.5px) rotate(45deg) scale(1.5); z-index: 3; }
+.road-months span.now { color: var(--amber); }
+.road-head + .road-row .road-today::before { content: "TODAY"; position: absolute; top: -16px; left: 50%; transform: translateX(-50%); font: 600 9px var(--mono); letter-spacing: .14em; color: var(--amber); }
+
+/* inbox */
+.wk-zero { display: grid; gap: 4px; justify-items: center; padding: 26px 10px; text-align: center; }
+.wk-zero b { font: 600 16px var(--font); background: linear-gradient(90deg, var(--accent), var(--violet, #a98bff)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+@media (prefers-reduced-motion: reduce) { .wk-proj:hover { transform: none; } }

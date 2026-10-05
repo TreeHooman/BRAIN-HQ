@@ -541,10 +541,13 @@ function orbitLoop(now) {
     const a = Orb.th + i / N * Math.PI * 2, depth = Math.sin(a); // +1 = front (lower half)
     const x = cx + Math.cos(a) * rx, y = cy + depth * ry;
     const k = .76 + (depth + 1) * .14, op = .38 + (depth + 1) * .31;
-    s.n.style.transform = `translate3d(${(x - s.w / 2).toFixed(1)}px, ${(y - s.h / 2).toFixed(1)}px, 0) scale(${(s.n === Orb.hover ? 1.08 : k).toFixed(3)})`;
+    const lx = W < 500 ? Math.max(4, Math.min(W - s.w - 4, x - s.w / 2)) : x - s.w / 2; // phones: keep labels on screen
+    s.n.style.transform = `translate3d(${lx.toFixed(1)}px, ${(y - s.h / 2).toFixed(1)}px, 0) scale(${(s.n === Orb.hover ? 1.08 : k).toFixed(3)})`;
     s.n.style.opacity = s.n === Orb.hover ? 1 : op.toFixed(2);
     s.n.style.zIndex = depth > 0 ? 5 : 1;
     const back = depth < -.25 && s.n !== Orb.hover; if (back !== s.back) { s.back = back; s.n.classList.toggle("back", back); }
+    // phones: only the front-most projects show their name (the rest are dots), so labels never pile up or clip
+    const lbl = W >= 500 || depth > .9 || s.n === Orb.hover; if (lbl !== s.lbl) { s.lbl = lbl; s.n.classList.toggle("nolbl", !lbl); s.w = s.n.offsetWidth; s.h = s.n.offsetHeight; }
   });
   if (!reduced() || Orb.drag) Orb.raf = requestAnimationFrame(orbitLoop);
 }

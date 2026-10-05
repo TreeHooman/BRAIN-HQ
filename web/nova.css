@@ -430,3 +430,4 @@ body[data-view="code"] #nova-wall, body[data-view="canvas"] #nova-wall { opacity
 [data-theme="hud"] #nova-stars { display: block; }
 body[data-view="code"] #nova-stars, body[data-view="canvas"] #nova-stars { opacity: 0; }
 #nova-stars { transition: opacity 2s; }
+.nv-sat.nolbl { padding: 5px; gap: 0; } .nv-sat.nolbl .tx { display: none; }
