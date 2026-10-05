@@ -19,7 +19,7 @@ async function musicPoll() {
   if (n.connected === false) { Music.st.connected = false; Music.now = null; musicChrome(); return; }
   if (!n.error) Music.now = n;
   musicChrome();
-  Music.t = setTimeout(musicPoll, Music.open ? 2500 : Music.now?.playing ? 6000 : 15000);
+  Music.t = setTimeout(musicPoll, Music.open || (route.view === "command" && Music.now?.playing) ? 3000 : Music.now?.playing ? 6000 : 15000);
 }
 async function musicDo(action, value) {
   if (Music.busy) return; Music.busy = true;
@@ -47,6 +47,31 @@ function musicChrome() {
   if (b.innerHTML !== html) b.innerHTML = html;
   b.classList.toggle("on", !!n?.playing);
   if (Music.open) musicPopFill();
+  musicHud();
+}
+// Command screen: a floating HUD "now playing" readout next to the core
+function musicHud() {
+  const stage = document.getElementById("nvStage"), n = Music.now;
+  let h = document.getElementById("musHud");
+  if (!stage || route.view !== "command" || !Music.st?.connected || !n?.active) { h?.remove(); return; }
+  if (!h) {
+    h = document.createElement("div"); h.id = "musHud"; h.className = "mus-hud";
+    h.innerHTML = `<div class="mh-lbl"><i class="mus-eq"><s></s><s></s><s></s></i><span id="mhSt"></span></div>
+      <div class="mh-row"><button type="button" class="mh-art" id="mhArt" aria-label="Open music"></button><div class="mh-txt"><b id="mhT"></b><small id="mhA"></small></div></div>
+      <div class="mh-bar"><i id="mhP"></i></div>
+      <div class="mh-ctl"><button type="button" data-mh="previous" aria-label="Previous">${MI.prev}</button><button type="button" data-mh="toggle" id="mhPlay" aria-label="Play or pause"></button><button type="button" data-mh="next" aria-label="Next">${MI.next}</button><span id="mhD"></span></div>`;
+    stage.appendChild(h);
+    h.querySelectorAll("[data-mh]").forEach(x => x.onclick = e => { e.stopPropagation(); musicDo(x.dataset.mh); });
+    h.querySelector("#mhArt").onclick = e => { e.stopPropagation(); musicToggle(true); };
+    h.addEventListener("click", e => e.stopPropagation());
+  }
+  h.classList.toggle("on", !!n.playing);
+  h.querySelector("#mhSt").textContent = n.playing ? "NOW PLAYING" : "PAUSED";
+  h.querySelector("#mhArt").innerHTML = n.art ? `<img src="${esc(n.art)}" alt="" referrerpolicy="no-referrer">` : NOTE_SVG;
+  h.querySelector("#mhT").textContent = n.track; h.querySelector("#mhA").textContent = n.artist;
+  h.querySelector("#mhP").style.width = n.duration ? `${Math.min(100, n.progress / n.duration * 100)}%` : "0";
+  h.querySelector("#mhPlay").innerHTML = n.playing ? MI.pause : MI.play;
+  h.querySelector("#mhD").textContent = n.device?.name ? "· " + n.device.name.toUpperCase() : "";
 }
 function musicToggle(force) {
   Music.open = force ?? !Music.open;
