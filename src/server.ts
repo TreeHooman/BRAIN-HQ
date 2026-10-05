@@ -14,6 +14,7 @@ import * as code from "./lib/code.ts";
 import * as spotify from "./lib/spotify.ts";
 import * as canvas from "./lib/canvas.ts";
 import * as mail from "./lib/mail.ts";
+import * as google from "./lib/google.ts";
 import { killAll, sweepOrphans } from "./lib/claude.ts";
 
 ensureLocalConfig();
@@ -163,6 +164,17 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/spotify\/control$/, (_, b) => spotify.control(String(b.action || ""), b.value)],
   ["POST", /^\/api\/spotify\/play$/, (_, b) => spotify.play(String(b.query || ""))],
 
+  ["GET", /^\/api\/google$/, () => google.status(PORT)],
+  ["POST", /^\/api\/google\/client$/, (_, b) => google.setClient(String(b.clientId || ""), String(b.clientSecret || ""))],
+  ["POST", /^\/api\/google\/login$/, (_, b) => ({ url: google.loginUrl(PORT, b.reconnect ? String(b.reconnect) : undefined) })],
+  ["PUT", /^\/api\/google\/acct\/(g-[a-f0-9]{10})$/, (m, b) => google.update(m[1], b)],
+  ["DELETE", /^\/api\/google\/acct\/(g-[a-f0-9]{10})$/, m => google.remove(m[1])],
+  ["GET", /^\/api\/google\/mail$/, (_, __, u) => google.mailList(u.searchParams.get("acct") || "all", u.searchParams.get("q") || "", u.searchParams.get("box") || "inbox", u.searchParams.get("fresh") === "1")],
+  ["GET", /^\/api\/google\/mail\/(g-[a-f0-9]{10})\/([A-Za-z0-9]{8,40})$/, m => google.mailRead(m[1], m[2])],
+  ["GET", /^\/api\/google\/drive$/, (_, __, u) => google.driveList(u.searchParams.get("acct") || "all", { search: u.searchParams.get("q") || "", kind: u.searchParams.get("kind") || "", folder: u.searchParams.get("folder") || "", page: u.searchParams.get("page") || "" })],
+  ["GET", /^\/api\/google\/drive\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})$/, m => google.driveFile(m[1], m[2])],
+  ["GET", /^\/api\/google\/preview\/(g-[a-f0-9]{10})\/([A-Za-z0-9_-]{10,200})$/, (m, _, u) => google.preview(m[1], m[2], u.searchParams.get("tab") || undefined)],
+
   ["POST", /^\/api\/settings$/, (_, b) => {
     const patch: any = {};
     if (b.budget) patch.budget = { preset: b.budget };
@@ -183,10 +195,20 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/pause\/clear$/, () => { orch.clearPause(); return { ok: true }; }],
 ];
 
+// DNS-rebinding guard: a web page on some other domain must not be able to point that domain at this PC and read the API.
+// Allowed: IPs, localhost, single-word LAN names, Tailscale (*.ts.net) and anything listed in config "allowedHosts".
+function hostOk(h: string) {
+  h = h.replace(/^\[|\]$/g, "").toLowerCase();
+  if (h === "localhost" || /^[\d.]+$/.test(h) || h.includes(":") || !h.includes(".") || h.endsWith(".ts.net")) return true;
+  const extra = loadConfig().allowedHosts;
+  return Array.isArray(extra) && extra.map((x: unknown) => String(x).toLowerCase()).includes(h);
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://${req.headers.host}`);
   try {
     if (url.pathname.startsWith("/api/")) {
+      if (!hostOk(url.hostname)) return send(res, 403, { error: "Unknown host" });
       // Block cross-site requests: only the dashboard sends this header (custom headers force a CORS preflight we never allow).
       if (req.method !== "GET" && req.headers["x-hq"] !== "1") return send(res, 403, { error: "Missing X-HQ header" });
       // Spotify sends the browser back here after sign-in (a plain GET, so it can't carry X-HQ; state + PKCE protect it).
@@ -194,6 +216,12 @@ const server = http.createServer(async (req, res) => {
         let msg = "";
         try { await spotify.callback(url.searchParams); } catch (e: any) { msg = e?.message || "Sign-in failed"; }
         res.writeHead(302, { Location: "/#settings/spotify" + (msg ? "?error=" + encodeURIComponent(msg.slice(0, 120)) : "?ok=1"), "Cache-Control": "no-store" });
+        return res.end();
+      }
+      if (url.pathname === "/api/google/callback" && req.method === "GET") {
+        let msg = "", label = "";
+        try { label = await google.callback(url.searchParams); } catch (e: any) { msg = e?.message || "Sign-in failed"; }
+        res.writeHead(302, { Location: "/#workspace/auth" + (msg ? "?error=" + encodeURIComponent(msg.slice(0, 160)) : "?ok=" + encodeURIComponent(label)), "Cache-Control": "no-store" });
         return res.end();
       }
       if (url.pathname === "/api/search" && req.method === "GET") return send(res, 200, brain.searchBrain(url.searchParams.get("q") || ""));

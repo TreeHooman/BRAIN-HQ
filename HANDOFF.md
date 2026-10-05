@@ -161,3 +161,12 @@ The owner asked for (1) a cleaner, modern, easier-on-the-eyes UI with better fin
 - Code chats: per-chat thinking level (disabled for Haiku). Permission mode `mode`: safe = allowlist; auto = acceptEdits plus Bash/Edit/Write; bypass = `--permission-mode bypassPermissions`. Bypass is not yet tested against the real CLI. HQ's alwaysDeny/hardDeny lists are passed in every mode.
 - Usage: `runStats()` reads context (the last assistant call's input + cache tokens), the context window (modelUsage), `total_cost_usd` and any `rate_limit_event`, and saves them as `session.usage`, shown under the chat header.
 - Fixes: raw stream-json/base64 no longer becomes reply text; the session drawer is pinned right (it sat left and swept across the screen on close); long text wraps.
+
+## 2026-10-05 handoff #13: Workspace (several Google accounts: Mail + Drive, read-only)
+- `src/lib/google.ts` and `/api/google*`: the owner's own Google Cloud OAuth "Desktop app" client (id and secret in `config/hq.local.json`), installed-app flow with PKCE and a loopback redirect `http://127.0.0.1:<port>/api/google/callback`. Scopes are only `gmail.readonly` and `drive.readonly`, plus openid/email.
+- Accounts: up to 12, each with id `g-<sha256(email)[:10]>`, a label, a colour and a refresh token. Access tokens are kept in memory only. An `invalid_grant` marks the account signed out but doesn't delete it. Remove also revokes the token at Google.
+- Mail: Gmail REST list plus metadata (cached for 60 s per account and query), and read with plain-text body extraction (HTML is stripped server-side). The dashboard escapes everything and never renders mail HTML.
+- Drive: list, search, folders, type filters and shared drives. Previews: Sheets via the Sheets API (tabs, 500×52 cells; falls back to CSV export of the first tab), Docs and Slides as plain text, and CSV/TXT. Open links get `authuser=<email>` so they open in the right account.
+- `web/workspace.js` and `web/workspace.css`, view `#workspace`: account chips (All plus one per company), Mail/Drive tabs, list plus reader; on phone the reader replaces the list. The Accounts panel holds setup, label, colour, reconnect and remove.
+- With accounts connected, the Command Inbox panel reads from them directly (no Claude run) and links to `#workspace/mail/<acct>/<id>`.
+- Security: `hostOk()` in server.ts blocks API requests whose Host is a foreign domain (DNS-rebinding guard). It allows IPs, localhost, single-label names, *.ts.net and config `allowedHosts`.

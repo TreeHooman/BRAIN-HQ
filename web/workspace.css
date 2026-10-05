@@ -1,0 +1,118 @@
+/* Workspace: multi-account Google Mail + Drive. Terminal look, account colour marks everything. */
+.ws { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ws-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ws-head h1 { margin: 0; }
+.ws-tabs { display: flex; border: 1px solid var(--border2); border-radius: 6px; overflow: hidden; }
+.ws-tabs button { background: none; border: 0; color: var(--text2); font: 600 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; padding: 7px 16px; cursor: pointer; }
+.ws-tabs button + button { border-left: 1px solid var(--border2); }
+.ws-tabs button.on { background: var(--accent-bg); color: var(--accent); }
+.ws-mgbtn { margin-left: auto; } .ws-mgbtn.on { color: var(--accent); border-color: var(--accent); }
+
+.ws-accts { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+.ws-chip { --c: var(--accent); flex: none; display: grid; grid-template-columns: auto auto; column-gap: 7px; align-items: center; text-align: left; background: rgba(255,255,255,.02); border: 1px solid var(--border2); border-radius: 6px; padding: 6px 12px 6px 10px; cursor: pointer; color: var(--text2); max-width: 240px; }
+.ws-chip b { font: 600 12.5px var(--font); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-chip small { grid-column: 1 / -1; font: 10.5px var(--mono); color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-chip .ws-dot + b + small { grid-column: 2; }
+.ws-chip:hover { border-color: color-mix(in srgb, var(--c) 50%, transparent); }
+.ws-chip.on { border-color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); box-shadow: inset 0 -2px 0 var(--c); }
+.ws-chip.bad small { color: var(--amber); }
+.ws-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--c, #888); box-shadow: 0 0 6px color-mix(in srgb, var(--c, #888) 60%, transparent); flex: none; vertical-align: 1px; margin-right: 6px; }
+.ws-chip .ws-dot { margin: 0; grid-row: 1; }
+
+.ws-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ws-bar input[type=search] { flex: 1 1 220px; min-width: 0; }
+.ws-bar select, .ws-bar input { background: var(--bg2); border: 1px solid var(--border2); color: var(--text); border-radius: 6px; padding: 7px 10px; font: 13px var(--font); }
+.ws-kinds { display: flex; gap: 4px; flex-wrap: wrap; }
+.ws-kinds button, .ws-stabs button { background: none; border: 1px solid var(--border2); color: var(--text2); border-radius: 4px; padding: 5px 10px; font: 500 11px var(--mono); letter-spacing: .06em; cursor: pointer; }
+.ws-kinds button.on, .ws-stabs button.on { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
+.ws-crumb { display: flex; gap: 6px; align-items: center; font: 12px var(--mono); color: var(--text3); flex-wrap: wrap; }
+.ws-crumb button { background: none; border: 0; color: var(--accent); cursor: pointer; font: inherit; padding: 2px 0; }
+.ws-crumb button:last-child { color: var(--text); }
+
+.ws-split { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); gap: 12px; min-height: 60vh; }
+.ws-list, .ws-read { border: 1px solid var(--border2); border-radius: 8px; background: rgba(5, 9, 19, .55); min-width: 0; }
+.ws-list { overflow-y: auto; max-height: calc(100vh - 230px); transition: opacity .15s; }
+.ws-list.dim { opacity: .5; }
+.ws-read { padding: 14px 18px; overflow: auto; max-height: calc(100vh - 230px); }
+.ws-empty { padding: 28px 16px; text-align: center; color: var(--text3); font-size: 13px; line-height: 1.6; }
+.ws-err { margin: 8px; padding: 8px 10px; border-left: 2px solid var(--amber); background: var(--amber-bg); color: var(--text2); font-size: 12.5px; border-radius: 4px; }
+
+.ws-row { --c: #888; display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--border); padding: 9px 12px 9px 14px; color: var(--text2); cursor: pointer; position: relative; font: inherit; }
+.ws-row:hover { background: rgba(255,255,255,.03); }
+.ws-row.on { background: color-mix(in srgb, var(--c) 10%, transparent); box-shadow: inset 3px 0 0 var(--c); }
+.ws-r1 { display: flex; align-items: center; gap: 0; font-size: 13px; }
+.ws-r1 b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text2); font-weight: 500; }
+.ws-r1 span { font: 11px var(--mono); color: var(--text3); margin-left: 8px; }
+.ws-r2 { font-size: 13px; color: var(--text2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 2px 0 1px; }
+.ws-mrow small { display: block; font-size: 12px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-mrow.unread .ws-r1 b, .ws-mrow.unread .ws-r2 { color: var(--text); font-weight: 600; }
+.ws-mrow.unread::before { content: ""; position: absolute; left: 5px; top: 15px; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+.ws-imp { font-style: normal; color: var(--amber); font-weight: 700; margin-right: 5px; }
+.ws-frow { display: flex; align-items: center; gap: 10px; }
+.ws-ft { --t: #6c7581; flex: none; width: 42px; text-align: center; font: 600 9.5px var(--mono); letter-spacing: .08em; color: var(--t); border: 1px solid color-mix(in srgb, var(--t) 45%, transparent); border-radius: 3px; padding: 3px 0; background: color-mix(in srgb, var(--t) 10%, transparent); }
+.ws-fn { flex: 1; min-width: 0; }
+.ws-fn b { display: block; font-weight: 500; color: var(--text); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-fn small { display: block; font-size: 11.5px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-fn small .ws-dot { width: 6px; height: 6px; margin-right: 5px; }
+.ws-open { flex: none; color: var(--text3); padding: 6px; border-radius: 4px; display: grid; }
+.ws-open:hover { color: var(--accent); background: var(--accent-bg); }
+.ws-more { margin: 10px auto; display: block; }
+
+.ws-rh { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.ws-rh .btn svg { vertical-align: -2px; margin-left: 3px; }
+.ws-back { display: none; }
+.ws-acctag { --c: #888; display: inline-flex; align-items: center; font: 600 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); padding: 4px 9px; border-radius: 4px; margin-right: auto; }
+.ws-subj { display: flex; gap: 10px; align-items: center; font-size: 18px; margin: 0 0 10px; color: var(--text); line-height: 1.35; word-break: break-word; }
+.ws-meta { font-size: 12.5px; color: var(--text2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 8px 0; margin-bottom: 10px; display: grid; gap: 3px; word-break: break-word; }
+.ws-meta span { display: inline-block; min-width: 46px; font: 10.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--text3); }
+.ws-files { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.ws-files span { font: 11.5px var(--mono); border: 1px solid var(--border2); border-radius: 4px; padding: 3px 8px; color: var(--text2); }
+.ws-files small { color: var(--text3); }
+.ws-text { white-space: pre-wrap; word-break: break-word; font: 13.5px/1.6 var(--font); color: var(--text); margin: 0; }
+.ws-stabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; }
+.ws-sheet { overflow: auto; max-height: calc(100vh - 340px); border: 1px solid var(--border2); border-radius: 4px; }
+.ws-sheet table { border-collapse: collapse; font: 12px var(--mono); color: var(--text); }
+.ws-sheet th, .ws-sheet td { border: 1px solid var(--border); padding: 4px 8px; white-space: nowrap; max-width: 320px; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+.ws-sheet thead th { position: sticky; top: 0; background: #0b1120; color: var(--text3); font-weight: 500; z-index: 1; }
+.ws-sheet tbody th { position: sticky; left: 0; background: #0b1120; color: var(--text3); font-weight: 500; text-align: right; }
+.ws-sheet tbody tr:hover td { background: rgba(122,162,255,.06); }
+
+.ws-mg { display: grid; gap: 12px; }
+.ws-mg-h { display: grid; gap: 2px; }
+.ws-steps { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13px; color: var(--text2); line-height: 1.5; }
+.ws-steps a { color: var(--accent); }
+.ws-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ws-acc { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.ws-lbl { width: 140px; background: var(--bg2); border: 1px solid var(--border2); color: var(--text); border-radius: 5px; padding: 5px 8px; font: 600 13px var(--font); }
+.ws-mail { font: 12px var(--mono); color: var(--text3); flex: 1; min-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.ws-warn { color: var(--amber); font-weight: 500; }
+.ws-sw { display: flex; gap: 3px; }
+.ws-sw button { width: 15px; height: 15px; border-radius: 3px; border: 1px solid transparent; background: var(--c); cursor: pointer; padding: 0; opacity: .55; }
+.ws-sw button.on, .ws-sw button:hover { opacity: 1; border-color: #fff; }
+.btn.danger { color: var(--red); }
+
+/* Command inbox rows carry the account colour */
+#nvMail .ml-row .ws-dot { margin-top: 5px; }
+
+@media (max-width: 760px) {
+  .ws-split { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .ws-split .ws-read { display: none; }
+  .ws-split.reading .ws-list { display: none; }
+  .ws-split.reading .ws-read { display: block; max-height: none; padding: 12px; }
+  .ws-list { max-height: none; }
+  .ws-back { display: inline-flex; }
+  .ws-grid2 { grid-template-columns: 1fr; }
+  .ws-sheet { max-height: 60vh; }
+  .ws-head { flex-wrap: nowrap; gap: 8px; }
+  .ws-head h1 { font-size: 22px; }
+  .ws-bar { flex-wrap: nowrap; }
+  .ws-bar input[type=search] { flex: 1 1 0; }
+  .ws-bar select { flex: 0 0 auto; }
+  .ws-bar:has(.ws-kinds) { flex-wrap: wrap; }
+  .ws-kinds { flex-wrap: nowrap; overflow-x: auto; width: 100%; scrollbar-width: none; }
+  .ws-kinds button { flex: none; }
+  .ws-acc { gap: 6px 8px; }
+  .ws-lbl { flex: 1; width: auto; }
+  .ws-mail { order: 4; width: 100%; flex: none; }
+  .ws-sw { order: 5; width: 100%; }
+}

@@ -746,11 +746,11 @@ function vPlanner(el) {
       return `<section class="card goal" data-goal="${g.id}">
         <div class="goal-head"><svg class="gring" viewBox="0 0 54 54" aria-hidden="true"><circle cx="27" cy="27" r="24" fill="none" stroke="rgba(0,229,255,.12)" stroke-width="4"/><circle class="arc-fill" cx="27" cy="27" r="24" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C}" data-to="${C * (1 - pct / 100)}" style="transition:stroke-dashoffset 1.4s cubic-bezier(.2,.8,.2,1)"/></svg>
           <div class="grow"><h3>${esc(g.title)}</h3><div class="small muted">${g.project ? `<a href="#project/${g.project}">${esc(projName(g.project))}</a> · ` : ""}${pct}% · ${g.steps.filter(s => s.done).length}/${g.steps.length} steps${g.due ? ` · due ${esc(fmtWhen(g.due))}` : ""}</div>${g.why ? `<div class="small faint" style="margin-top:4px">${esc(g.why)}</div>` : ""}</div>
-          <div class="row"><button class="btn sm" data-break="${g.id}" title="Ask JARVIS to break this down">✦ Break down with JARVIS</button><button class="btn sm" data-addstep="${g.id}">+ Step</button><button class="btn sm ghost" data-delgoal="${g.id}" aria-label="Delete goal">✕</button></div></div>
+          <div class="row"><button class="btn sm" data-break="${g.id}" title="Ask LUTHUR to break this down">✦ Break down with LUTHUR</button><button class="btn sm" data-addstep="${g.id}">+ Step</button><button class="btn sm ghost" data-delgoal="${g.id}" aria-label="Delete goal">✕</button></div></div>
         <div class="graph"><svg class="edges" aria-hidden="true"></svg><div class="nodes">${g.steps.map((s, i) => `<div class="node ${s.done ? "done" : ""} ${next && s.id === next.id ? "next" : ""} ${Plan.open === g.id + "/" + s.id ? "open" : ""}" draggable="true" tabindex="0" data-step="${s.id}" role="button" aria-label="Step ${i + 1}: ${esc(s.title)}${s.done ? " (done)" : ""}">
             <div class="num"><span>STEP ${pad(i + 1)}</span><button class="tick" data-tick="${s.id}" aria-label="${s.done ? "Mark not done" : "Mark done"}"></button></div><div class="nt">${esc(s.title)}</div><div class="nd">${s.due ? esc(fmtWhen(s.due)) : "no date"}</div></div>`).join("")}</div></div>
         <div class="node-detail" hidden></div></section>`; }).join("")
-      : `<div class="card empty">No goals yet. Create one, or ask JARVIS to "make a goal for …".</div>`}`;
+      : `<div class="card empty">No goals yet. Create one, or ask LUTHUR to "make a goal for …".</div>`}`;
   document.getElementById("newGoal").onclick = () => goalModal();
   el.querySelectorAll(".goal").forEach(sec => bindGoal(sec, (S.goals || []).find(g => g.id === sec.dataset.goal)));
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -789,7 +789,7 @@ function bindGoal(sec, g) {
   if (!g) return;
   sec.querySelector("[data-break]").onclick = async () => {
     const text = `Break the Mission Planner goal "${g.title}" (id ${g.id}) into clear, ordered next steps with due dates where sensible. Keep the steps that are already done. Save it with goal_save (same id), then tell me the plan in 3 lines.`;
-    await api("/chat", "POST", { text, project: g.project || null, tier: currentTier() }).then(() => { hudNotify("Queued for JARVIS: breaking down the goal"); chatState = null; opsKick(); location.hash = "assistant"; }).catch(e => hudNotify("⚠ " + e.message));
+    await api("/chat", "POST", { text, project: g.project || null, tier: currentTier() }).then(() => { hudNotify("Queued for LUTHUR: breaking down the goal"); chatState = null; opsKick(); location.hash = "assistant"; }).catch(e => hudNotify("⚠ " + e.message));
   };
   sec.querySelector("[data-addstep]").onclick = () => {
     modal(`<h3>Add a step to “${esc(g.title)}”</h3><form class="form" id="stepForm"><label class="f">Step<input name="title" required></label><label class="f">Due (optional)<input type="date" name="due"></label>
@@ -835,7 +835,7 @@ function goalModal() {
     <label class="f">Goal<input name="title" required placeholder="e.g. Launch Borrow Fast beta"></label>
     <div class="two"><label class="f">Project<select name="project">${projOptions(activeProject(), "No project")}</select></label><label class="f">Target date<input type="date" name="due"></label></div>
     <label class="f">Why it matters<input name="why"></label>
-    <label class="f">Steps (one per line, in order)<textarea name="steps" placeholder="Leave empty and ask JARVIS to break it down"></textarea></label>
+    <label class="f">Steps (one per line, in order)<textarea name="steps" placeholder="Leave empty and ask LUTHUR to break it down"></textarea></label>
     <div class="row end"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary">Create goal</button></div></form>`);
   document.getElementById("goalForm").onsubmit = async e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));

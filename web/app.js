@@ -136,7 +136,7 @@ function parseHash() {
 function render() {
   if (!S) return;
   $$("#nav a").forEach(a => a.classList.toggle("on", a.dataset.view === (route.view === "project" ? "projects" : route.view)));
-  const views = { command: vCommand, planner: vPlanner, home: vHome, projects: vProjects, project: vProject, calendar: vCalendar, roadmap: vRoadmap, inbox: vInbox, assistant: vAssistant, missions: vMissions, settings: vSettings, code: vCode, outbox: vOutbox, tasks: vTasks, canvas: vCanvas };
+  const views = { command: vCommand, planner: vPlanner, home: vHome, projects: vProjects, project: vProject, calendar: vCalendar, roadmap: vRoadmap, inbox: vInbox, assistant: vAssistant, missions: vMissions, settings: vSettings, code: vCode, outbox: vOutbox, tasks: vTasks, canvas: vCanvas, workspace: vWorkspace };
   const fn = views[route.view] || vCommand;
   // Don't clobber a field the user is typing in during background refreshes.
   const active = document.activeElement;
@@ -640,7 +640,7 @@ function vSettings(el) {
     </div><div>
       <h2>Look &amp; feel</h2>
       <div class="card form">
-        <div class="row"><span class="small muted" style="min-width:110px">Theme</span><div class="chips"><button type="button" class="chip ${document.documentElement.dataset.theme === "hud" ? "on" : ""}" data-theme-set="hud">HUD (JARVIS)</button><button type="button" class="chip ${document.documentElement.dataset.theme === "calm" ? "on" : ""}" data-theme-set="calm">Calm</button></div></div>
+        <div class="row"><span class="small muted" style="min-width:110px">Theme</span><div class="chips"><button type="button" class="chip ${document.documentElement.dataset.theme === "hud" ? "on" : ""}" data-theme-set="hud">HUD</button><button type="button" class="chip ${document.documentElement.dataset.theme === "calm" ? "on" : ""}" data-theme-set="calm">Calm</button></div></div>
         <div class="row"><span class="small muted" style="min-width:110px">Sidebar</span><div class="chips"><button type="button" class="chip ${hstore.get("hq-side", "hide") === "pin" ? "" : "on"}" data-side="hide">Hidden (☰ top left)</button><button type="button" class="chip ${hstore.get("hq-side", "hide") === "pin" ? "on" : ""}" data-side="pin">Always shown</button></div></div>
         <div class="row"><span class="small muted" style="min-width:110px">Sound effects</span><div class="chips"><button type="button" class="chip ${Snd.on() ? "on" : ""}" data-sound="1">On</button><button type="button" class="chip ${Snd.on() ? "" : "on"}" data-sound="0">Off</button></div></div>
         <div class="small muted">Animations follow your Windows “reduce motion” setting. Shortcuts: <kbd class="kbd">Ctrl K</kbd> search, <kbd class="kbd">Ctrl 1–9</kbd> switch project (<kbd class="kbd">Ctrl 0</kbd> all), <kbd class="kbd">Alt J</kbd> talk, <kbd class="kbd">/</kbd> capture.</div>

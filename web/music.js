@@ -100,7 +100,7 @@ async function musicPopFill(full) {
   }
   p.querySelector("#mpArt").innerHTML = n.art ? `<img src="${esc(n.art)}" alt="" referrerpolicy="no-referrer">` : NOTE_SVG;
   p.querySelector("#mpT").textContent = n.active ? n.track : "Nothing playing";
-  p.querySelector("#mpA").textContent = n.active ? n.artist : "Pick something below, or say “Hey JARVIS, play …”";
+  p.querySelector("#mpA").textContent = n.active ? n.artist : "Pick something below, or say “Hey LUTHUR, play …”";
   p.querySelector("#mpD").textContent = n.device ? `on ${n.device.name}` : "";
   p.querySelector("#mpP").style.width = n.duration ? `${Math.min(100, n.progress / n.duration * 100)}%` : "0";
   p.querySelector(".mp-play").innerHTML = n.playing ? MI.pause : MI.play;
@@ -150,7 +150,7 @@ function musicCard() {
       <li>Tick <b>Web API</b>, agree to the terms, press <b>Save</b>.</li>
       <li>On the app page, open <b>Settings</b>, copy the <b>Client ID</b> and paste it below.</li></ol>`;
   return `<h2>Spotify</h2><div class="card form" id="musCard">
-    ${st.connected ? `<div class="row"><span class="dot good"></span><div class="grow"><b>Connected</b>${st.user ? ` <span class="small muted">as ${esc(st.user)}</span>` : ""}<div class="small muted">Use the music button at the top, or say “Hey JARVIS, play …”, “skip”, “pause”, “volume up”.</div></div><button type="button" class="btn sm ghost" id="musOff">Disconnect</button></div>`
+    ${st.connected ? `<div class="row"><span class="dot good"></span><div class="grow"><b>Connected</b>${st.user ? ` <span class="small muted">as ${esc(st.user)}</span>` : ""}<div class="small muted">Use the music button at the top, or say “Hey LUTHUR, play …”, “skip”, “pause”, “volume up”.</div></div><button type="button" class="btn sm ghost" id="musOff">Disconnect</button></div>`
     : st.configured ? `<div class="row"><span class="dot unknown"></span><div class="grow"><b>One step left</b><div class="small muted">Client ID saved (${esc(st.clientId)}). Press Connect and approve on Spotify's page.</div></div></div>
         ${here ? "" : `<div class="note amber small">Do this step on the PC (at <b>http://127.0.0.1:8800</b>). After that it works on your phone too.</div>`}
         <div class="row end"><button type="button" class="btn ghost" id="musReset">Change Client ID</button><button type="button" class="btn primary" id="musGo" ${here ? "" : "disabled"}>Connect Spotify</button></div>`
