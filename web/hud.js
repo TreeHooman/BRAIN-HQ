@@ -647,7 +647,7 @@ function cmdShowReply(c, animate) {
     return;
   }
   if (!lastHq) { box.innerHTML = `<div class="who">${esc(name.toUpperCase())}</div><div class="muted">Standing by. Ask anything: plans, reminders, “what should I focus on today?”</div>`; return; }
-  box.innerHTML = `${lastYou ? `<div class="you-said">› ${esc(lastYou.text)}</div>` : ""}<div class="who">${esc(name.toUpperCase())} · ${esc(ago(lastHq.at).toUpperCase())}</div><div class="cmd-md">${md(lastHq.text)}</div>`;
+  box.innerHTML = `${lastYou ? `<div class="you-said">› ${esc(lastYou.text)}</div>` : ""}<div class="who">${esc(name.toUpperCase())}${c.provider === "codex" ? " · CODEX BACKUP" : ""} · ${esc(ago(lastHq.at).toUpperCase())}</div><div class="cmd-md">${md(lastHq.text)}</div>`;
   if (animate) { revealHTML(box.querySelector(".cmd-md")); corePing(); }
 }
 async function cmdSend(text) {
