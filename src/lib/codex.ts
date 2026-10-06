@@ -17,6 +17,17 @@ let cachedBin: { value: string | null; at: number } | null = null;
 export function findCodex(force = false): string | null {
   if (!force && cachedBin && Date.now() - cachedBin.at < 600_000) return cachedBin.value;
   const candidates = [loadConfig().codex?.bin, process.env.CODEX_BIN].filter(Boolean) as string[];
+  // Desktop launches may have a smaller PATH than an interactive terminal.
+  if (process.platform === "win32") {
+    const appBin = path.join(process.env.LOCALAPPDATA || path.join(process.env.USERPROFILE || "", "AppData", "Local"), "OpenAI", "Codex", "bin");
+    try {
+      const versions = fs.readdirSync(appBin, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => {
+        const file = path.join(appBin, e.name, "codex.exe");
+        try { return { file, at: fs.statSync(file).mtimeMs }; } catch { return null; }
+      }).filter((x): x is { file: string; at: number } => !!x).sort((a, b) => b.at - a.at);
+      candidates.push(...versions.map(x => x.file));
+    } catch {}
+  }
   try {
     const lookup = spawnSync(process.platform === "win32" ? "where.exe" : "which", ["codex"], { encoding: "utf8", timeout: 5000, windowsHide: true });
     candidates.push(...String(lookup.stdout || "").split(/\r?\n/).filter(Boolean));
