@@ -546,6 +546,7 @@ label.f .wp-btn { width: 100%; }
 .sp-add button i { width: 7px; height: 7px; border-radius: 50%; background: var(--pc); flex: none; } .sp-add button:hover { border-color: var(--pc); }
 /* Command: inbox rows */
 .ml-row .t b { color: var(--text); margin-right: 6px; font-weight: 600; }
+[data-theme="hud"] .nv-panel#nvMail .ml-row small { font-family: var(--font); font-size: 12px; line-height: 1.45; font-weight: 500; letter-spacing: 0; color: #bfcee5; }
 .ml-row:not(.unread) .t { color: var(--text2); } .ml-row:not(.unread) .t b { color: var(--text2); font-weight: 500; }
 .ml-foot { display: flex; align-items: center; gap: 6px; margin-top: 8px; font: 11px var(--mono); color: var(--text3); } .ml-foot span { flex: 1; }
 
