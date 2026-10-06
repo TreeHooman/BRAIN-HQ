@@ -69,7 +69,7 @@ setInterval(() => { if (!Music.now?.playing || document.hidden) return; const h 
 function musicChrome() {
   const top = document.querySelector(".top"); if (!top) return;
   let b = document.getElementById("musBtn");
-  if (!Music.st?.connected) { b?.remove(); document.getElementById("musPop")?.remove(); return; }
+  if (!Music.st?.connected) { b?.remove(); document.getElementById("musPop")?.remove(); musicHud(); return; }
   if (!b) {
     b = document.createElement("button"); b.type = "button"; b.id = "musBtn"; b.className = "mus-btn"; b.setAttribute("aria-label", "Music");
     b.onclick = e => { e.stopPropagation(); musicToggle(); };
@@ -86,9 +86,17 @@ function musicChrome() {
 function musicHud() {
   const stage = document.getElementById("nvStage"), n = Music.now;
   let h = document.getElementById("musHud");
-  if (!stage || route.view !== "command" || !Music.st?.connected || !n?.active) { h?.remove(); return; }
+  if (!stage || route.view !== "command") { h?.remove(); return; }
+  if (!Music.st?.connected || !n?.active) {
+    if (!h) { h = document.createElement("div"); h.id = "musHud"; stage.appendChild(h); }
+    h.className = "mus-hud nv-gap-card mus-idle";
+    h.innerHTML = `<div class="mh-lbl">♫ SPOTIFY</div><div class="mh-idle-title">${Music.st?.connected ? "Nothing playing" : "Connect Spotify"}</div><div class="mh-idle-sub">${Music.st?.connected ? "Your music is ready" : "Set up your music in Settings"}</div><a class="mh-idle-link" href="${Music.st?.connected ? "#command" : "#settings"}" id="mhIdleLink">${Music.st?.connected ? "Open player" : "Open settings"} →</a>`;
+    h.querySelector("#mhIdleLink").onclick = Music.st?.connected ? e => { e.preventDefault(); e.stopPropagation(); musicToggle(true); } : null;
+    return;
+  }
+  if (h?.classList.contains("mus-idle")) { h.remove(); h = null; }
   if (!h) {
-    h = document.createElement("div"); h.id = "musHud"; h.className = "mus-hud";
+    h = document.createElement("div"); h.id = "musHud"; h.className = "mus-hud nv-gap-card";
     h.innerHTML = `<div class="mh-lbl"><i class="mus-eq"><s></s><s></s><s></s></i><span id="mhSt"></span></div>
       <div class="mh-row"><button type="button" class="mh-art" id="mhArt" aria-label="Open music"></button><div class="mh-txt"><b id="mhT"></b><small id="mhA"></small></div></div>
       <div class="mh-bar mus-seek" id="mhBar"><i id="mhP"></i><b class="ms-knob"></b></div><div class="ms-time"><span id="mhE"></span><span id="mhL"></span></div>

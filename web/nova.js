@@ -360,6 +360,9 @@ async function vCommand(el) {
             <div class="nv-core-label"><b>${esc(name.toUpperCase())}</b><span id="coreState" data-v="">ONLINE</span></div>
           </div>
           <div class="nv-tip" id="nvTip" role="tooltip"></div>
+          <section class="nv-gap-card nv-gap-timer" id="gapTimer" aria-label="Focus timer"></section>
+          <section class="nv-gap-card nv-gap-live" id="gapLive" aria-label="Multi-agent live activity"></section>
+          <section class="nv-gap-card nv-gap-calendar" id="gapCalendar" aria-label="Upcoming calendar events"></section>
         </div>
         <form class="nv-ask" id="cmdAsk" autocomplete="off"><button type="button" class="btn mic" id="cmdMic" title="Talk (Alt+J)" aria-label="Talk">${MIC_SVG}</button><input id="cmdText" placeholder="Ask, or: update a project · do a check · pull up a site…" aria-label="Ask ${esc(name)}"><button class="btn primary">Send</button></form>
         <div class="nv-under">${tierSwitch()}</div>
@@ -369,6 +372,7 @@ async function vCommand(el) {
     </div>`;
   coreMount(document.getElementById("core"));
   cmdFill(false); coreState(); bindTierSwitch(el); orbitBuild(true);
+  gapWidgetsMount(); musicHud();
   const core = document.getElementById("core");
   core.onclick = () => document.getElementById("cmdMic").click();
   core.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); core.click(); } };
@@ -559,6 +563,7 @@ function cmdFill(quiet) {
   R.querySelector('[data-nv="event"]').onclick = () => outboxCompose("calendar");
   R.querySelector('[data-nv="pal"]').onclick = () => palOpen();
   if (quiet) orbitBuild(false);
+  gapCalendarPaint();
 }
 
 // ---------------- start ----------------
