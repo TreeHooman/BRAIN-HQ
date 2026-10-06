@@ -558,11 +558,17 @@ export function tasks(limit = 30) {
 }
 
 // ---------------- chat (the dashboard assistant) ----------------
-type ChatMsg = { role: "you" | "hq"; text: string; at: string; error?: boolean };
+type ChatMsg = { role: "you" | "hq"; text: string; at: string; error?: boolean; speech?: string };
 type Chat = { id: string; sessionId: string | null; claudeSessionId?: string | null; provider?: "claude" | "codex"; personality?: "normal" | "challenger"; project?: string | null; tier?: string; messages: ChatMsg[];
   claudeUsage?: { context: number; window: number; at: string } };
 export function chat(): Chat & { busy: boolean; screen: any } {
   return { ...readJson<Chat>(F.chat, { id: uid("chat"), sessionId: null, messages: [] }), busy: chatBusy, screen: readJson<any>(F.screen, null) };
+}
+function splitSpokenReply(text: string): { text: string; speech?: string } {
+  const match = text.match(/^\s*<spoken>\s*([^<>]{1,360}?)\s*<\/spoken>\s*/i);
+  if (!match) return { text };
+  const written = text.slice(match[0].length).trim();
+  return { text: written || match[1].trim(), speech: match[1].trim() };
 }
 export function newChat() {
   const c = readJson<Chat | null>(F.chat, null);
@@ -655,7 +661,8 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
     "You can put things on the owner's War Room screen with show_on_screen (websites, emails, Drive docs/sheets, web searches, their calendar) and find emails/files with google_mail_search / google_drive_search. You never see email or file contents: to read or go over one, call show_on_screen with read_aloud or summarize and the dashboard does it. Keep your own reply to one short spoken line then.",
     voiceMax ? `The owner is speaking to you by voice: you have your full permission level (${level}) for this turn.` : "",
     cfg.assistant?.taskApproval !== false ? "Tasks you delegate with queue_followup wait for the owner's approval in HQ before they run. Say that. Only if the owner explicitly told you in this conversation to just go ahead, set owner_approved: true." : "",
-    "Lead with the answer in one or two spoken-friendly sentences; put detail after, in short bullets.",
+    "Lead the written answer with the result; put detail after, in short bullets when useful.",
+    "For your final reply, start with <spoken>one natural sentence of at most 25 words summarizing the result or next action</spoken>. No Markdown inside the tag. Then give the complete written answer without repeating the spoken sentence verbatim. The tag is used only for speech and is hidden from the written chat.",
     "Be brief and concrete. Read brain context only as needed (hq_index first).",
     preferences.context(c.project || undefined, c.personality === "challenger"),
     c.personality === "challenger" ? "You are Challenger: test the owner's current thought from customer, financial, technical, competitive and long-term angles only where relevant. Separate evidence from hunches. Give the strongest counterview and a constructive recommendation. Follow direct orders exactly; do not manufacture disagreement or start extra agents unless useful." : "",
@@ -693,6 +700,8 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
         c.claudeSessionId = claudeSession;
       }
     }
+    const spokenReply = splitSpokenReply(res.text);
+    res.text = spokenReply.text;
     if (provider === "codex") recordHistory(res, usedOptions, "codex");
     opOk = res.ok;
     const latest = readJson<Chat>(F.chat, c);
@@ -705,7 +714,7 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
     if (res.kind === "auth" || res.kind === "missing") reply = provider === "codex" ? "I can't reach Codex yet. Check its CLI sign-in, then try again." : "I can't reach Claude yet. Run **scripts\\SIGN-IN-CLAUDE.cmd** once, then try again.";
     if (res.kind === "limit") reply = provider === "codex" ? "Codex's usage limit is reached too. Your message is saved; try again after its reset." : `Claude's usage limit is reached${res.resetAt ? ` until about ${new Date(res.resetAt).toLocaleString()}` : ""}. Codex will handle new messages while Claude is paused.`;
     if (res.kind === "timeout") reply = (res.text ? res.text + "\n\n" : "") + "_Stopped at the chat time limit. For big jobs, ask me to queue a mission._";
-    latest.messages.push({ role: "hq", text: reply, at: new Date().toISOString(), error: !res.ok });
+    latest.messages.push({ role: "hq", text: reply, speech: res.ok ? spokenReply.speech : undefined, at: new Date().toISOString(), error: !res.ok });
     writeJson(F.chat, latest);
     if (provider === "claude" && res.ok) patchState(st => { st.auth = "ok"; });
     if (provider === "claude" && res.kind === "auth") patchState(st => { st.auth = "needs-login"; st.authCheckedAt = new Date().toISOString(); });

@@ -671,7 +671,7 @@ function cmdPollStart() {
     if (was && typeof scrFromChat === "function") scrFromChat(c.screen);
     const last = c.messages[c.messages.length - 1];
     // spoken question → spoken answer (even with voice replies off); typed → the normal setting
-    if (was && last?.role === "hq") { if (Date.now() - (window.hqVoiceTurn || 0) < 10 * 60e3 && typeof speakAlways === "function") speakAlways(last.text.split(/\n\n/)[0]); else speak(last.text); }
+    if (was && last?.role === "hq") speakChatReply(c, Date.now() - (window.hqVoiceTurn || 0) < 10 * 60e3);
     refresh();
   }, 1300);
 }

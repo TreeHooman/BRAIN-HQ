@@ -476,6 +476,34 @@ function speak(text) {
   u.rate = 1.05; u.pitch = 0.95;
   speechSynthesis.cancel(); speechSynthesis.speak(u);
 }
+const VoiceReply = { last: "" };
+function spokenReplyText(c) {
+  const msg = c?.messages?.at(-1); if (msg?.role !== "hq") return "";
+  const source = String(msg.speech || msg.text || "");
+  const plain = source.replace(/```[\s\S]*?```/g, " ").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/<[^>]+>/g, " ").replace(/[#*_`>|]/g, "").replace(/^\s*[-•]\s*/gm, "")
+    .split(/\n\s*\n/).map(x => x.replace(/\s+/g, " ").trim()).find(Boolean) || "";
+  if (msg.speech) return plain.split(/\s+/).slice(0, 35).join(" ").slice(0, 260);
+  const sentences = plain.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [];
+  let short = "";
+  for (const sentence of sentences) {
+    if (short && short.split(/\s+/).length >= 9) break;
+    short += sentence.trim() + " ";
+    if (short.split(/\s+/).length >= 32) break;
+  }
+  const words = (short.trim() || plain).split(/\s+/).slice(0, 35);
+  const result = words.join(" ").slice(0, 260).trim();
+  return result && !/[.!?]$/.test(result) ? result + "." : result;
+}
+function speakChatReply(c, force = false) {
+  if (!force && !voiceOn()) return;
+  const last = c?.messages?.at(-1), text = spokenReplyText(c); if (!text || !last) return;
+  const key = `${c.id || "chat"}:${last.at || last.text}`;
+  if (VoiceReply.last === key) return;
+  VoiceReply.last = key;
+  if (force && typeof speakAlways === "function") speakAlways(text);
+  else speak(text);
+}
 let rec = null;
 function listen(onText, onState) {
   if (!SR) { toast("Voice input needs Edge or Chrome"); return; }
@@ -541,7 +569,7 @@ function pollChat() {
     if (!c) return pollChat();
     const changed = !chatState || c.messages.length !== chatState.messages.length || c.busy !== chatState.busy;
     const last = c.messages[c.messages.length - 1];
-    if (chatState && c.messages.length > chatState.messages.length && last?.role === "hq") { speak(last.text); vAssistant.fresh = true; }
+    if (chatState && c.messages.length > chatState.messages.length && last?.role === "hq") { speakChatReply(c); vAssistant.fresh = true; }
     chatState = c;
     if (changed && route.view === "assistant") { render.background = false; vAssistant($("#view")); }
     if (c.busy) pollChat(); else refresh();

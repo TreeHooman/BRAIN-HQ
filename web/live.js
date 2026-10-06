@@ -563,8 +563,7 @@ async function jarvisReplyWatch() {
     if (!c.busy && c.messages.length > start) {
       if (typeof scrFromChat === "function") scrFromChat(c.screen);
       const last = c.messages.at(-1); if (last?.role !== "hq") return;
-      if (!voiceOn()) speakAlways(last.text.split(/\n\n/)[0]); // voiceOn() already reads it on the JARVIS screen
-      else if (route.view !== "assistant") speakAlways(last.text.split(/\n\n/)[0]);
+      if (!voiceOn() || route.view !== "assistant") speakChatReply(c, true); // shared short spoken reply; avoids duplicate playback
       toast(last.text.replace(/[#*_`>]/g, "").slice(0, 160), 7000);
       if (route.view === "tasks") liveKick();
       return;
