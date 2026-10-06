@@ -8,6 +8,12 @@
     "comment": "Leave bin empty to auto-find the Claude CLI (PATH, ~/.local/bin, or the desktop app's bundled copy, newest version first)."
   },
 
+  "codex": {
+    "bin": "",
+    "tiers": { "fast": "gpt-6-luna", "balanced": "gpt-6.1-sol", "deep": "gpt-6-astra" },
+    "comment": "Local ChatGPT-signed-in Codex CLI backs up new HQ chats and queued missions while Claude is limited. Deep uses Astra only when requested."
+  },
+
   "autonomy": {
     "maxLevel": "build",
     "comment": "Ceiling for every mission and the chat: read < plan < build. A project's maxPermission can lower it further, never raise it."

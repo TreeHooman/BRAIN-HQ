@@ -21,6 +21,8 @@ import * as usage from "./lib/usage.ts";
 import * as updater from "./lib/updater.ts";
 import * as screen from "./lib/screen.ts";
 import * as history from "./lib/history.ts";
+import * as preferences from "./lib/preferences.ts";
+import * as codexChats from "./lib/codex-transcripts.ts";
 import * as todayPlan from "./lib/today.ts";
 import * as browser from "./lib/browser.ts";
 import { killAll, sweepOrphans } from "./lib/claude.ts";
@@ -216,7 +218,7 @@ const routes: [string, RegExp, Handler][] = [
   ["PATCH", /^\/api\/today\/items\/([\w-]{1,40})$/, (m, b) => b.done !== undefined ? todayPlan.setDone(m[1], !!b.done, "you") : todayPlan.edit(m[1], b)],
   ["DELETE", /^\/api\/today\/items\/([\w-]{1,40})$/, m => todayPlan.remove(m[1])],
   ["GET", /^\/api\/chat$/, () => orch.chat()],
-  ["POST", /^\/api\/chat$/, (_, b) => { writeCheck(); void orch.sendChat(String(b.text || ""), { project: b.project, tier: b.tier, effort: b.effort, voice: b.voice === true, context: chatContext(b.context) }).catch(() => {}); return { ok: true }; }],
+  ["POST", /^\/api\/chat$/, (_, b) => { writeCheck(); void orch.sendChat(String(b.text || ""), { project: b.project, tier: b.tier, effort: b.effort, voice: b.voice === true, context: chatContext(b.context), personality: b.personality }).catch(() => {}); return { ok: true }; }],
   ["POST", /^\/api\/chat\/new$/, () => { orch.newChat(); return { ok: true }; }],
 
   ["GET", /^\/api\/spotify$/, () => spotify.status(PORT)],
@@ -243,10 +245,19 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/browser\/input$/, (_, b) => browser.input(b)],
   ["POST", /^\/api\/browser\/resize$/, (_, b) => browser.resize(Number(b.w), Number(b.h))],
   ["POST", /^\/api\/browser\/stop$/, () => browser.stop()],
-  ["GET", /^\/api\/chats$/, () => orch.listChats()],
-  ["GET", /^\/api\/chats\/([\w-]{1,64})$/, m => { const c = orch.getChat(m[1]); if (!c) throw Object.assign(new Error("Not found"), { code: 404 }); return c; }],
+  ["GET", /^\/api\/chats$/, async (_, __, u) => {
+    const query = (u.searchParams.get("q") || "").trim();
+    const own = orch.listChats().filter(c => !query || c.title.toLowerCase().includes(query.toLowerCase()));
+    const external = query ? await codexChats.searchCodexChats(query, 100) : codexChats.listCodexChats(100);
+    return [...own, ...external].sort((a, b) => b.at.localeCompare(a.at));
+  }],
+  ["GET", /^\/api\/chats\/([\w-]{1,64})$/, async m => { const c = orch.getChat(m[1]) || await codexChats.getCodexChat(m[1]); if (!c) throw Object.assign(new Error("Not found"), { code: 404 }); return c; }],
   ["POST", /^\/api\/chats\/([\w-]{1,64})\/continue$/, m => orch.continueChat(m[1])],
   ["GET", /^\/api\/history$/, (_, __, u) => history.list({ q: u.searchParams.get("q") || "", kind: u.searchParams.get("kind") || "", project: u.searchParams.get("project") || "", before: u.searchParams.get("before") || "", limit: Number(u.searchParams.get("limit")) || 50 })],
+  ["GET", /^\/api\/preferences$/, () => ({ confirmed: preferences.list(), suggestions: preferences.suggestions() })],
+  ["POST", /^\/api\/preferences$/, (_, b) => preferences.remember(b)],
+  ["DELETE", /^\/api\/preferences\/([\w-]+)$/, m => ({ removed: preferences.remove(m[1]) })],
+  ["POST", /^\/api\/preferences\/([\w-]+)\/review$/, (m, b) => preferences.review(m[1], b.accept === true)],
   ["POST", /^\/api\/screen\/brief$/, (_, b) => screen.brief(b)],
   ["GET", /^\/api\/screen\/search$/, (_, __, u) => screen.search(u.searchParams.get("q") || "")],
   ["GET", /^\/api\/update$/, (_, __, u) => updater.check(u.searchParams.get("fresh") === "1")],

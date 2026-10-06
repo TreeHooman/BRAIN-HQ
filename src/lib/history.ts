@@ -7,22 +7,22 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { DATA, BRAIN } from "./store.ts";
-import { onRunResult } from "./claude.ts";
+import { onRunResult, type RunOptions, type RunResult } from "./claude.ts";
 import * as brain from "./brain.ts";
 
 const FILE = path.join(DATA, "history.jsonl"), MD_DIR = path.join(BRAIN, "history");
-export type Entry = { id: string; at: string; kind: string; title: string; ask: string; answer: string; project: string | null; model: string; ok: boolean; session: string | null; ref: string };
+export type Entry = { id: string; at: string; kind: string; title: string; ask: string; answer: string; project: string | null; model: string; ok: boolean; session: string | null; ref: string; provider?: "claude" | "codex" };
 const clip = (v: unknown, n: number) => String(v ?? "").trim().slice(0, n);
 const fam = (m = "") => /opus/i.test(m) ? "Opus" : /sonnet/i.test(m) ? "Sonnet" : /haiku/i.test(m) ? "Haiku" : m || "";
 
-onRunResult((r, o) => {
+export function recordHistory(r: RunResult, o: Pick<RunOptions, "history" | "model" | "runId">, provider: "claude" | "codex" = "claude") {
   if (!o.history || r.kind === "missing") return;
   if (!r.ok && !r.text) return;
   const h = o.history, at = new Date();
   const e: Entry = {
     id: crypto.randomBytes(6).toString("hex"), at: at.toISOString(), kind: clip(h.kind, 20) || "Chat", title: clip(h.title, 160).replace(/\s+/g, " ") || "(untitled)",
     ask: clip(h.ask, 4000), answer: clip(r.ok ? (() => { try { return h.format ? h.format(r.text) : r.text; } catch { return r.text; } })() : `(failed: ${r.kind}) ${r.text}`, 20_000), project: h.project && /^[a-z0-9-]{1,60}$/.test(h.project) ? h.project : null,
-    model: fam(o.model), ok: r.ok, session: r.sessionId || null, ref: clip(o.runId, 80),
+    model: provider === "codex" ? `Codex ${o.model || ""}`.trim() : fam(o.model), ok: r.ok, session: r.sessionId || null, ref: clip(o.runId, 80), provider,
   };
   try {
     fs.mkdirSync(DATA, { recursive: true });
@@ -30,12 +30,13 @@ onRunResult((r, o) => {
     if (fs.statSync(FILE).size > 25e6) { const lines = fs.readFileSync(FILE, "utf8").trim().split("\n"); fs.writeFileSync(FILE, lines.slice(-6000).join("\n") + "\n"); }
     fs.mkdirSync(MD_DIR, { recursive: true });
     const mf = path.join(MD_DIR, `${e.at.slice(0, 7)}.md`);
-    if (!fs.existsSync(mf)) fs.writeFileSync(mf, `# LUTHUR history, ${e.at.slice(0, 7)}\n\nEvery answer LUTHUR got from Claude this month, oldest first. Search with Ctrl+F or grep.\n`);
+    if (!fs.existsSync(mf)) fs.writeFileSync(mf, `# LUTHUR history, ${e.at.slice(0, 7)}\n\nLUTHUR answers this month, oldest first. Search with Ctrl+F or grep.\n`);
     const pname = e.project ? brain.getProject(e.project)?.name || e.project : "";
     const local = new Date(at.getTime() - at.getTimezoneOffset() * 60e3).toISOString().slice(0, 16).replace("T", " ");
-    fs.appendFileSync(mf, `\n## ${local} · ${e.kind}${pname ? " · " + pname : ""} · ${e.title.replace(/\n/g, " ")}\n\n${e.ask && e.ask !== e.title ? `**Asked:** ${e.ask.slice(0, 1500).replace(/\n/g, "\n> ")}\n\n` : ""}${e.answer}\n`);
+    fs.appendFileSync(mf, `\n## ${local} · ${e.kind} · ${provider}${pname ? " · " + pname : ""} · ${e.title.replace(/\n/g, " ")}\n\n${e.ask && e.ask !== e.title ? `**Asked:** ${e.ask.slice(0, 1500).replace(/\n/g, "\n> ")}\n\n` : ""}${e.answer}\n`);
   } catch {}
-});
+}
+onRunResult((r, o) => recordHistory(r, o));
 
 function all(): Entry[] {
   try { return fs.readFileSync(FILE, "utf8").trim().split("\n").map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch { return []; }

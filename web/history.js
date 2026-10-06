@@ -1,33 +1,31 @@
-// History: every answer LUTHUR got from Claude, searchable. Also saved as Markdown in brain\history\ (any Claude session
-// in the HQ folder can read it) and searchable by LUTHUR itself (hq-brain history_search).
+// LUTHUR answers and local Claude/Codex chats. External Codex transcripts are read on demand, never copied into brain.
 "use strict";
 const HIS = { q: "", kind: "", project: "", open: new Set(), data: null, tab: "answers", chats: null, chatOpen: null, chatBody: null };
 const HIS_LINK = e => /^code-/.test(e.ref) ? "#code" : /^chat-/.test(e.ref) ? "#assistant" : e.kind === "Mission" ? "#missions" : e.project ? "#project/" + e.project : "";
-// Chats tab: LUTHUR chats + sessions started in the Claude app / terminal on the HQ folder (one shared store: Claude Code's
-// own session files). Open to read, continue it in LUTHUR, or copy the command to resume it in Claude Code.
+// Chats tab: LUTHUR chats plus locally accessible Claude and Codex sessions.
 async function vHistoryChats(el, head) {
-  if (!HIS.chats || !render.background) HIS.chats = await api("/chats").catch(e => ({ error: e.message }));
-  const rows = Array.isArray(HIS.chats) ? HIS.chats.filter(c => !HIS.q || c.title.toLowerCase().includes(HIS.q.toLowerCase())) : [];
+  if (!HIS.chats || !render.background) HIS.chats = await api(`/chats?q=${encodeURIComponent(HIS.q)}`).catch(e => ({ error: e.message }));
+  const rows = Array.isArray(HIS.chats) ? HIS.chats : [];
   const resume = id => `cd "${S.settings?.hqDir || "HQ"}"; claude --resume ${id}`;
   el.innerHTML = head + `<div class="his-list">${HIS.chats?.error ? `<div class="card danger">${esc(HIS.chats.error)}</div>` : rows.map(c => {
     const on = HIS.chatOpen === c.id, body = on ? HIS.chatBody : null;
-    return `<div class="card his-row ${on ? "open" : ""}"><button type="button" class="his-head" data-copen="${esc(c.id)}"><span class="pill his-k ${c.source === "claude" ? "k-code" : ""}">${c.source === "claude" ? "Claude" : "LUTHUR"}</span><b>${esc(c.title)}</b>
-        <span class="his-meta">${c.current ? "open now · " : ""}${c.count} msgs · ${esc(ago(c.at))}</span></button>
+    return `<div class="card his-row ${on ? "open" : ""}"><button type="button" class="his-head" data-copen="${esc(c.id)}"><span class="pill his-k ${c.source === "claude" || c.source === "codex" ? "k-code" : ""}">${c.source === "claude" ? "Claude" : c.source === "codex" ? "Codex" : "LUTHUR"}</span><b>${esc(c.title)}</b>
+        <span class="his-meta">${c.current ? "open now · " : ""}${c.count == null ? "" : c.count + " msgs · "}${esc(ago(c.at))}</span></button>
       ${on ? `<div class="his-body">${!body ? `<div class="scr-msg"><span class="scr-spin"></span>Loading…</div>` : body.messages.slice(-40).map(m => `<div class="his-msg ${m.role === "you" ? "you" : ""}"><span>${m.role === "you" ? "You" : "LUTHUR"}</span><div class="md">${md(m.text.slice(0, 6000))}</div></div>`).join("")}
-        <div class="row end">${c.resumable ? `<button type="button" class="btn sm ghost" data-ccopy="${esc(c.id)}" title="${esc(resume(c.id))}">Copy “claude --resume”</button><button type="button" class="btn sm primary" data-ccont="${esc(c.id)}">Continue in LUTHUR</button>` : ""}</div></div>` : ""}</div>`;
-  }).join("") || `<div class="wk-zero"><b>No chats yet</b><span class="small muted">LUTHUR chats and Claude Code sessions in the HQ folder show up here.</span></div>`}</div>`;
+        <div class="row end">${c.resumable ? `${c.source !== "codex" ? `<button type="button" class="btn sm ghost" data-ccopy="${esc(c.id)}" title="${esc(resume(c.id))}">Copy “claude --resume”</button>` : ""}<button type="button" class="btn sm primary" data-ccont="${esc(c.id)}">Continue in LUTHUR</button>` : `<span class="small muted">Read-only outside chat</span>`}</div></div>` : ""}</div>`;
+  }).join("") || `<div class="wk-zero"><b>No chats yet</b><span class="small muted">LUTHUR and local Codex/Claude chats show up here.</span></div>`}</div>`;
   $$("[data-copen]", el).forEach(b => b.onclick = async () => { const id = b.dataset.copen; if (HIS.chatOpen === id) { HIS.chatOpen = null; return vHistory(el); } HIS.chatOpen = id; HIS.chatBody = null; render.background = true; await vHistory(el); render.background = false; HIS.chatBody = await api(`/chats/${encodeURIComponent(id)}`).catch(e => ({ messages: [{ role: "hq", text: "⚠ " + e.message }] })); render.background = true; await vHistory(el); render.background = false; });
   $$("[data-ccopy]", el).forEach(b => b.onclick = () => navigator.clipboard?.writeText(resume(b.dataset.ccopy)).then(() => toast("Copied. Paste it in PowerShell to open this chat in Claude Code"), () => toast("Couldn't copy")));
   $$("[data-ccont]", el).forEach(b => b.onclick = async () => { await act(() => api(`/chats/${encodeURIComponent(b.dataset.ccont)}/continue`, "POST"), "Continuing in LUTHUR"); chatState = null; location.hash = "assistant"; });
 }
 async function vHistory(el) {
-  const tabs = `<div class="tabs his-tabs"><button type="button" data-htab="answers" class="${HIS.tab === "answers" ? "on" : ""}">Answers</button><button type="button" data-htab="chats" class="${HIS.tab === "chats" ? "on" : ""}">Chats (LUTHUR + Claude)</button></div>`;
+  const tabs = `<div class="tabs his-tabs"><button type="button" data-htab="answers" class="${HIS.tab === "answers" ? "on" : ""}">Answers</button><button type="button" data-htab="chats" class="${HIS.tab === "chats" ? "on" : ""}">Chats</button></div>`;
   const bindTabs = () => $$("[data-htab]", el).forEach(b => b.onclick = () => { HIS.tab = b.dataset.htab; render(); });
   if (HIS.tab === "chats") {
-    const head = `<div class="between"><div><h1>History</h1><p class="sub">Chats are shared with Claude Code: chats you have here also show in the Claude app's Code tab (HQ folder), and sessions you start there show here.</p></div></div>${tabs}
+    const head = `<div class="between"><div><h1>History</h1><p class="sub">Search LUTHUR chats and local Claude/Codex chats. Outside Codex chats are read-only here.</p></div></div>${tabs}
       <div class="toolbar his-bar"><input id="hisQ" type="search" placeholder="Filter chats…" value="${esc(HIS.q)}" aria-label="Filter chats"></div>`;
     await vHistoryChats(el, head); bindTabs();
-    const q = $("#hisQ"); let t; q.oninput = () => { clearTimeout(t); t = setTimeout(async () => { HIS.q = q.value.trim(); const pos = q.selectionStart; render.background = true; await vHistory(el); render.background = false; const n = $("#hisQ"); n?.focus(); n?.setSelectionRange(pos, pos); }, 200); };
+    const q = $("#hisQ"); let t; q.oninput = () => { clearTimeout(t); t = setTimeout(async () => { HIS.q = q.value.trim(); HIS.chats = null; const pos = q.selectionStart; render.background = true; await vHistory(el); render.background = false; const n = $("#hisQ"); n?.focus(); n?.setSelectionRange(pos, pos); }, 350); };
     return;
   }
   const load = async () => { try { HIS.data = await api(`/history?q=${encodeURIComponent(HIS.q)}&kind=${encodeURIComponent(HIS.kind)}&project=${encodeURIComponent(HIS.project)}&limit=80`); } catch (e) { HIS.data = { items: [], kinds: {}, error: e.message }; } };

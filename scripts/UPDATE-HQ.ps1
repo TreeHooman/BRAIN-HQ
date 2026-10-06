@@ -31,7 +31,11 @@ try {
       Copy-Item $_.FullName $dst -Force
     }
   }
-  foreach ($f in "HANDOFF.md", "CLAUDE.md", "README.md") { if (Test-Path "$($src.FullName)\$f") { Copy-Item "$($src.FullName)\$f" "$hq\$f" -Force } }
+  foreach ($f in "HANDOFF.md", "CLAUDE.md", "AGENTS.md", "README.md") { if (Test-Path "$($src.FullName)\$f") { Copy-Item "$($src.FullName)\$f" "$hq\$f" -Force } }
+  if (Test-Path "$($src.FullName)\docs") {
+    New-Item -ItemType Directory "$hq\docs" -Force | Out-Null
+    Copy-Item "$($src.FullName)\docs\*" "$hq\docs" -Recurse -Force
+  }
   if ($auto) { [IO.File]::WriteAllText((Join-Path $hq "data\version.json"), (@{ sha = $Sha; at = (Get-Date).ToString("o") } | ConvertTo-Json)) }  # no BOM
   Write-Host "HQ updated." -ForegroundColor Green
 } catch {

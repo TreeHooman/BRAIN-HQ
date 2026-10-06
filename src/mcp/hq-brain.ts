@@ -7,6 +7,8 @@ import path from "node:path";
 import readline from "node:readline";
 import { DATA, DROP, uid, writeJson } from "../lib/store.ts";
 import * as brain from "../lib/brain.ts";
+import * as preferences from "../lib/preferences.ts";
+import { searchCodexChats } from "../lib/codex-transcripts.ts";
 import * as cal from "../lib/calendar.ts";
 import * as google from "../lib/google.ts";
 import * as today from "../lib/today.ts";
@@ -29,6 +31,22 @@ function drop(type: string, payload: Record<string, unknown>) {
 }
 
 const tools: Tool[] = [
+  { name: "preference_context", description: "Read the short, confirmed owner preferences relevant to this project and personality. Direct owner instructions always take precedence.",
+    inputSchema: S({ project: str("optional project slug"), challenger: { type: "boolean", description: "include Challenger preferences" } }),
+    run: a => preferences.context(a.project, a.challenger === true) || "No confirmed preferences yet." },
+  { name: "preference_list", description: "List confirmed preferences and suggestions awaiting owner review, with IDs for editing/removal.",
+    inputSchema: S({}), run: () => JSON.stringify({ confirmed: preferences.list(), suggestions: preferences.suggestions() }) },
+  { name: "preference_remember", write: true, chatOnly: true, description: "Save a concise preference only when the owner explicitly instructs or corrects you. Never infer one here. Scope: global, one project, or Challenger.",
+    inputSchema: S({ text: str("owner's explicit preference, max 220 characters"), scope: { type: "string", enum: ["global", "project", "challenger"] }, project: str("required for project scope"), id: str("existing preference id to edit") }, ["text", "scope"]),
+    run: a => preferences.remember(a) },
+  { name: "preference_remove", write: true, chatOnly: true, description: "Remove a confirmed preference by ID when the owner asks to forget it.",
+    inputSchema: S({ id: str("preference id") }, ["id"]), run: a => preferences.remove(a.id) ? "Removed." : "No such preference." },
+  { name: "preference_suggest", write: true, chatOnly: true, description: "Propose a possible pattern from repeated owner behavior. It remains inactive until the owner confirms it. Do not suggest on every turn.",
+    inputSchema: S({ text: str("proposed preference"), scope: { type: "string", enum: ["global", "project", "challenger"] }, project: str("required for project scope"), reason: str("brief evidence for asking") }, ["text", "scope", "reason"]),
+    run: a => preferences.suggest(a) },
+  { name: "preference_review", write: true, chatOnly: true, description: "Accept or reject a pending suggestion only after the owner explicitly decides.",
+    inputSchema: S({ id: str("suggestion id"), accept: { type: "boolean" } }, ["id", "accept"]),
+    run: a => preferences.review(a.id, a.accept === true) || "Rejected and removed." },
   { name: "hq_index", description: "START HERE. Tiny map of every project (stage, health, next step) plus reminders due in 14 days and next milestones.",
     inputSchema: S({}), run: () => brain.readIndex() },
   { name: "project_get", description: "Read one part of a project. Ask for 'summary' first; only read plan/log when needed.",
@@ -114,6 +132,12 @@ const tools: Tool[] = [
       let rows: any[] = []; try { rows = fs.readFileSync(path.join(DATA, "history.jsonl"), "utf8").trim().split("\n").map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch {}
       const hits = rows.reverse().filter(e => (!a.project || e.project === a.project) && words.every(w => `${e.title}\n${e.ask}\n${e.answer}`.toLowerCase().includes(w))).slice(0, Math.min(20, a.limit || 5));
       return hits.length ? hits.map(e => `## ${e.at.slice(0, 16).replace("T", " ")} · ${e.kind}${e.project ? " · " + e.project : ""} · ${e.title}\n${e.ask && e.ask !== e.title ? "Asked: " + e.ask.slice(0, 400) + "\n" : ""}${e.answer.slice(0, 1500)}`).join("\n\n") : "Nothing in history matches.";
+    } },
+  { name: "external_chat_search", description: "Find chats started in Codex outside LUTHUR. Search only when the owner refers to an outside Codex chat; returns brief read-only matches.",
+    inputSchema: S({ query: str("words to find"), limit: { type: "number", description: "max results (default 5, max 10)" } }, ["query"]),
+    run: async a => {
+      const hits = await searchCodexChats(String(a.query || ""), Math.min(10, Math.max(1, Number(a.limit) || 5)));
+      return hits.length ? hits.map(h => `${h.at.slice(0, 10)} · ${h.id} · ${h.title}`).join("\n") : "No outside Codex chats match.";
     } },
   { name: "list_milestones", description: "Key dates and deadlines across projects.",
     inputSchema: S({ project: str("optional project slug") }),

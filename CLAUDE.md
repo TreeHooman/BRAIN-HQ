@@ -12,5 +12,5 @@ HQ is the owner's business brain and autonomous assistant. Read `HANDOFF.md` bef
 
 ## When working on HQ's code
 - Node 24 runs `.ts` directly (type stripping): use `import type` for type-only imports, `.ts` extensions in imports, no enums/namespaces/parameter properties. No npm dependencies.
-- Keep the agent engine as Claude Code (`claude -p`). Don't replace it with direct API calls (that would bill per token).
+- Claude Code (`claude -p`) is primary. Codex CLI is a signed-in backup for chats and read/plan missions during Claude limits. No direct token-billed API calls.
 - Test orchestrator changes against a COPY of HQ with `HQ_FAKE_CLAUDE=<fake cli .mjs>` and `HQ_PORT`, not the real `data/`.

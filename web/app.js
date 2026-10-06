@@ -114,7 +114,7 @@ function renderChrome() {
   const nOb = $("#nOutbox"); if (nOb) nOb.textContent = (S.outbox || []).filter(x => x.status === "draft" || x.status === "failed").length || "";
   const pills = [];
   if (st.auth === "needs-login" || !st.claudeBin) pills.push(`<a class="pill red" href="#settings">Claude not signed in</a>`);
-  if (st.pausedUntil && new Date(st.pausedUntil) > new Date()) pills.push(`<a class="pill amber" href="#missions">Paused until ${fmtWhen(st.pausedUntil)}</a>`);
+  if (st.pausedUntil && new Date(st.pausedUntil) > new Date()) pills.push(`<a class="pill amber" href="#missions">${st.backupActive ? "Codex backup active" : `Paused until ${fmtWhen(st.pausedUntil)}`}</a>`);
   if (st.running) pills.push(`<a class="pill blue" href="#tasks"><span class="dot pulse" style="background:var(--blue)"></span> ${(st.active || []).length > 1 ? `${st.active.length} agents working` : esc(st.running.title)}</a>`);
   if (st.chatBusy) pills.push(`<a class="pill blue" href="#assistant">Assistant thinking…</a>`);
   if (st.queued) pills.push(`<a class="pill" href="#missions">${st.queued} queued</a>`);
@@ -125,6 +125,7 @@ function renderChrome() {
   const authTxt = !st.claudeBin ? "CLI not found" : st.auth === "ok" ? "connected" : st.auth === "needs-login" ? "needs sign-in" : "not checked yet";
   $("#engine").innerHTML = `
     <div class="row"><span class="dot ${st.auth === "ok" ? "good" : st.auth === "needs-login" || !st.claudeBin ? "risk" : "unknown"}"></span>Claude: ${authTxt}</div>
+    <div class="row"><span class="dot ${st.codexBin ? "good" : "unknown"}"></span>Codex: ${st.backupActive ? "handling new work" : st.codexBin ? "ready as backup" : "CLI not found"}</div>
     <div class="row"><span class="dot ${st.running ? "good pulse" : "unknown"}"></span>${st.running ? "Working" : "Idle"} · ${st.today}/${st.maxRunsPerDay} runs today</div>
     <div class="row faint">Budget: ${esc(st.budget)}${st.awake ? " · keeping PC awake" : ""}</div>`;
   if (typeof hudChrome === "function") hudChrome();
@@ -495,11 +496,12 @@ async function vAssistant(el) {
   const focus = activeProject();
   const examples = ["What should I focus on today?", "Plan the next 2 weeks for LoanCentral", "Remind me Friday at 3pm to call the bank", "Turn my inbox into tasks", "Every Monday 9am, review Borrow Fast and suggest next steps"];
   el.innerHTML = `<div class="chat">
-    <div class="between"><div><h1><img src="icon.svg" class="eye-logo" alt="">${esc(S.settings.assistantName)}</h1><p class="sub" style="margin:0">Your chief of staff. It runs on Claude in the background on your subscription, and can update the brain, set reminders and queue missions. Tap the mic to talk (or Alt+J).</p></div>
+    <div class="between"><div><h1><img src="icon.svg" class="eye-logo" alt="">${esc(S.settings.assistantName)}</h1><p class="sub" style="margin:0">Your chief of staff. Claude is primary; Codex handles new work when Claude is limited. Both use the same brain.</p></div>
       <div class="row"><select id="chatProj" title="Focus">${projOptions(focus, "All projects")}</select>
+      <select id="personality" title="Personality"><option value="normal" ${c.personality !== "challenger" ? "selected" : ""}>LUTHUR</option><option value="challenger" ${c.personality === "challenger" ? "selected" : ""}>Challenger</option></select>
       <button class="btn ${voiceOn() ? "primary" : ""}" id="voiceToggle" title="Speak replies aloud">${voiceOn() ? "Voice on" : "Voice off"}</button>
       <button class="btn" id="newChat">New chat</button></div></div>
-    <div class="chat-tier">${tierSwitch()}</div>
+    <div class="chat-tier">${tierSwitch()} <span class="small muted">${c.provider === "codex" ? "Codex backup" : "Claude"}${c.personality === "challenger" ? " · Challenger" : ""}</span></div>
     <div class="chat-log" id="chatLog">
       ${c.messages.length ? c.messages.map(m => `<div class="msg ${m.role} ${m.error ? "err" : ""}">${m.role === "you" ? esc(m.text) : md(m.text)}<div class="t">${ago(m.at)}</div></div>`).join("")
         : `<div class="card" style="margin-top:20px"><b>Try:</b><div class="row" style="margin-top:8px">${examples.map(x => `<button class="btn sm" data-ex="${esc(x)}">${esc(x)}</button>`).join("")}</div></div>`}
@@ -512,8 +514,10 @@ async function vAssistant(el) {
   const send = async text => {
     if (!text.trim()) return;
     const project = $("#chatProj").value; sessionStorage.setItem("chatProject", project);
+    const personality = $("#personality").value;
+    chatState.personality = personality;
     chatState.messages.push({ role: "you", text, at: new Date().toISOString() }); chatState.busy = true; render.background = false; vAssistant(el);
-    await api("/chat", "POST", { text, project: project || null, tier: currentTier() }).catch(e => toast(e.message));
+    await api("/chat", "POST", { text, project: project || null, tier: currentTier(), personality }).catch(e => toast(e.message));
     opsKick();
     pollChat();
   };
@@ -655,6 +659,8 @@ function vSettings(el) {
       <h2>Models</h2>
       <div class="card"><ul class="list">${tiers.map(([k, t]) => `<li><b style="min-width:90px">${esc(k)}</b><code>${esc(t.model)}</code><span class="small muted grow">${esc(t.use || "")}</span></li>`).join("")}</ul>
         <div class="small muted" style="margin-top:8px">Aliases always use the newest model in each family. Edit <code>config/models.json</code> to pin or swap models; every mission follows.</div></div>
+      <h2>What LUTHUR remembers about you</h2>
+      <div class="card form" id="prefCard"><span class="small muted">Loading preferences…</span></div>
     </div><div>
       <h2>Look &amp; feel</h2>
       <div class="card form">
@@ -705,12 +711,31 @@ function vSettings(el) {
   $$("[data-greco]", el).forEach(b => b.onclick = async () => { try { const { url } = await api("/google/login", "POST", { reconnect: b.dataset.greco }); location.href = url; } catch (e) { toast("⚠ " + e.message, 5000); } });
   $$("[data-calrm]", el).forEach(b => b.onclick = () => { if (confirm("Remove this calendar from LUTHUR?")) act(() => api(`/calendar/feeds/${b.dataset.calrm}`, "DELETE"), "Calendar removed"); });
   connCardFill(false);
+  prefCardFill();
   $("#replayBoot").onclick = () => hudBoot(false);
   $("#powerDown").onclick = () => hudShutdown();
   $("#retry").onclick = () => act(() => api("/claude/retry", "POST"), "Retrying: watch the status");
   $("#saveAuto").onclick = () => act(() => api("/settings", "POST", { budget: $("#budget").value, autonomy: $("#autonomy").value, keepAwake: $("#keepAwake").value, chatTier: $("#chatTier").value, taskApproval: $("#taskApproval").checked, voiceFull: $("#voiceFull").checked }), "Saved");
   $("#saveNotify").onclick = () => act(() => api("/settings", "POST", { toast: $("#toastOn").checked, ntfy: { enabled: $("#ntfyOn").checked, detail: $("#ntfyDetail").value } }), "Saved");
   $("#testNotify").onclick = async () => { const r = await api("/notify/test", "POST").catch(e => ({ error: e.message })); toast(r.error ? r.error : `Sent. Windows pop-up${r.phone ? " + phone" : " (phone not reached: check the ntfy setting)"}`, 4000); };
+}
+
+async function prefCardFill() {
+  const root = $("#prefCard"); if (!root) return;
+  const data = await api("/preferences").catch(e => ({ confirmed: [], suggestions: [], error: e.message }));
+  if (!$("#prefCard")) return;
+  root.innerHTML = `${data.error ? `<div class="small">${esc(data.error)}</div>` : ""}
+    <div class="small muted">Only confirmed preferences guide replies. Suggestions wait for your decision. Full chats stay in History.</div>
+    <div class="small" style="margin-top:10px"><b>Confirmed</b></div>
+    ${(data.confirmed || []).map(p => `<div class="row small" style="margin-top:6px"><span class="grow"><b>${esc(p.scope === "project" ? p.project : p.scope)}</b> · ${esc(p.text)}</span><button class="btn sm ghost" data-pref-remove="${esc(p.id)}">Forget</button></div>`).join("") || `<div class="small faint">No preferences saved yet.</div>`}
+    <div class="small" style="margin-top:12px"><b>Suggestions</b></div>
+    ${(data.suggestions || []).map(p => `<div class="row small" style="margin-top:6px"><span class="grow">${esc(p.text)} <span class="faint">(${esc(p.reason)})</span></span><button class="btn sm" data-pref-review="${esc(p.id)}" data-accept="1">Keep</button><button class="btn sm ghost" data-pref-review="${esc(p.id)}">Dismiss</button></div>`).join("") || `<div class="small faint">No suggestions waiting.</div>`}
+    <div class="two" style="margin-top:12px"><label class="f">Scope<select id="prefScope"><option value="global">Everywhere</option><option value="challenger">Challenger</option><option value="project">Project</option></select></label><label class="f">Project<select id="prefProject">${projOptions("", "Choose project")}</select></label></div>
+    <label class="f">Add a preference<input id="prefText" maxlength="220" placeholder="For example: lead with a short recommendation"></label>
+    <div class="row end"><button class="btn primary" id="prefSave">Remember</button></div>`;
+  $$('[data-pref-remove]', root).forEach(b => b.onclick = async () => { await api(`/preferences/${b.dataset.prefRemove}`, "DELETE").catch(e => toast(e.message)); prefCardFill(); });
+  $$('[data-pref-review]', root).forEach(b => b.onclick = async () => { await api(`/preferences/${b.dataset.prefReview}/review`, "POST", { accept: b.dataset.accept === "1" }).catch(e => toast(e.message)); prefCardFill(); });
+  $("#prefSave").onclick = async () => { const text = $("#prefText").value.trim(), scope = $("#prefScope").value, project = $("#prefProject").value; if (!text) return; await api("/preferences", "POST", { text, scope, project }).then(() => toast("Preference saved")).catch(e => toast(e.message)); prefCardFill(); };
 }
 
 // ---------------- modal ----------------
