@@ -507,14 +507,40 @@ function speakChatReply(c, force = false) {
 let rec = null;
 function listen(onText, onState) {
   if (!SR) { toast("Voice input needs Edge or Chrome"); return; }
-  if (rec) { rec.stop(); return; }
-  rec = new SR(); rec.lang = "en-US"; rec.interimResults = true; rec.continuous = false;
-  let final = "";
-  rec.onresult = e => { let interim = ""; for (const r of e.results) (r.isFinal ? (final += r[0].transcript) : (interim += r[0].transcript)); onText(final + interim, false); };
-  rec.onend = () => { rec = null; onState(false); if (final.trim()) { window.hqVoiceAt = Date.now(); onText(final.trim(), true); } };
-  rec.onerror = e => { if (e.error !== "no-speech" && e.error !== "aborted") toast("Mic: " + e.error); };
+  if (rec) { rec.finish(); return; }
+  const pauseMs = 3200;
+  const started = Date.now();
+  let saved = "", sessionFinal = "", interim = "", lastHeard = 0, timer, startTimer, active, finished = false;
+  const text = () => [saved, sessionFinal, interim].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  const finish = () => {
+    if (finished) return;
+    finished = true; clearTimeout(timer); clearTimeout(startTimer);
+    const result = text();
+    active.onend = null; try { active.stop(); } catch {}
+    rec = null; onState(false);
+    if (result) { window.hqVoiceAt = Date.now(); onText(result, true); }
+  };
+  const arm = () => { clearTimeout(timer); timer = setTimeout(finish, pauseMs); };
+  const start = () => {
+    if (finished) return;
+    const r = new SR(); active = r; rec = { finish };
+    r.lang = "en-US"; r.interimResults = true; r.continuous = true;
+    r.onresult = e => {
+      sessionFinal = ""; interim = "";
+      for (const item of e.results) (item.isFinal ? sessionFinal += item[0].transcript + " " : interim += item[0].transcript + " ");
+      if (text()) { lastHeard = Date.now(); onText(text(), false); arm(); }
+    };
+    r.onend = () => {
+      if (finished || active !== r) return;
+      saved = text(); sessionFinal = ""; interim = "";
+      if ((lastHeard && Date.now() - lastHeard >= pauseMs) || (!lastHeard && Date.now() - started >= 12000)) finish();
+      else start(); // Browsers can end recognition after a brief pause; keep the turn open.
+    };
+    r.onerror = e => { if (e.error === "not-allowed" || e.error === "service-not-allowed") { toast("Mic: " + e.error); finish(); } else if (e.error !== "no-speech" && e.error !== "aborted") toast("Mic: " + e.error); };
+    try { r.start(); } catch { finish(); }
+  };
   speechSynthesis?.cancel();
-  rec.start(); onState(true);
+  start(); if (!finished) { onState(true); startTimer = setTimeout(() => { if (!lastHeard) finish(); }, 12000); }
 }
 
 let chatState = null;

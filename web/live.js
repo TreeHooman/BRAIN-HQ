@@ -487,7 +487,7 @@ function voiceOnce(onInterim, onFinal, btn) {
 // seconds, so always-on listening would beep forever. On phones the hands-free button listens once per tap instead.
 const WAKE_PHONE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches);
 const Wake = {
-  rec: null, on: false, paused: false, armed: 0, buf: "", t: 0, fails: 0,
+  rec: null, on: false, paused: false, armed: 0, buf: "", committed: "", t: 0, fails: 0,
   supported: () => !!SR,
   init() { this.on = !WAKE_PHONE && hstore.get("hq-wake", "0") === "1" && !!SR; this.btn(); if (this.on) this.start(); document.addEventListener("visibilitychange", () => { if (document.hidden) this.stop(true); else if (this.on) this.start(); }); },
   toggle() {
@@ -524,12 +524,16 @@ const Wake = {
     const m2 = name !== "jarvis" ? txt.toLowerCase().match(new RegExp(`\\b${name.replace(/[^a-z0-9 ]/g, "")}\\b[\\s,.!?]*(.*)$`)) : null;
     const hit = m || m2;
     if (Brief.on && !hit) { if (final) Brief.voice(txt); return; }
-    if (hit) { this.armed = Date.now(); this.buf = (hit[1] || "").trim(); document.body.classList.add("wake-heard"); try { coreState(); corePing(); } catch {} }
-    else if (this.armed && Date.now() - this.armed < 8000) this.buf = txt;
+    if (hit) { this.armed = Date.now(); this.buf = (hit[1] || "").trim(); this.committed = final ? this.buf : ""; document.body.classList.add("wake-heard"); try { coreState(); corePing(); } catch {} }
+    else if (this.armed && Date.now() - this.armed < 8000) {
+      this.buf = [this.committed, txt].filter(Boolean).join(" ").trim();
+      if (final) this.committed = this.buf;
+      this.armed = Date.now();
+    }
     else return;
     clearTimeout(this.t);
-    const go = () => { const cmd = this.buf.trim(); this.armed = 0; this.buf = ""; document.body.classList.remove("wake-heard"); if (cmd) voiceCommand(cmd); };
-    if (final && this.buf) go(); else this.t = setTimeout(() => { if (this.buf) go(); else { this.armed = Date.now(); speakAlways("Yes?"); } }, this.buf ? 1400 : 900);
+    const go = () => { const cmd = this.buf.trim(); this.armed = 0; this.buf = ""; this.committed = ""; document.body.classList.remove("wake-heard"); if (cmd) voiceCommand(cmd); };
+    this.t = setTimeout(() => { if (this.buf) go(); else { this.armed = Date.now(); speakAlways("Yes?"); } }, this.buf ? 3200 : 1600);
   },
 };
 /** What a hands-free sentence does: navigation, briefing, or a message to JARVIS (big jobs it delegates as Tasks). */
