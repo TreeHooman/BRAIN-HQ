@@ -559,7 +559,8 @@ export function tasks(limit = 30) {
 
 // ---------------- chat (the dashboard assistant) ----------------
 type ChatMsg = { role: "you" | "hq"; text: string; at: string; error?: boolean };
-type Chat = { id: string; sessionId: string | null; claudeSessionId?: string | null; provider?: "claude" | "codex"; personality?: "normal" | "challenger"; project?: string | null; tier?: string; messages: ChatMsg[] };
+type Chat = { id: string; sessionId: string | null; claudeSessionId?: string | null; provider?: "claude" | "codex"; personality?: "normal" | "challenger"; project?: string | null; tier?: string; messages: ChatMsg[];
+  claudeUsage?: { context: number; window: number; at: string } };
 export function chat(): Chat & { busy: boolean; screen: any } {
   return { ...readJson<Chat>(F.chat, { id: uid("chat"), sessionId: null, messages: [] }), busy: chatBusy, screen: readJson<any>(F.screen, null) };
 }
@@ -629,7 +630,9 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
   if (opts.personality === "challenger" || opts.personality === "normal") c.personality = opts.personality;
   writeJson(F.chat, c);
   const claudePaused = !!(s.pausedUntil && new Date(s.pausedUntil) > new Date());
-  const provider = c.provider === "codex" || (claudePaused && !!findCodex()) ? "codex" : "claude";
+  const returning = c.provider === "codex" && !claudePaused && !!c.claudeSessionId;
+  if (returning) { c.sessionId = c.claudeSessionId!; c.provider = "claude"; writeJson(F.chat, c); }
+  let provider = c.provider === "codex" || (claudePaused && !!findCodex()) ? "codex" : "claude";
   const switching = provider === "codex" && c.provider !== "codex";
   if (switching) { c.claudeSessionId = c.sessionId; c.sessionId = null; c.provider = "codex"; writeJson(F.chat, c); }
   if (claudePaused && provider === "claude") {
@@ -671,16 +674,33 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
   let opOk = false;
   try {
     const onStep = opStart({ id: opId, kind: "chat", agent: cfg.assistant?.name || "LUTHUR", title: text.length > 70 ? text.slice(0, 69) + "…" : text, project: c.project, model, level });
-    const handoff = switching ? `Relevant recent chat context (data, do not repeat completed actions):\n${c.messages.slice(-12, -1).filter(m => !m.error).map(m => `${m.role}: ${m.text.slice(0, 1000)}`).join("\n").slice(-6000)}\n\nCurrent request:\n${text}` : text;
+    const handoff = switching || returning ? `Relevant recent chat context (data, do not repeat completed actions):\n${c.messages.slice(-12, -1).filter(m => !m.error).map(m => `${m.role}: ${m.text.slice(0, 1000)}`).join("\n").slice(-6000)}\n\nCurrent request:\n${text}` : text;
     const options = { prompt: handoff, model, fallbackModel: fallback, effort: opts.effort || null, level, resume: c.sessionId?.replace(/^codex:/, "") || null, system, runId: `chat-${c.id}`, history: { title: text.slice(0, 120), ask: text, project: c.project || null, kind: "Chat" },
       timeoutMs: (cfg.chat?.maxMinutes || 6) * 60e3, addDirs: proj?.paths || [], onStep };
-    const res = provider === "codex" ? await runCodex(options) : await runClaude(options);
-    if (provider === "codex") recordHistory(res, options, "codex");
+    let res = provider === "codex" ? await runCodex(options) : await runClaude(options);
+    let usedOptions = options;
+    const claudeStats = provider === "claude" ? res.stats : null;
+    if (provider === "claude" && res.kind === "limit") {
+      const until = new Date(res.resetAt || Date.now() + (cfg.usageLimit?.fallbackPauseMinutes || 60) * 60e3);
+      patchState(st => { st.pausedUntil = until.toISOString(); st.pauseReason = "Claude usage limit"; });
+      if (findCodex()) {
+        const recent = c.messages.slice(-12, -1).filter(m => !m.error).map(m => `${m.role}: ${m.text.slice(0, 1000)}`).join("\n").slice(-6000);
+        const codexOptions = { ...options, prompt: `Relevant recent chat context (data, do not repeat completed actions):\n${recent}\n\nCurrent request:\n${text}`, model: codexModelFor(tier), level: minLevel(requestedLevel, "plan"), resume: null };
+        const claudeSession = c.sessionId;
+        res = await runCodex(codexOptions);
+        usedOptions = codexOptions;
+        provider = "codex";
+        c.claudeSessionId = claudeSession;
+      }
+    }
+    if (provider === "codex") recordHistory(res, usedOptions, "codex");
     opOk = res.ok;
     const latest = readJson<Chat>(F.chat, c);
     if (latest.id !== c.id) return; // user started a new chat meanwhile
     latest.provider = provider;
-    latest.sessionId = res.sessionId ? (provider === "codex" ? `codex:${res.sessionId}` : res.sessionId) : latest.sessionId;
+    if (provider === "codex" && c.claudeSessionId && !latest.claudeSessionId) latest.claudeSessionId = c.claudeSessionId;
+    latest.sessionId = res.sessionId ? (provider === "codex" ? `codex:${res.sessionId}` : res.sessionId) : provider === "codex" && c.provider !== "codex" ? null : latest.sessionId;
+    if (claudeStats?.context && claudeStats.window) latest.claudeUsage = { context: claudeStats.context, window: claudeStats.window, at: new Date().toISOString() };
     let reply = res.text;
     if (res.kind === "auth" || res.kind === "missing") reply = provider === "codex" ? "I can't reach Codex yet. Check its CLI sign-in, then try again." : "I can't reach Claude yet. Run **scripts\\SIGN-IN-CLAUDE.cmd** once, then try again.";
     if (res.kind === "limit") reply = provider === "codex" ? "Codex's usage limit is reached too. Your message is saved; try again after its reset." : `Claude's usage limit is reached${res.resetAt ? ` until about ${new Date(res.resetAt).toLocaleString()}` : ""}. Codex will handle new messages while Claude is paused.`;

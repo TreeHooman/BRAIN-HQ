@@ -376,6 +376,13 @@
 .nv-hud .fan-v { fill: rgba(80, 200, 255, .25); stroke: none; transition: d .9s var(--ease); }
 .nv-hud .fan-v.hot { fill: rgba(111, 242, 255, .65); filter: drop-shadow(0 0 3px rgba(111, 242, 255, .8)); }
 .nv-hud .fan-l { font-size: 6.5px; text-anchor: end; fill: rgba(140, 220, 255, .6); }
+.nv-hud .usage-bg { fill: rgba(166, 143, 255, .07); stroke: rgba(177, 158, 255, .3); stroke-width: .6; }
+.nv-hud .usage-v { fill: none; stroke: none; transition: d .9s var(--ease); }
+.nv-hud .usage-v.known { fill: rgba(169, 146, 255, .7); filter: drop-shadow(0 0 3px rgba(169, 146, 255, .8)); }
+.nv-hud .usage-l { font-size: 7px; font-weight: 700; text-anchor: start; fill: rgba(198, 184, 255, .92); }
+.nv-usage-note { position: absolute; z-index: 4; left: 50%; top: calc(50% + 184px); transform: translateX(-50%); max-width: 90%; white-space: nowrap; pointer-events: auto;
+  font: 700 9px var(--mono); letter-spacing: .14em; color: rgba(191, 230, 255, .75); text-align: center; text-shadow: 0 0 12px rgba(111, 242, 255, .5); }
+.nv-usage-note.weekly-blocked { color: #ffc286; }
 .nv-hud .h-right path { stroke: rgba(90, 200, 255, .3); }
 .nv-hud .h-clock { font: 600 13px var(--head); fill: rgba(200, 245, 255, .85); text-anchor: start; letter-spacing: .06em; }
 @media (prefers-reduced-motion: no-preference) {

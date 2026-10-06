@@ -372,7 +372,7 @@ async function vCommand(el) {
     </div>`;
   coreMount(document.getElementById("core"));
   cmdFill(false); coreState(); bindTierSwitch(el); orbitBuild(true);
-  gapWidgetsMount(); musicHud();
+  gapWidgetsMount(); usageRingMount(); musicHud();
   const core = document.getElementById("core");
   core.onclick = () => document.getElementById("cmdMic").click();
   core.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); core.click(); } };
@@ -433,6 +433,10 @@ function hudRings() {
   const seg = Array.from({ length: 36 }, (_, i) => i % 9 === 8 ? "" : arc(150, (i * 10 + 1) * D, (i * 10 + 8) * D)).join("");
   const brackets = [0, 120, 240].map(o => arc(132, (o + 8) * D, (o + 92) * D) + (() => { const [x0, y0] = pt(126, (o + 8) * D), [x1, y1] = pt(138, (o + 8) * D), [x2, y2] = pt(126, (o + 92) * D), [x3, y3] = pt(138, (o + 92) * D); return `M${x0} ${y0}L${x1} ${y1}M${x2} ${y2}L${x3} ${y3}`; })()).join("");
   const fan = ["runs", "queue", "inbox", "outbox"].map((k, i) => { const r0 = 196 + i * 13, a0 = 200 * D, a1 = 252 * D; return `<path class="fan-bg" d="${sector(r0, r0 + 10, a0, a1)}"/><path class="fan-v" data-fan="${k}" d="${sector(r0, r0 + 10, a0, a0 + .001)}" data-r0="${r0}"/><text class="fan-l" x="${pt(r0 + 5, 255 * D)[0]}" y="${pt(r0 + 5, 255 * D)[1]}">${k.toUpperCase()}</text>`; }).join("");
+  const usage = [["context", "CTX"], ["fiveHour", "5H"]].map(([key, label], i) => {
+    const r0 = 196 + i * 13, a0 = 288 * D, a1 = 340 * D, [x, y] = pt(r0 + 5, 285 * D);
+    return `<path class="usage-bg" d="${sector(r0, r0 + 10, a0, a1)}"/><path class="usage-v" data-usage="${key}" data-r0="${r0}" d="${sector(r0, r0 + 10, a0, a0 + .001)}"/><text class="usage-l" data-usage-label="${key}" x="${x}" y="${y}">${label} —</text>`;
+  }).join("");
   const right = arc(205, -40 * D, 40 * D) + arc(212, -30 * D, 30 * D);
   return `<svg class="nv-hud" viewBox="-60 -60 520 520" aria-hidden="true">
     <g class="h-scale"><path d="${ticks}"/></g>
@@ -440,6 +444,7 @@ function hudRings() {
     <g class="h-brk"><path d="${brackets}"/></g>
     <circle class="h-hair" cx="200" cy="200" r="158"/><circle class="h-hair b" cx="200" cy="200" r="118"/>
     <g class="h-fan">${fan}</g>
+    <g class="h-usage">${usage}</g>
     <g class="h-right"><path d="${right}"/><text class="h-clock" id="hudClock" x="${pt(222, 0)[0]}" y="${pt(222, 0)[1]}"></text></g>
   </svg>`;
 }

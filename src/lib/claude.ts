@@ -204,8 +204,8 @@ function interpret(out: string, err: string, timedOut: boolean, durationMs: numb
   const blob = `${text}\n${err}`;
   if (/not logged in|please run \/login|invalid api key|oauth token (has )?expired|authentication_error/i.test(blob))
     return { ok: false, kind: "auth", text, sessionId, durationMs };
-  if ((j?.is_error || !j) && /usage limit|limit reached|limit will reset|out of (extra )?usage|rate.?limit|resets? (at|in)|hit your limit/i.test(blob))
-    return { ok: false, kind: "limit", text, sessionId, durationMs, resetAt: parseReset(blob) };
+  if ((j?.is_error || !j) && /usage limit|limit reached|limit will reset|out of (extra )?usage|rate.?limit|resets? (at|in)|hit (your )?(weekly|five.hour|5.hour|session|plan)?\s*limit/i.test(blob))
+    return { ok: false, kind: "limit", text, sessionId, durationMs, resetAt: parseReset(blob), turns, stats };
   if (!j || j.is_error) return { ok: false, kind: "error", text: text || "Claude returned an error.", sessionId, durationMs, turns, stats };
   return { ok: true, kind: "ok", text, sessionId, durationMs, turns, stats };
 }

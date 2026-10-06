@@ -6,7 +6,8 @@ import path from "node:path";
 import { DATA, readJson, writeJson } from "./store.ts";
 import { onRunResult } from "./claude.ts";
 
-const FILE = path.join(DATA, "usage.jsonl"), RATE = path.join(DATA, "usage-rate.json");
+const FILE = path.join(DATA, "usage.jsonl"), RATE = path.join(DATA, "usage-rate.json"), RATES = path.join(DATA, "usage-rates.json");
+const rateBucket = (type: string) => /five|5.?hour/i.test(type) ? "fiveHour" : /seven|week/i.test(type) ? "weekly" : "other";
 type Row = { at: string; src: string; model: string; ok: boolean; kind: string; cost: number; out: number; ctx: number; ms: number };
 const src = (id = "") => /^code-/.test(id) ? "Code" : /^chat-/.test(id) ? "Chat" : /^mail-/.test(id) ? "Inbox" : id === "explain" ? "Explain" : id === "write-ai" ? "Writing" : /^out-/.test(id) ? "Outbox" : id === "auth-check" ? "System" : "Missions";
 const fam = (m = "") => /opus/i.test(m) ? "Opus" : /sonnet/i.test(m) ? "Sonnet" : /haiku/i.test(m) ? "Haiku" : m || "?";
@@ -20,8 +21,22 @@ onRunResult((r, o) => {
     fs.appendFileSync(FILE, JSON.stringify(row) + "\n");
     if (fs.statSync(FILE).size > 3e6) { const lines = fs.readFileSync(FILE, "utf8").trim().split("\n"); fs.writeFileSync(FILE, lines.slice(-8000).join("\n") + "\n"); }
   } catch {}
-  if (st?.rate) writeJson(RATE, { ...st.rate, at: row.at });
-  if (r.kind === "limit") writeJson(RATE, { status: "rejected", resetsAt: r.resetAt || null, at: row.at });
+  if (st?.rate) {
+    const rate = { ...st.rate, at: row.at };
+    writeJson(RATE, rate);
+    const rates = readJson<Record<string, any>>(RATES, {});
+    rates[rateBucket(String(rate.type || ""))] = rate;
+    writeJson(RATES, rates);
+  }
+  if (r.kind === "limit") {
+    const blocked = { ...st?.rate, status: "rejected", resetsAt: r.resetAt || st?.rate?.resetsAt || null, at: row.at };
+    writeJson(RATE, blocked);
+    if (blocked.type) {
+      const rates = readJson<Record<string, any>>(RATES, {});
+      rates[rateBucket(String(blocked.type))] = blocked;
+      writeJson(RATES, rates);
+    }
+  }
 });
 
 export function summary() {
@@ -39,5 +54,7 @@ export function summary() {
     if (t >= day0.getTime()) { add(today, r); if (!r.ok) today.failed++; }
     if (t >= Date.now() - 5 * 3600e3) { hour5.runs++; hour5.cost += r.cost; }
   }
-  return { today, week, hour5, days: days.map(({ start, ...d }) => d), bySrc, byModel, rate: readJson<any>(RATE, null), since: rows[0]?.at || null };
+  const rate = readJson<any>(RATE, null), rates = readJson<Record<string, any>>(RATES, {});
+  if (rate?.type && !rates[rateBucket(String(rate.type))]) rates[rateBucket(String(rate.type))] = rate;
+  return { today, week, hour5, days: days.map(({ start, ...d }) => d), bySrc, byModel, rate, rates, since: rows[0]?.at || null };
 }

@@ -22,9 +22,24 @@ function gapTimerMount() {
   const box = document.getElementById("gapTimer"); if (!box) return;
   Gap.timer = gapTimerLoad();
   box.innerHTML = `<div class="gap-head"><span>⏳ FOCUS SPRINT</span><span id="gapStatus"></span></div>
-    <div class="gap-timer-body"><div class="gap-arc" id="gapArc"><strong id="gapClock">25:00</strong></div>
+    <div class="gap-timer-body"><button type="button" class="gap-arc" id="gapArc" aria-label="Set custom focus time" title="Click to set a custom time"><strong id="gapClock">25:00</strong></button>
       <div class="gap-timer-side"><button type="button" class="gap-objective" id="gapObjective" title="Change sprint objective"></button><div class="gap-add"><button type="button" data-add="5">+5m</button><button type="button" data-add="10">+10m</button><button type="button" data-add="25">+25m</button></div></div></div>
-    <div class="gap-controls"><button type="button" id="gapToggle">▶ START</button><button type="button" id="gapReset">↻ RESET</button></div>`;
+    <div class="gap-controls"><button type="button" id="gapToggle">▶ START</button><button type="button" id="gapReset">↻ RESET</button></div>
+    <form class="gap-custom" id="gapCustom" hidden><label for="gapMinutes">CUSTOM FOCUS TIME</label><div class="gap-custom-row"><input id="gapMinutes" type="number" min="1" max="999" step="1" inputmode="numeric" required><span>minutes</span></div><div class="gap-custom-actions"><button type="button" id="gapCancel">Cancel</button><button type="submit">Set time</button></div></form>`;
+  const custom = box.querySelector("#gapCustom"), minutes = box.querySelector("#gapMinutes");
+  box.querySelector("#gapArc").onclick = () => { minutes.value = String(Math.max(1, Math.ceil(gapRemaining() / 60))); custom.hidden = false; minutes.focus(); minutes.select(); };
+  box.querySelector("#gapCancel").onclick = () => { custom.hidden = true; box.querySelector("#gapArc").focus(); };
+  custom.onkeydown = e => { if (e.key === "Escape") { e.preventDefault(); custom.hidden = true; box.querySelector("#gapArc").focus(); } };
+  custom.onsubmit = e => {
+    e.preventDefault();
+    const value = Number(minutes.value);
+    if (!Number.isInteger(value) || value < 1 || value > 999) { minutes.reportValidity(); return; }
+    const seconds = value * 60, running = !!Gap.timer.endAt;
+    Gap.timer.duration = Gap.timer.remaining = seconds;
+    Gap.timer.endAt = running ? Date.now() + seconds * 1000 : 0;
+    box.classList.remove("finished"); custom.hidden = true;
+    gapTimerSave(); gapTimerPaint(); box.querySelector("#gapArc").focus();
+  };
   box.querySelector("#gapObjective").textContent = Gap.timer.objective;
   box.querySelector("#gapObjective").onclick = () => {
     const value = prompt("Sprint objective", Gap.timer.objective);
