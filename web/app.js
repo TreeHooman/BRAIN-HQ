@@ -686,6 +686,12 @@ function vSettings(el) {
         <label class="f">Phone detail<select id="ntfyDetail">${opts([["title", "Headline only (private)"], ["full", "Headline + details"]], s.ntfy.detail || "title")}</select></label>
         <div class="note blue small"><b>Phone setup (2 min):</b> install the free <b>ntfy</b> app (iPhone/Android) → tap <b>+</b> → subscribe to topic<br><code style="user-select:all">${esc(s.ntfy.topic)}</code><br>Keep it secret: anyone with the topic name can read your alerts. With "Headline only", details stay on this PC.</div>
         <div class="row end"><button class="btn" id="testNotify">Send test</button><button class="btn primary" id="saveNotify">Save</button></div></div>
+      <h2>iPhone Clock alarms</h2>
+      <div class="card small"><b>One-time iPhone setup</b><ol class="list">
+        <li>In Shortcuts, create a shortcut named <code>LUTHUR Alarm</code>.</li>
+        <li>Make it accept text input. Split the input at <code>|</code>: the first part is the local date/time, the second is the label.</li>
+        <li>Add Clock’s <b>Create Alarm</b> action using that time and label. Test the shortcut on your iPhone before relying on it.</li>
+      </ol><div class="note amber small">When you ask LUTHUR for an alarm within 24 hours, tap its immediate ntfy notification to run this shortcut. Until you tap, only a due reminder is saved; the Clock alarm is not set. iOS 26 cannot silently create it from a PC chat.</div></div>
       <h2>Start with Windows</h2>
       <div class="card"><div class="row"><span class="dot ${s.startup ? "good" : "unknown"}"></span>${s.startup ? "LUTHUR opens when you sign in to Windows." : "Not installed."}</div>
         <div class="small muted" style="margin-top:6px">Run <code>scripts\\INSTALL-STARTUP.cmd</code> to turn it on, or <code>scripts\\REMOVE-STARTUP.cmd</code> to turn it off.</div></div>

@@ -8,6 +8,7 @@ import readline from "node:readline";
 import { DATA, DROP, uid, writeJson } from "../lib/store.ts";
 import * as brain from "../lib/brain.ts";
 import * as preferences from "../lib/preferences.ts";
+import { createAlarmRequest } from "../lib/iphone-alarm.ts";
 import { searchCodexChats } from "../lib/codex-transcripts.ts";
 import * as cal from "../lib/calendar.ts";
 import * as google from "../lib/google.ts";
@@ -189,6 +190,9 @@ const tools: Tool[] = [
   { name: "reminder_add", write: true, description: "Add a reminder. It pops up on Windows and the phone when due.",
     inputSchema: S({ title: str("what to do"), due: str("YYYY-MM-DD or YYYY-MM-DD HH:MM (local time; default 09:00)"), project: str("optional project slug"), repeat: { type: "string", enum: ["daily", "weekly", "monthly"] } }, ["title", "due"]),
     run: a => { const r = brain.addReminder(a); return `Reminder ${r.id} set for ${r.due.replace("T", " ")}.`; } },
+  { name: "iphone_alarm_request", write: true, description: "Use when the owner asks for an iPhone Clock alarm within the next 24 hours. Immediately sends a tap-to-create Shortcut notification and saves a due reminder. Never say the Clock alarm is set until the owner runs the Shortcut.",
+    inputSchema: S({ title: str("alarm label"), due: str("YYYY-MM-DD HH:MM in this PC's local timezone; must be within 24 hours") }, ["title", "due"]),
+    run: a => createAlarmRequest(String(a.title || ""), String(a.due || "")) },
   { name: "reminder_done", write: true, description: "Mark a reminder done (repeating ones move to the next date).",
     inputSchema: S({ id: str("reminder id") }, ["id"]), run: a => { brain.completeReminder(a.id); return "Done."; } },
   { name: "milestone_add", write: true, description: "Add a key date/deadline to the roadmap and calendar.",
