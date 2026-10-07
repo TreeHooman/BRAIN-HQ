@@ -11,8 +11,36 @@ function earlySpeak(c){
   EarlySpeech.key=key;EarlySpeech.said=text;
   if(typeof speakAlways==='function')speakAlways(text);else speak(text);
 }
-const earlyShowReply=cmdShowReply;
-cmdShowReply=function(c,animate){earlySpeak(c);return earlyShowReply.call(this,c,animate);};
+// Screen first: a show_on_screen made during this turn is applied while the reply is still being written. Read-aloud and
+// summaries wait for the end so they never talk over the early sentence. scrFromChat skips ones already shown.
+function earlyScreen(c){
+  const s=c?.screen,you=[...(c?.messages||[])].reverse().find(m=>m.role==='you');
+  if(!s?.id||s.read_aloud||s.summarize||typeof scrFromChat!=='function'||!you)return;
+  const at=Number(s.at)||Date.parse(s.at),since=Date.parse(you.at||'');
+  if(Number.isFinite(at)&&Number.isFinite(since)&&at>=since-2000)scrFromChat(s);
+}
+/** Called by the busy branch of the chat poll (hud.js cmdPollStart). */
+function chatWhileBusy(c){earlySpeak(c);earlyScreen(c);}
+
+// Barge-in by name: while LUTHUR speaks, only the stop listener hears the mic (speaker echo). "Luther, <new request>"
+// now cuts the playback and sends the new request. Words LUTHUR is saying itself are ignored.
+const BARGE=/^(?:hey |ok |okay )?(?:luthur|luthor|luther|lutha|lothar|jarvis) (.+)$/;
+function bargeIn(ask){
+  StopMonitor.stop();window.speechSynthesis?.cancel();
+  setTimeout(()=>{if(!ForceStop.stopped&&!Access.locked){window.hqVoiceTurn=Date.now();voiceCommand(ask);}},250);
+}
+const bargeStart=StopMonitor.start;
+StopMonitor.start=function(){
+  bargeStart.call(this);const r=this.rec;if(!r)return;const prev=r.onresult;
+  r.onresult=e=>{
+    prev?.call(r,e);
+    if(this.rec!==r||ForceStop.stopped||Access.locked)return;
+    const last=e.results[e.results.length-1];if(!last?.isFinal)return;
+    const m=stopWords(last[0].transcript).match(BARGE);if(!m)return;
+    const ask=m[1].trim();if(ask.split(' ').length<2||isStopRequest(ask)||stopWords(this.speech).includes(ask))return;
+    bargeIn(ask);
+  };
+};
 const earlySpeakChatReply=speakChatReply;
 speakChatReply=function(c,force=false){
   const last=c?.messages?.at(-1);

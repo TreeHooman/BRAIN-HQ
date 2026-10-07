@@ -10,6 +10,7 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 4. Later: Obsidian notes, guarded computer control (see docs/BACKLOG.md).
 
 ## Owner checks
+- Voice: while LUTHUR is talking, say "Luther, open my calendar": it should stop and do the new request. Screens should open while it is still answering.
 - Voice: LUTHUR starts speaking before the full answer is done, and waits when you trail off on "and…" or "um…".
 - Restart LUTHUR (scripts/RESTART-LUTHUR.cmd) and refresh so the 2026-10-07 token fixes and auto handoff go live.
 - Say "Hey LUTHUR" with the app minimized: the hologram opens, listens and answers in your voice choice.

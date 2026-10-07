@@ -71,3 +71,9 @@ Isolated browser checks passed for center labels/icons/colors, one scramble per 
 `web/voice-stream.js` (loaded last) watches the 500ms partial-reply poll. As soon as the reply's `<spoken>…</spoken>` sentence is complete, LUTHUR says it while the rest of the answer is still generating; the final reply for that turn is then not spoken again. Turns whose partial never contains the tag fall back to normal final-reply speech. Same voice rules as before (voice replies on, or a spoken turn within 10 minutes); Force stop respected.
 
 `turnPauseFor()` in `web/live.js` extends the silence before sending when the words end mid-thought (a comma, or "and", "so", "um", "because", "the", "to"…): double the chosen pause, at least +2s, max 6s. Used by the main turn timer and the post-playback resend in `speech-feedback.js`. Simulated tests passed; no real microphone test yet.
+
+## Interrupt by name and screen-first (October 7)
+
+While LUTHUR speaks, the mic is still closed to normal speech (speaker echo), but the stop listener now also accepts "Luther, <request>" (two or more words, final result only, not words LUTHUR is itself saying): playback is cancelled and the request is sent as a new voice turn. "Luther stop" keeps its force-stop meaning. Code: `web/voice-stream.js` wraps `StopMonitor.start`.
+
+Screen requests made during a reply now apply while LUTHUR is still writing/speaking: `chat()` ingests drops at most once a second while the chat is busy, and the busy branch of the chat poll calls `chatWhileBusy()` → `scrFromChat` for screens from this turn. Read-aloud/summary screens still wait for the end. Simulated tests passed.

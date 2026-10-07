@@ -646,7 +646,10 @@ function advanceGoalWork() {
 type ChatMsg = { role: "you" | "hq"; text: string; at: string; error?: boolean; speech?: string };
 type Chat = { id: string; sessionId: string | null; claudeSessionId?: string | null; provider?: "claude" | "codex"; personality?: "normal" | "challenger"; project?: string | null; tier?: string; messages: ChatMsg[];
   claudeUsage?: { context: number; window: number; at: string };codexUsage?:{context:number;window:number;at:string|null;sessionId:string;source:string} };
+let busyIngestAt = 0;
 export function chat(): Chat & { busy: boolean; partial: string; screen: any } {
+  // While a reply is generating, pick up its screen requests now (not on the 30 s tick) so the screen changes as LUTHUR speaks.
+  if (chatBusy && Date.now() - busyIngestAt > 1000) { busyIngestAt = Date.now(); try { ingestDrop(); } catch {} }
   return { ...readJson<Chat>(F.chat, { id: uid("chat"), sessionId: null, messages: [] }), busy: chatBusy, partial: chatBusy ? chatPartial : "", screen: readJson<any>(F.screen, null) };
 }
 function splitSpokenReply(text: string): { text: string; speech?: string } {

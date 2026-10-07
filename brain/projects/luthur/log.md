@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-07 02:52 · claude
+Interrupt by name: while LUTHUR speaks, "Luther, <request>" cancels playback and sends the new request (stop phrases, single words, interim results and LUTHUR's own words ignored). Screen-first: chat() ingests screen drops each second while busy and the poll applies this turn's screen during the reply; read-aloud waits for the end. Simulated tests passed. Restart LUTHUR + refresh.
+
 ## 2026-10-07 02:46 · claude
 Faster voice turns. Early speech (web/voice-stream.js): the <spoken> sentence is spoken as soon as it appears in the 500ms partial poll, while the rest generates; the final reply is not repeated. Mid-thought pauses: turnPauseFor() waits longer (2x, +2s min, 6s max) when speech ends on a comma or words like and/so/um/because. Simulated tests passed (single early utterance, no duplicate, fallback without tag, pause cases). Refresh to activate; real mic check is the owner's.
 

@@ -669,7 +669,7 @@ function cmdPollStart() {
   Cmd.poll = setTimeout(async () => {
     const c = await api("/chat").catch(() => null);
     if (!c) return cmdPollStart();
-    if (c.busy) { if(c.partial)cmdShowReply(c,false); return cmdPollStart(); }
+    if (c.busy) { if (typeof chatWhileBusy === "function") chatWhileBusy(c); if(c.partial)cmdShowReply(c,false); return cmdPollStart(); }
     const was = Cmd.waiting; Cmd.waiting = false; coreState();
     if (route.view === "command") cmdShowReply(c, was);
     if (was && typeof scrFromChat === "function") scrFromChat(c.screen);

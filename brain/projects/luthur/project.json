@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Restart LUTHUR and refresh, then talk to it: it should start speaking sooner and wait when you trail off on \"and…\"/\"um…\". Learned preferences show in Settings. Next candidates: canvas updates on tool use; barge-in.",
+  "nextStep": "Restart LUTHUR and refresh, then try voice: earlier speech, longer wait on \"and…/um…\", interrupt with \"Luther, <request>\", screens opening mid-answer.",
   "updated": "2026-10-07",
   "paths": [],
   "repos": [],
