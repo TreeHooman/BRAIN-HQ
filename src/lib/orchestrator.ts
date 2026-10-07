@@ -16,6 +16,8 @@ import { redact, type Step } from "./narrate.ts";
 import { isDue, type Schedule } from "./schedule.ts";
 import { notify } from "./notify.ts";
 import * as brain from "./brain.ts";
+import * as audit from "./brain-audit.ts";
+import * as autonomy from "./autonomy.ts";
 import * as handoff from "./handoff.ts";
 import * as transcripts from "./transcripts.ts";
 import * as outbox from "./outbox.ts";
@@ -32,7 +34,7 @@ export type Run = {
   status: "queued" | "running" | "done" | "failed" | "paused" | "skipped" | "timeout" | "cancelled";
   createdAt: string; startedAt?: string; endedAt?: string; sessionId?: string | null;
   output?: string; error?: string; model?: string; provider?: "claude" | "codex"; durationMs?: number; maxMinutes?: number;
-  extraAllow?: string[]; parentRun?: string | null; depth: number; followups?: number; restarts?: number;
+  extraAllow?: string[]; parentRun?: string | null; depth: number; followups?: number; restarts?: number; autoRule?: string; budgetNote?: string;
   watch?: string[]; skipIfUnchanged?: boolean;
   taskId?: string | null; reply?: boolean; reportedAt?: string; effort?: string | null; dismissed?: boolean; ownerDone?: boolean;
 };
@@ -40,6 +42,7 @@ export type Approval = {
   id: string; createdAt: string; title: string; detail: string; project?: string | null;
   fromRun?: string | null; status: "pending" | "approved" | "rejected";
   proposed?: { title: string; prompt: string; project?: string | null; tier?: string; permission?: string; extraAllow?: string[]; provider?: "claude" | "codex"; task?: boolean } | null;
+  brainOp?: { tool: string; args: any } | null; result?: string; kind?: "task" | null; trialRule?: string | null;
 };
 type State = {
   pausedUntil: string | null; pauseReason?: string; auth: "ok" | "needs-login" | "unknown"; authCheckedAt?: string;
@@ -128,6 +131,7 @@ export function enqueue(spec: Partial<Run> & { title: string; prompt: string }, 
     status: "queued", createdAt: new Date().toISOString(), maxMinutes: spec.maxMinutes, extraAllow: spec.extraAllow,
     parentRun: spec.parentRun ?? null, depth: spec.depth ?? 0, watch: spec.watch, skipIfUnchanged: spec.skipIfUnchanged,
     taskId: spec.taskId ?? null, reply: spec.reply, sessionId: spec.sessionId ?? null, effort: spec.effort ?? null, provider: spec.provider,
+    ...(spec.autoRule ? { autoRule: spec.autoRule } : {}),
   };
   if (r.taskId === "self") r.taskId = r.id;
   saveRun(r);
@@ -158,6 +162,14 @@ export function decideApproval(id: string, approve: boolean): Approval {
   a.status = approve ? "approved" : "rejected";
   saveApprovals(all);
   activity(approve ? "approved" : "rejected", { approval: id, title: a.title });
+  if (a.kind === "task" && a.proposed) autonomy.recordDecision({ project: a.proposed.project || null, permission: a.proposed.permission || "plan", engine: a.proposed.provider || null, title: a.proposed.title }, approve, a.trialRule);
+  if (approve && a.brainOp) {
+    // A non-routine brain change a background run proposed: apply it exactly as shown, recorded for Undo.
+    const op = a.brainOp;
+    void audit.audited({ run: a.fromRun || "approval", actor: "mission (you approved)", tool: op.tool, summary: audit.describe(op.tool, op.args), project: op.args?.slug || op.args?.project || null, approvedBy: "owner" }, () => audit.applyOp(op.tool, op.args))
+      .then(r => { a.result = r; }).catch(e => { a.result = `Could not apply: ${e?.message || e}`; notify({ title: "Approved brain change failed", body: a.result, priority: 3 }); })
+      .finally(() => { const cur = approvals(); const x = cur.find(y => y.id === a.id); if (x) { x.result = a.result; saveApprovals(cur); } });
+  }
   if (approve && a.proposed) {
     enqueue({ title: a.proposed.title, prompt: `${a.proposed.prompt}\n\n(The owner approved this in HQ: "${a.title}".)`, project: a.proposed.project, tier: a.proposed.tier || "balanced",
       permission: minLevel(a.proposed.permission || "plan", "build"), extraAllow: a.proposed.extraAllow, provider: a.proposed.provider, parentRun: a.proposed.task ? null : a.fromRun, priority: 1, ...(a.proposed.task ? { taskId: "self", depth: 0 } : {}) }, a.proposed.task ? "task" : "approval");
@@ -307,10 +319,16 @@ function ingestDrop() {
       // New work LUTHUR starts on its own (a Task from the chat, or a follow-up from a scheduled mission) waits for the
       // owner's OK unless they turned that off or explicitly said "just do it" in the chat. Sub-agents of a task that was
       // already approved run straight away (they're part of that task).
-      const needsOk = loadConfig().assistant?.taskApproval !== false && !parent?.taskId && !(fromChat && d.owner_approved === true);
+      // An approved task runs to the end without asking, within its budget (sub-agents and minutes across the task).
+      if (parent?.taskId) { const over = taskOverBudget(parent.taskId); if (over) { activity("followup-dropped", { reason: over, title: d.title }); const root = runCache.get(parent.taskId); if (root && !root.budgetNote) { root.budgetNote = over; saveRun(root); } continue; } }
+      let needsOk = loadConfig().assistant?.taskApproval !== false && !parent?.taskId && !(fromChat && d.owner_approved === true);
+      // The owner's fast-approve rules (config/autonomy-rules.json). A rule on trial only notes what it would have done.
+      const auto = needsOk ? autonomy.match({ project: d.project || null, permission: perm, engine: engine || null, title: String(d.title || "") }) : null;
+      if (auto?.live) needsOk = false;
       if (needsOk) {
         const all = approvals();
-        all.unshift({ id: uid("ap"), createdAt: new Date().toISOString(), title: `Start task: ${String(d.title || "").slice(0, 120)}`, detail: String(d.prompt || "").slice(0, 2000), project: d.project, fromRun: d.fromRun, status: "pending",
+        all.unshift({ id: uid("ap"), createdAt: new Date().toISOString(), title: `Start task: ${String(d.title || "").slice(0, 120)}`, detail: String(d.prompt || "").slice(0, 2000) + (auto ? `\n\n(Trial rule "${auto.rule.title}" would have started this on its own. Rejecting it keeps that rule on trial.)` : ""), project: d.project, fromRun: d.fromRun, status: "pending",
+          kind: "task", trialRule: auto?.rule.id || null,
           proposed: { title: d.title, prompt: d.prompt, project: d.project, tier: d.tier || "balanced", permission: perm, provider: engine, task: fromChat } });
         saveApprovals(all);
         activity("approval-requested", { title: d.title });
@@ -318,11 +336,15 @@ function ingestDrop() {
         continue;
       }
       // From the chat, delegated work becomes a Task (reports back); from a task, it's a sub-agent of that task.
-      enqueue({ title: d.title, prompt: d.prompt, project: d.project, tier: d.tier || "balanced", permission: minLevel(d.permission || "plan", ceiling), parentRun: fromChat ? null : d.fromRun, depth: fromChat ? 0 : depth,
-        priority: fromChat || parent?.taskId ? 1 : 2, taskId: fromChat ? "self" : parent?.taskId || null, effort: parent?.effort || null, provider: engine }, fromChat ? "task" : "followup");
+      // A rule-started follow-up from a mission becomes its own Task so it reports back once.
+      const asTask = fromChat || !!auto?.live;
+      enqueue({ title: d.title, prompt: d.prompt, project: d.project, tier: d.tier || "balanced", permission: minLevel(d.permission || "plan", ceiling), parentRun: asTask ? null : d.fromRun, depth: asTask ? 0 : depth,
+        priority: asTask || parent?.taskId ? 1 : 2, taskId: asTask ? "self" : parent?.taskId || null, effort: parent?.effort || null, provider: engine, autoRule: auto?.live ? auto.rule.id : undefined }, asTask ? "task" : "followup");
+      if (auto?.live) { activity("auto-approved", { rule: auto.rule.id, title: d.title }); notify({ title: "LUTHUR started a task on its own", body: `${String(d.title || "").slice(0, 120)} (rule: ${auto.rule.title})`, priority: 2, phone: false }); }
     } else if (d.type === "approval") {
       const all = approvals();
-      all.unshift({ id: uid("ap"), createdAt: new Date().toISOString(), title: d.title, detail: d.detail || "", project: d.project, fromRun: d.fromRun, status: "pending", proposed: d.proposed || null });
+      const brainOp = d.brainOp && audit.GATED.has(String(d.brainOp.tool)) ? { tool: String(d.brainOp.tool), args: d.brainOp.args || {} } : null;
+      all.unshift({ id: uid("ap"), createdAt: new Date().toISOString(), title: d.title, detail: d.detail || "", project: d.project, fromRun: d.fromRun, status: "pending", proposed: brainOp ? null : d.proposed || null, brainOp });
       saveApprovals(all);
       activity("approval-requested", { title: d.title });
       notify({ title: "HQ needs your OK", body: d.title, priority: 4, tags: "raised_hand" });
@@ -560,6 +582,22 @@ function taskStatus(rs: Run[]): string {
   if (rs.every(r => r.status === "cancelled")) return "cancelled";
   return rs.some(r => r.status === "failed" || r.status === "timeout") || root?.status !== "done" ? "issue" : "done";
 }
+/** Budget for one task tree (config tasks.maxSubtasks / tasks.maxTaskMinutes). Returns why it is spent, or null. */
+function taskOverBudget(taskId: string): string | null {
+  const cfg = loadConfig().tasks || {}, rs = taskRuns(taskId);
+  const maxSub = Math.max(1, Number(cfg.maxSubtasks) || 8), maxMin = Math.max(5, Number(cfg.maxTaskMinutes) || 120);
+  if (rs.length >= maxSub) return `task budget reached (${maxSub} agents)`;
+  const mins = rs.reduce((n, r) => n + (r.durationMs || (r.status === "running" && r.startedAt ? Date.now() - Date.parse(r.startedAt) : 0)), 0) / 6e4;
+  return mins >= maxMin ? `task budget reached (${maxMin} minutes of agent time)` : null;
+}
+/** Undo one brain change. If an auto-started task made it, that rule is turned off at once. */
+export function undoBrainChange(id: string) {
+  const r = audit.undo(id);
+  const run = runCache.get(r.change.run), root = run?.taskId ? runCache.get(run.taskId) : run;
+  const rule = run?.autoRule || root?.autoRule;
+  if (rule && r.restored.length) autonomy.demote(rule, `you undid "${r.change.summary.slice(0, 80)}"`);
+  return { restored: r.restored, conflicts: r.conflicts, ruleTurnedOff: rule && r.restored.length ? rule : null };
+}
 /** When the last run of a task finishes, report back once (phone + desktop). */
 function taskCheck(run: Run) {
   const rs = taskRuns(run.taskId!); const root = rs.find(r => r.id === run.taskId);
@@ -569,7 +607,9 @@ function taskCheck(run: Run) {
   root.reportedAt = new Date().toISOString(); saveRun(root);
   activity("task-" + st, { task: root.id, title: root.title, agents: rs.length });
   if (st === "cancelled") return;
-  const body = (last.output || last.error || "").replace(/[#*_`]/g, "").replace(/\s+/g, " ").trim().slice(0, 300);
+  const ids = new Set(rs.map(r => r.id)), changes = audit.list(300).filter(c => ids.has(c.run) && !c.undone).length;
+  const extra = [root.autoRule ? "Started on its own (your rule)." : "", changes ? `${changes} brain change${changes > 1 ? "s" : ""}; Undo in Missions & approvals.` : "", root.budgetNote ? `Stopped adding agents: ${root.budgetNote}.` : ""].filter(Boolean).join(" ");
+  const body = ((extra ? extra + " " : "") + (last.output || last.error || "").replace(/[#*_`]/g, "").replace(/\s+/g, " ").trim()).slice(0, 360);
   notify({ title: `${st === "done" ? "✅ Task done" : "⚠️ Task needs a look"}: ${root.title}`, body: body || st, priority: st === "done" ? 3 : 4, tags: st === "done" ? "white_check_mark" : "warning" });
 }
 export function createTask(input: { text?: string; project?: string | null; tier?: string; permission?: string; effort?: string }): Run {

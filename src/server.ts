@@ -25,6 +25,8 @@ import * as usage from "./lib/usage.ts";
 import * as codexUsage from "./lib/codex-usage.ts";
 import * as pcVoice from "./lib/pc-voice.ts";
 import * as accessLock from "./lib/access-lock.ts";
+import * as brainAudit from "./lib/brain-audit.ts";
+import * as autonomy from "./lib/autonomy.ts";
 import * as updater from "./lib/updater.ts";
 import * as screen from "./lib/screen.ts";
 import * as history from "./lib/history.ts";
@@ -185,6 +187,14 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/runs\/([\w-]+)\/cancel$/, m => { orch.cancelRun(m[1]); return { ok: true }; }],
   ["GET", /^\/api\/runs\/([\w-]+)$/, m => orch.getRun(m[1]) || {}],
   ["POST", /^\/api\/approvals\/([\w-]+)$/, (m, b) => orch.decideApproval(m[1], !!b.approve)],
+  ["GET", /^\/api\/brain-changes$/, (_m, _b, url) => ({ changes: brainAudit.list(Math.min(200, Number(url.searchParams.get("limit")) || 40), url.searchParams.get("project") || undefined) })],
+  ["POST", /^\/api\/brain-changes\/([\w-]+)\/undo$/, m => orch.undoBrainChange(m[1])],
+  ["GET", /^\/api\/autonomy$/, () => autonomy.list()],
+  ["POST", /^\/api\/autonomy\/rules$/, (_, b) => autonomy.addRule(b)],
+  ["PATCH", /^\/api\/autonomy\/rules\/([\w-]+)$/, (m, b) => autonomy.setRule(m[1], b.state)],
+  ["DELETE", /^\/api\/autonomy\/rules\/([\w-]+)$/, m => autonomy.deleteRule(m[1])],
+  ["POST", /^\/api\/autonomy\/build-projects$/, (_, b) => autonomy.setBuildProjects(b.projects)],
+  ["POST", /^\/api\/autonomy\/suggestion$/, (_, b) => autonomy.answerSuggestion(String(b.key || ""), !!b.accept)],
 
   ["GET", /^\/api\/calendar$/, (_m, _b, url) => {
     const day = (v: string | null, d: Date) => /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? new Date(v + "T00:00") : d;

@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Restart LUTHUR so the phase 0 guard goes live, then check that a Codex build task on GenBot runs normally. Next build: phase 1 (brain audit + Undo, docs/AUTONOMY-DESIGN.md).",
+  "nextStep": "Restart LUTHUR so autonomy phases 0-4 go live. In Missions & approvals, add your first rule (it starts a 7-day trial) and check Brain changes + Undo. Next build: watch email/calendar streams into Needs-you cards, then memory search.",
   "updated": "2026-10-07",
   "paths": [],
   "repos": [],

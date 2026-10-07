@@ -5,6 +5,7 @@
 import { modelFor } from "./config.ts";
 import { runClaude } from "./claude.ts";
 import * as brain from "./brain.ts";
+import * as audit from "./brain-audit.ts";
 import * as today from "./today.ts";
 import { appendLine, DATA } from "./store.ts";
 import path from "node:path";
@@ -54,6 +55,7 @@ Only mark things done when the work clearly finished them. Don't invent progress
   if (!r?.ok) return;
   let j: any = null; try { j = JSON.parse((r.text.match(/\{[\s\S]*\}/) || [""])[0]); } catch {}
   if (!j || typeof j !== "object") return;
+  await audit.audited({ run: `brain-sync:${session}`, actor: "LUTHUR (from Code)", tool: "brain-sync", summary: `${p.project}: ${clip(j.log, 150) || "tracker update"}`, project: p.project }, () => {
   const done: string[] = [];
   const log = clip(j.log, 600);
   if (log) { brain.addLog(p.project, log, "LUTHUR (from Code)"); done.push("log"); }
@@ -79,4 +81,5 @@ Only mark things done when the work clearly finished them. Don't invent progress
     try { brain.writeDoc(p.project, "plan", next.slice(0, 60000)); done.push("note"); } catch {}
   }
   if (done.length) appendLine(path.join(DATA, "activity.jsonl"), JSON.stringify({ at: new Date().toISOString(), event: "brain-sync", project: p.project, session, changed: done }));
+  });
 }

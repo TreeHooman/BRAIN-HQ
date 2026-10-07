@@ -696,7 +696,8 @@ function vMissions(el) {
     </div>
     ${pend.length ? `<h2>Needs your OK</h2>${pend.map(a => `<div class="card alert" style="margin-bottom:10px"><div class="between"><b>${esc(a.title)}</b><span class="row"><button class="btn sm good" data-ap="${a.id}" data-yes="1">Approve</button><button class="btn sm bad" data-ap="${a.id}">Reject</button></span></div>
       <div class="small muted" style="white-space:pre-wrap;margin-top:6px">${esc(a.detail)}</div>
-      ${a.proposed ? `<div class="small" style="margin-top:8px">If approved, runs at <b>${esc(a.proposed.permission || "build")}</b> level${a.proposed.extraAllow?.length ? ` with extra access: <code>${a.proposed.extraAllow.map(esc).join("</code> <code>")}</code>` : ""}.</div>` : `<div class="small faint" style="margin-top:8px">Approving just records your OK (nothing runs).</div>`}</div>`).join("")}` : ""}
+      ${a.proposed ? `<div class="small" style="margin-top:8px">If approved, runs at <b>${esc(a.proposed.permission || "build")}</b> level${a.proposed.extraAllow?.length ? ` with extra access: <code>${a.proposed.extraAllow.map(esc).join("</code> <code>")}</code>` : ""}.</div>` : a.brainOp ? `<div class="small" style="margin-top:8px">If approved, LUTHUR applies this brain change exactly as proposed (you can Undo it below).</div>` : `<div class="small faint" style="margin-top:8px">Approving just records your OK (nothing runs).</div>`}</div>`).join("")}` : ""}
+    <div id="autonomyBox"></div>
     <h2>Scheduled & saved</h2>
     <div class="card tight"><ul class="list">${S.missions.map(m => `<li><div class="grow"><b>${esc(m.title)}</b> ${m.enabled ? "" : '<span class="pill">off</span>'}
         <div class="small faint">${esc(m.scheduleText)} · ${esc(m.tier)} · ${esc(m.permission)}${m.project ? " · " + esc(projName(m.project)) : ""}${m.skipIfUnchanged ? " · skips if unchanged" : ""}</div></div>
@@ -705,6 +706,7 @@ function vMissions(el) {
     <h2>Runs</h2>
     <div class="card tight">${S.runs.length ? S.runs.map(runRow).join("") : `<div class="empty">No runs yet.</div>`}</div>`;
   bindApprovals(el); bindRuns(el);
+  if (typeof autonomyMount === "function") autonomyMount($("#autonomyBox", el));
   $("#newMission").onclick = () => { modal(`<h3>New mission</h3>${missionForm({})}`); bindMissionForm($("#modal")); };
   const up = $("#unpause"); if (up) up.onclick = () => act(() => api("/pause/clear", "POST"), "Resuming");
   $$("[data-run]", el).forEach(b => b.onclick = () => act(() => api(`/missions/${b.dataset.run}/run`, "POST"), "Queued"));

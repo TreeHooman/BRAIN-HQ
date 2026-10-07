@@ -7,6 +7,7 @@ import path from "node:path";
 import readline from "node:readline";
 import { DATA, DROP, uid, writeJson } from "../lib/store.ts";
 import * as brain from "../lib/brain.ts";
+import * as audit from "../lib/brain-audit.ts";
 import { memorySearch } from "../lib/chat-memory.ts";
 import * as preferences from "../lib/preferences.ts";
 import { createAlarmRequest } from "../lib/iphone-alarm.ts";
@@ -51,6 +52,23 @@ const LEVELP = { type: "string", enum: ["read", "plan", "build"], description: "
 
 function drop(type: string, payload: Record<string, unknown>) {
   writeJson(path.join(DROP, `${uid(type + "-")}.json`), { type, fromRun: RUN_ID, fromLevel: LEVEL, ...payload });
+}
+
+// Owner-driven runs (chat, Code, an interactive Claude session) apply brain changes directly; background runs
+// (missions, tasks) send non-routine ones to the owner. Every write is recorded so the owner can Undo it.
+const BACKGROUND = !IS_CHAT && !RUN_ID.startsWith("code-");
+const ACTOR = IS_CHAT ? (RUN_ID === "interactive" ? "claude session" : "assistant") : RUN_ID.startsWith("code-") ? "code" : "mission";
+function callTool(t: Tool, a: any): unknown {
+  if (!t.write) return t.run(a);
+  if (BACKGROUND && audit.GATED.has(t.name)) {
+    const why = audit.needsOwner(t.name, a);
+    if (why) {
+      drop("approval", { title: `Brain change: ${audit.describe(t.name, a).slice(0, 110)}`, detail: `A background run wants to make a non-routine brain change: it ${why}. Approve to apply it exactly as proposed.`,
+        project: a.slug || a.project || null, brainOp: { tool: t.name, args: a } });
+      return `Not applied: this ${why}, which needs the owner's OK. Sent to their approval queue; it applies when they approve. Carry on with the rest.`;
+    }
+  }
+  return audit.audited({ run: RUN_ID, actor: ACTOR, tool: t.name, summary: audit.describe(t.name, a), project: a.slug || a.project || null }, () => t.run(a));
 }
 
 const tools: Tool[] = [
@@ -200,22 +218,22 @@ const tools: Tool[] = [
   { name: "goal_save", write: true, description: "Create or update a Mission Planner goal broken into ordered steps. Pass id to update (send the full steps list).",
     inputSchema: S({ id: str("existing goal id to update"), title: str("the goal"), project: str("project slug"), why: str("why it matters"), due: str("YYYY-MM-DD"),
       steps: { type: "array", items: { type: "object", properties: { id: { type: "string" }, title: { type: "string" }, done: { type: "boolean" }, notes: { type: "string" }, due: { type: "string" }, lane: { type: "string" }, agent: { type: "string" }, dependsOn: { type: "array", items: { type: "string" } } }, required: ["title"] } } }, ["title", "steps"]),
-    run: a => { const g = brain.saveGoal(a); return `Goal ${g.id} saved with ${g.steps.length} steps.`; } },
+    run: a => audit.applyOp("goal_save", a) },
   { name: "goal_step_done", write: true, description: "Mark a goal step done or not done.",
     inputSchema: S({ goal_id: str("goal id"), step_id: str("step id"), done: { type: "boolean" } }, ["goal_id", "step_id"]),
     run: a => { brain.setStepDone(a.goal_id, a.step_id, a.done !== false); return "Updated."; } },
   { name: "project_update", write: true, description: "Change project fields: stage, health, summary (one line), nextStep, tags, paths, repos, links, phases, maxPermission (can only be lowered from the dashboard).",
     inputSchema: S({ slug: str("project slug"), fields: { type: "object", description: "fields to set, e.g. {\"stage\":\"building\",\"nextStep\":\"...\"}" } }, ["slug", "fields"]),
-    run: a => { const f = { ...a.fields }; delete f.maxPermission; brain.updateProject(a.slug, f); return `Updated ${a.slug}.`; } },
+    run: a => audit.applyOp("project_update", a) },
   { name: "project_write", write: true, description: "Replace SUMMARY.md (keep under ~40 lines) or plan.md for a project.",
     inputSchema: S({ slug: str("project slug"), part: { type: "string", enum: ["summary", "plan"] }, content: str("full markdown content") }, ["slug", "part", "content"]),
-    run: a => { brain.writeDoc(a.slug, a.part, a.content, { capSummary: true }); return `Wrote ${a.part} for ${a.slug}.`; } },
+    run: a => audit.applyOp("project_write", a) },
   { name: "project_log", write: true, description: "Add a dated entry to a project's log (newest first). One short entry per run.",
     inputSchema: S({ slug: str("project slug"), text: str("what happened / what was learned") }, ["slug", "text"]),
     run: a => { brain.addLog(a.slug, a.text, RUN_ID.startsWith("chat-") ? "assistant" : RUN_ID === "interactive" ? "claude" : `mission ${RUN_ID}`); return "Logged."; } },
   { name: "project_create", write: true, description: "Create a new project from the template.",
     inputSchema: S({ name: str("project name"), kind: { type: "string", enum: brain.KINDS }, stage: { type: "string", enum: brain.STAGES }, summary: str("one-line summary") }, ["name"]),
-    run: a => { const p = brain.createProject(a); return `Created project ${p.slug}.`; } },
+    run: a => audit.applyOp("project_create", a) },
   { name: "reminder_add", write: true, description: "Add a reminder. It pops up on Windows and the phone when due.",
     inputSchema: S({ title: str("what to do"), due: str("YYYY-MM-DD or YYYY-MM-DD HH:MM (local time; default 09:00)"), project: str("optional project slug"), repeat: { type: "string", enum: ["daily", "weekly", "monthly"] } }, ["title", "due"]),
     run: a => { const r = brain.addReminder(a); return `Reminder ${r.id} set for ${r.due.replace("T", " ")}.`; } },
@@ -301,7 +319,7 @@ rl.on("line", line => {
     } else if (method === "tools/call") {
       const t = visible.find(x => x.name === params?.name);
       if (!t) return reply(id, { content: [{ type: "text", text: `Unknown or not allowed at level ${LEVEL}: ${params?.name}` }], isError: true });
-      Promise.resolve().then(() => t.run(params?.arguments || {}))
+      Promise.resolve().then(() => callTool(t, params?.arguments || {}))
         .then(out => reply(id, out && typeof out === "object" && Array.isArray((out as any).content) ? out : { content: [{ type: "text", text: String(out ?? "ok") }] }))
         .catch((e: any) => reply(id, { content: [{ type: "text", text: `Error: ${e?.message || e}` }], isError: true }));
     } else if (method === "ping") reply(id, {});

@@ -61,7 +61,9 @@
 
   "tasks": {
     "maxParallel": 3,
-    "comment": "How many delegated tasks / sub-agents (and manual runs) may run at once. Scheduled missions use one extra lane. Two runs never work on the same project at the same time."
+    "maxSubtasks": 8,
+    "maxTaskMinutes": 120,
+    "comment": "How many delegated tasks / sub-agents (and manual runs) may run at once. Scheduled missions use one extra lane. Two runs never work on the same project at the same time. An approved task runs to the end without asking, up to maxSubtasks agents and maxTaskMinutes of agent time in total."
   },
 
   "code": {

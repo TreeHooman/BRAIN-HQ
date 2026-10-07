@@ -1,4 +1,9 @@
-# LUTHUR autonomy design (draft, 2026-10-07; nothing built yet)
+# LUTHUR autonomy design (2026-10-07; phases 0-4 built)
+
+Built: phase 0 `src/lib/guard.ts`; phase 1 `src/lib/brain-audit.ts` (+ hq-brain `callTool`); phases 2-3 `src/lib/autonomy.ts`;
+phase 4 task budgets in `orchestrator.ts` (`taskOverBudget`, report in `taskCheck`). UI: `web/autonomy.js` on Missions & approvals.
+Tests: `docs/validation-2026-10-07/` (phase0 8, autonomy 13) + `docs/validation-2026-10-05/run-tests.mjs` (15).
+As built, rules only cover tasks that would otherwise ask ("Start task"); `request_approval` items and brain-change approvals are never auto-approved.
 
 Goal: LUTHUR asks less over time, but every change is still logged, can be undone, and has a ceiling enforced in code.
 Borrowed from Alfred Black: trust is a ladder the owner grants, LUTHUR may only *propose* a step up, a step down
