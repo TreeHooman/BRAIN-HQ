@@ -516,7 +516,7 @@ const Wake = {
       if (this.rec!==r||this.paused||!this.on||(typeof speechPlaybackBlocked==='function'&&speechPlaybackBlocked())) return;
       if(epoch!==this.turnId){segments.clear();carry="";epoch=this.turnId;}
       for (let i = e.resultIndex; i < e.results.length; i++) segments.set(i,e.results[i][0].transcript.trim());
-      const txt=[carry,...[...segments].sort((a,b)=>a[0]-b[0]).map(x=>x[1])].filter(Boolean).join(" ");
+      const txt=speechJoin([carry,...[...segments].sort((a,b)=>a[0]-b[0]).map(x=>x[1])]);
       const final = e.results[e.results.length - 1].isFinal;
       this.heard(txt.trim(), final, true);
     };
@@ -543,10 +543,23 @@ const Wake = {
     }
     else return;
     clearTimeout(this.t);
-    const go = () => { const cmd = this.buf.trim(); this.turnId++;this.armed = 0; this.buf = ""; this.committed = ""; document.body.classList.remove("wake-heard"); if (cmd) voiceCommand(cmd); };
+    const go = () => { const cmd = speechTidy(this.buf); this.turnId++;this.armed = 0; this.buf = ""; this.committed = ""; document.body.classList.remove("wake-heard"); if (cmd) voiceCommand(cmd); };
     this.t = setTimeout(() => { if (this.buf) go(); else { this.armed = Date.now(); } }, this.buf ? turnPauseFor(this.buf, window.hqConversation ? Math.max(1200,Math.min(3200,Number(localStorage.getItem("hq-turn-pause")||1800))) : 3200) : 1600);
   },
 };
+/** Joins recognizer chunks. Chrome sometimes repeats the end of one chunk at the start of the next ("give me a briefing" + "briefing"), and a mic restart carries the turn so far: drop that overlap. */
+function speechJoin(parts) {
+  let out = [];
+  for (const part of parts) {
+    const w = String(part || "").trim().split(/\s+/).filter(Boolean), key = x => x.toLowerCase().replace(/[^a-z0-9']/g, "");
+    let skip = 0;
+    for (let n = Math.min(4, out.length, w.length); n > 0; n--) if (out.slice(-n).map(key).join(" ") === w.slice(0, n).map(key).join(" ")) { skip = n; break; }
+    out = out.concat(w.slice(skip));
+  }
+  return out.join(" ");
+}
+/** The turn as sent: a doubled final word ("briefing briefing") is a recognizer echo, not speech. */
+function speechTidy(text) { return String(text || "").trim().replace(/\b(\w+)(?:[\s,]+\1)+([.!?]*)$/i, "$1$2"); }
 /** Silence before a voice turn is sent. Trailing off on "and", "so", "um", a comma… means the owner is mid-thought: wait longer. */
 const TRAILING=/(?:,|\b(?:and|but|or|so|because|cause|like|um+|uh+|er+|hmm+|the|a|an|to|of|with|for|if|then|which|that|my|your|is|are|was|i|we|maybe|also|plus|just|actually))\s*$/i;
 function turnPauseFor(buf,base){return TRAILING.test(String(buf||'').trim())?Math.min(6000,Math.max(base*2,base+2000)):base;}

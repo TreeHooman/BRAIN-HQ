@@ -1,8 +1,8 @@
 "use strict";
-function guideText(text){return String(text||'').trim().replace(/^(?:hey\s+)?(?:luthur|luthor|luther)[,!.]?\s+/i,'').replace(/^(?:can|could|would) you\s+/i,'').replace(/^please\s+/i,'').replace(/[.!?]+$/,'').trim();}
+function guideText(text){return String(text||'').trim().replace(/^(?:(?:hey|ok|okay|yo)\s+)?(?:luthur|luthor|luther)[,!.]?\s+/i,'').replace(/^(?:(?:can|could|would|will) you|please|just|maybe|quickly|real quick|now|so|alright|ok(?:ay)?|go ahead and|i (?:want|need|would like|'d like) (?:you to|a|an)?|let'?s(?: do)?|um+|uh+)[,]?\s+/gi,'').replace(/^(?:(?:can|could|would|will) you|please|just|go ahead and)\s+/gi,'').replace(/[.!?]+$/,'').trim();}
 function guideBriefRequest(text){
  const c=guideText(text);
- return /^(?:brief(?: me)?|briefing|give me (?:a |the |my )?(?:(?:daily|today'?s) )?(?:briefing|overview|rundown)|catch me up|(?:walk|run) me through|give me a brief)\b(?:\s+(?:on|about|of)\s+|\s+)?(.*)$/i.exec(c);
+ return /^(?:brief(?: me)?|briefing|(?:give|get) me (?:a |an |the |my )?(?:(?:quick|short|full|daily|morning|today'?s) )*(?:briefing|brief|overview|rundown)|(?:a |my |the )?(?:(?:quick|daily|morning) )*(?:briefing|rundown)(?: please)?$|catch me up|(?:walk|run) me through|give me a brief)\b(?:\s+(?:on|about|of)\s+|\s+)?(.*)$/i.exec(c);
 }
 function guideProject(text){const norm=s=>String(s).toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();const c=' '+norm(text)+' ';return S.projects.filter(p=>[p.name,p.slug].some(name=>c.includes(' '+norm(name)+' '))).sort((a,b)=>b.name.length-a.name.length)[0];}
 function guidedOverview(){if(Scr.cur?.k==='search'&&/^me$/i.test(Scr.cur.q)){Scr.cur=null;Scr.quest=null;scrPaint();}Brief.start();}

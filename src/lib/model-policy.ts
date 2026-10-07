@@ -15,6 +15,10 @@ export function explicitModel(text: string): ModelChoice {
 export function heavyRequest(text: string) {
   return /\b(code|coding|build|implement|debug|bug|fix|refactor|review|audit|research|report|analy[sz]\w*|diagnos\w*|plan|compare|deep|complex|heavy|test|inspect|proof|derive|architecture|strategy)\b/i.test(text);
 }
+/** Work that earns the owner's full thinking level. Planning, daily stuff, reviews and checks run Sonnet at low effort in Auto. */
+export function deepRequest(text: string) {
+  return /\b(code|coding|build|implement|debug|bug|refactor|audit|research|analy[sz]\w*|diagnos\w*|deep|complex|heavy|proof|derive|architecture|strategy|think (?:hard|deeply))\b/i.test(text);
+}
 export function validateChoice(choice: ModelChoice = {}) {
   if(choice.provider && !['auto','claude','codex'].includes(choice.provider)) throw new Error('Choose Claude or ChatGPT / Codex.');
   if(choice.model && choice.model!=='auto') {
@@ -33,7 +37,9 @@ export function resolveModel(provider: 'claude'|'codex', text: string, choice: M
   const work=heavy||heavyRequest(text),light=provider==='claude'?'haiku':'gpt-6-luna',strong=provider==='claude'?'sonnet':'gpt-6.1-sol';
   const premium=manual&&['opus','gpt-6-astra'].includes(choice.model!);
   const model=manual?(premium&&choice.adaptive!==false?(work?choice.model!:light):choice.model!):(work?strong:light);
-  const effort=choice.effort && choice.effort!=='auto'?choice.effort:'low';
+  const picked=choice.effort && choice.effort!=='auto'?choice.effort:'low';
+  // Auto: the owner's level is a ceiling. Only deep work gets it; everyday Sonnet turns stay quick.
+  const effort=!manual&&!heavy&&!deepRequest(text)?'low':picked;
   if(provider==='claude' && ['xhigh','max'].includes(effort)) return {model,effort:'high'};
   return {model,effort};
 }
