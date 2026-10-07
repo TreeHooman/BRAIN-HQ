@@ -73,6 +73,7 @@ async function pcVoicePoll(){
     if(state.running&&!pcVoiceWasOn){upConversation(false);Wake.pause();}
     if(!state.running&&pcVoiceWasOn)Wake.resume();
     pcVoiceWasOn=state.running;
+    if(state.running&&!window.hqOverlay&&document.visibilityState==='visible')api('/desktop-overlay','POST',{action:'main-visible'}).catch(()=>{});
     const event=state.event;
     if(event?.target==='overlay'&&!window.hqOverlay)return;
     if(event&&event.at>pcVoiceLast){pcVoiceLast=event.at;if(Date.now()-event.at<20000&&(await api('/pc-voice/claim','POST',{at:event.at})).event){

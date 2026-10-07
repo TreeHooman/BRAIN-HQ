@@ -17,7 +17,9 @@ class AppWindow {
  static bool Overlay(bool hide=false){bool found=false;EnumWindows((w,d)=>{var text=new StringBuilder(512);GetWindowText(w,text,512);if(text.ToString().Equals("LUTHUR Hologram",StringComparison.OrdinalIgnoreCase)){
    found=true;if(hide){ShowWindow(w,0);return false;}ShowWindow(w,9);
    var info=new MonitorInfo();info.size=Marshal.SizeOf(info);GetMonitorInfo(MonitorFromWindow(GetForegroundWindow(),2),ref info);
-   int width=Math.Min(430,info.work.right-info.work.left-24),height=Math.Min(690,info.work.bottom-info.work.top-24);
+   // It shares the main window's browser profile, so it can open full screen; leave full screen first (F11).
+   if(FullScreen(w)){SetForegroundWindow(w);PostMessage(w,0x100,new IntPtr(0x7A),new IntPtr(1));PostMessage(w,0x101,new IntPtr(0x7A),new IntPtr(unchecked((int)0xC0000001)));Thread.Sleep(300);}
+   int width=Math.Min(330,info.work.right-info.work.left-24),height=Math.Min(440,info.work.bottom-info.work.top-24);
    // A translucent tool window stays above the owner's other apps; the full window is untouched.
    SetWindowLong(w,-20,GetWindowLong(w,-20)|0x80000|0x80);SetLayeredWindowAttributes(w,0,238,2);
    SetWindowPos(w,new IntPtr(-1),info.work.right-width-18,info.work.bottom-height-18,width,height,0x0040);SetForegroundWindow(w);return false;
@@ -44,7 +46,7 @@ class AppWindow {
     if(args.Length>0&&args[0]=="--check"){var monitor=new Rect{left=0,top=0,right=1920,bottom=1080};if(!SameBounds(monitor,monitor)||SameBounds(new Rect{left=-8,top=-8,right=1928,bottom=1048},monitor))return 1;Console.WriteLine("Single-window mutex and full-screen bounds checks passed.");return 0;}
     if(overlay?Overlay():Focus())return 0;
     string profile=System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"LUTHUR","window");
-    string launchArgs=" --app=http://localhost:"+port+(overlay?"/?overlay=1#command --window-size=430,690":"/ --start-fullscreen")+" --no-first-run --no-default-browser-check --user-data-dir=\""+profile+"\"";
+    string launchArgs=" --app=http://localhost:"+port+(overlay?"/?overlay=1#command --window-size=330,440":"/ --start-fullscreen")+" --no-first-run --no-default-browser-check --user-data-dir=\""+profile+"\"";
     bool launched=false;
     foreach(string browser in new[]{"chrome","msedge"}){try{Process.Start(new ProcessStartInfo(browser,launchArgs){UseShellExecute=true});launched=true;break;}catch{}}
     if(!launched){if(overlay)return 1;Process.Start("http://localhost:8800/");}

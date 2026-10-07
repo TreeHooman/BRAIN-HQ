@@ -15,3 +15,17 @@
 .hologram-mode .nv-ask{margin:10px 0;padding:5px;gap:5px;width:100%}.hologram-mode .nv-ask input{min-width:0;font-size:12px}.hologram-mode .nv-ask .btn{padding:8px}
 .hologram-mode .nv-reply{font-size:12px;margin:8px 0 42px;padding:10px;max-height:180px;overflow:auto;line-height:1.5}.hologram-mode .force-stop-button{bottom:12px;right:24px;font-size:11px}.hologram-mode #toast{max-width:calc(100vw - 32px);left:16px;bottom:55px}
 .hologram-mode .access-card{width:100%;max-width:340px;padding:20px}.hologram-mode #accessLock{padding:16px}
+/* Corner mini: a small orb and a chat box, nothing else (owner ask 2026-10-07). */
+.hologram-mode #view{padding:6px!important}
+.holo-surface{padding:8px;border-radius:16px;display:flex;flex-direction:column;gap:6px;min-height:calc(100vh - 14px);box-sizing:border-box}
+.holo-header{font-size:11px}.holo-header .btn{padding:3px 8px;font-size:11px;min-height:0}
+/* #view[data-view] beats the phone rules in polish.css, which also match this narrow window */
+.hologram-mode #view[data-view] .nv-stage{height:118px!important;min-height:118px!important;padding:0!important}
+.hologram-mode #view[data-view] .nv-core{width:112px!important;height:112px!important;margin:0!important}
+.hologram-mode #view[data-view] .nv-core canvas{width:100%!important;height:100%!important;inset:0!important;left:0!important;top:0!important}
+.hologram-mode .nv-core .nv-hud,.hologram-mode .nv-core-label,.hologram-mode .voice-core-status{display:none!important}
+.holo-work{padding:6px 8px;gap:2px}.holo-work small{display:none}.holo-work b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.holo-work span{max-height:30px}
+.hologram-mode .speech-feedback{margin:0;padding:6px 8px}
+.hologram-mode .nv-reply{flex:1;margin:0 0 34px;max-height:none;min-height:60px}
+.hologram-mode .nv-ask{margin:0}
+
