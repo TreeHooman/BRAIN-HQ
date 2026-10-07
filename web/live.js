@@ -515,13 +515,14 @@ const Wake = {
     r.onresult = e => {
       if (this.rec!==r||this.paused||!this.on||(typeof speechPlaybackBlocked==='function'&&speechPlaybackBlocked())) return;
       if(epoch!==this.turnId){segments.clear();carry="";epoch=this.turnId;}
-      for (let i = e.resultIndex; i < e.results.length; i++) segments.set(i,e.results[i][0].transcript.trim());
+      for (let i = e.resultIndex; i < e.results.length; i++) { const res=e.results[i],t=res[0].transcript.trim(); if(speechNoise(t,res.isFinal?res[0].confidence:0)) segments.delete(i); else segments.set(i,t); }
+      if(!segments.size&&!carry) return;
       const txt=speechJoin([carry,...[...segments].sort((a,b)=>a[0]-b[0]).map(x=>x[1])]);
       const final = e.results[e.results.length - 1].isFinal;
       this.heard(txt.trim(), final, true);
     };
     r.onstart=()=>{if(this.rec!==r||this.paused)return;this.ready=true;if(typeof speechStatus==='function')speechStatus('listening');};
-    r.onspeechstart=()=>{if(this.rec!==r||this.paused)return;if(typeof speechStatus==='function')speechStatus('hearing');};
+    // No "hearing" on onspeechstart: fans and wind fire it too. The status changes when real words arrive.
     r.onerror = e => { if(this.rec!==r)return;if(!['no-speech','aborted'].includes(e.error))this.ready=false;if(typeof speechStatus==='function'&&!['no-speech','aborted'].includes(e.error))speechStatus('mic-error',e.error);if (e.error === "not-allowed" || e.error === "service-not-allowed") { this.on = false; hstore.set("hq-wake", "0"); this.btn(); toast("Mic blocked. Allow the microphone for this site, then turn hands-free on again.", 6000); } else if(!['no-speech','aborted'].includes(e.error))this.fails++; };
     r.onend = () => { if(this.rec!==r)return;this.ready=false;this.rec = null; if (this.on && !this.paused && !document.hidden) setTimeout(() => this.start(), Math.min(4000, 250 + this.fails * 600)); };
     try { r.start(); this.fails = 0; } catch { this.ready=false;this.rec = null;if(typeof speechStatus==='function')speechStatus('mic-error','Microphone could not start. Press Retry mic.'); }
@@ -557,6 +558,13 @@ function speechJoin(parts) {
     out = out.concat(w.slice(skip));
   }
   return out.join(" ");
+}
+/** Fan, wind and room noise: the recognizer turns it into lone fillers ("uh", "the", "you") or low-confidence scraps. */
+const SPEECH_FILLER = new Set(["uh", "um", "umm", "hmm", "hm", "mm", "mhm", "ah", "oh", "huh", "eh", "the", "a", "an", "you", "i", "it", "and", "so", "in", "of", "to", "is", "ha", "shh"]);
+function speechNoise(text, confidence = 0) {
+  const words = String(text || "").toLowerCase().match(/[a-z0-9']+/g) || [];
+  if (!words.length || words.every(w => SPEECH_FILLER.has(w))) return true;
+  return confidence > 0 && confidence < 0.45 && words.length <= 3; // 0 = the browser gave no score
 }
 /** The turn as sent: a doubled final word ("briefing briefing") is a recognizer echo, not speech. */
 function speechTidy(text) { return String(text || "").trim().replace(/\b(\w+)(?:[\s,]+\1)+([.!?]*)$/i, "$1$2"); }

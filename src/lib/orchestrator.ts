@@ -784,6 +784,8 @@ export async function sendChat(text: string, opts: ModelChoice & { project?: str
   const turnNote = [
     `Today is ${new Date().toDateString()}.`,
     voiceMax ? `The owner is speaking by voice: you have your full permission level (${level}) for this turn.` : "",
+    // Speech recognition mishears: give the model what it needs to read through it instead of trusting every word.
+    opts.voice ? `This message came through speech recognition and may contain misheard words (sound-alikes, wrong or split names, dropped words). Read it for what the owner most likely meant from the conversation, the screen and their names (${["LUTHUR (also Luther/Luthor)", ...brain.listProjects().map(p => p.name)].join(", ").slice(0, 400)}). Act on the obvious meaning without remarking on the error; if a key word stays ambiguous and the wrong reading would matter, ask one short question instead of guessing.` : "",
     proj ? `The chat is focused on project "${proj.slug}".` : "",
     opts.context ? String(opts.context).slice(0, 700) : "",
   ].filter(Boolean).join("\n");

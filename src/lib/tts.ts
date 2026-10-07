@@ -24,7 +24,7 @@ export function save(b: any) {
   const patch: any = {};
   if (typeof b.apiKey === "string" && b.apiKey.trim()) {
     const k = b.apiKey.trim();
-    if (!/^[\w-]{20,120}$/.test(k)) throw err("That doesn't look like an ElevenLabs API key (Profile → API Keys).");
+    if (!/^sk_[\w-]{20,120}$/.test(k)) throw err("That isn't the API key. ElevenLabs keys start with sk_ and are shown once, when you create the key (not the key's ID).");
     patch.apiKey = k;
   }
   if (b.clearKey === true) { patch.apiKey = null; patch.enabled = false; }

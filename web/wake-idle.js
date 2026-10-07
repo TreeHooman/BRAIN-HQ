@@ -27,8 +27,9 @@ Wake.start=function(){
       recognizer[event]=function(...args){
         if(Wake.rec===recognizer){
           const wasSpeaking=WakeIdle.speaking;
-          WakeIdle.speaking=event==='onspeechstart';
-          if(event==='onspeechstart'||event==='onspeechend'||wasSpeaking)wakeIdleTouch();
+          // onspeechstart fires on fans and wind too, so it no longer keeps a conversation open.
+          WakeIdle.speaking=false;
+          if(wasSpeaking)wakeIdleTouch();
         }
         return previous?.apply(this,args);
       };

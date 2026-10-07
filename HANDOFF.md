@@ -24,6 +24,7 @@ the `.ts` files directly, with no npm dependencies.
 - `src/lib/codex.ts`: Codex CLI. Claude leads; Codex may take any run with the same permission (owner rule, 2026-10-07). `queue_followup` accepts `engine`. `src/lib/model-policy.ts`: Auto routing (Luna/Haiku for chat, Sol/Sonnet for work); Astra/Opus only when selected.
 - `src/lib/pc-control.ts`: chat-only PC control: `chrome_open` (owner's Chrome, open only), `app_open` (allowlist, `pc.apps` in config, `pc.enabled:false` turns all off), `browser_*` (drives LUTHUR's screen browser by element ref; passwords/payment refused, send/buy/post/delete clicks and non-search submits need `owner_confirmed`). MCP → server via `data/pc/req-*.json` / `res-*.json` (250 ms poll).
 - `src/lib/desktop-control.ts` + `scripts/pc-desktop.exe` (.cs): owner-started desktop control (screenshots, click, type, keys) with an always-on-top Stop/Allow bar. See `docs/DESKTOP-CONTROL.md`.
+- `src/lib/tts.ts` + `web/eleven-voice.js`: ElevenLabs voice. The page keeps calling `speechSynthesis`; the shim routes `speak()` to `/api/tts/speak` (MP3) and fakes `speaking`/`pending`/`cancel` and the utterance events, so voice modules need no changes. Key and voice live in `config/hq.local.json` (`elevenlabs`), never sent to the page; spoken text capped ~320 chars; on errors/no credits it falls back to the device voice (owner's pick, else best en-GB). Settings → Voice has the card.
 - `src/mcp/hq-brain.ts`: zero-dep stdio MCP. Write tools hidden at `read`; `chatOnly` tools only for `chat-*` runs; `code-*` runs get the small `CODE_SET`.
 - `src/lib/code.ts` + `code-manager.ts`: Code workrooms. LUTHUR manages, with at most 2 sequential workers + 1 review per turn and fresh context each turn. Notes are in `data/code/workrooms/<id>/`.
 - `src/lib/brain.ts`: all brain I/O; regenerates `brain/INDEX.md`. `src/lib/handoff.ts`: the auto block below.
@@ -46,11 +47,14 @@ Test orchestrator/engine changes on a COPY of HQ with `HQ_FAKE_CLAUDE=<fake cli 
 The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/relaxed-turing-tnsbre` (Settings → Updates, `src/lib/updater.ts`). Push only when the owner asks.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-07 10:32 UTC)
+## Current state (auto, 2026-10-07 21:41 UTC)
 - Stage: building · health: good
-- Next step: Update + Restart LUTHUR. Try "Luther, take control", then ask it to open Notepad and type a line (Allow on the bar). Also chrome_open/app_open and LUTHUR browser checks. Report anything off.
+- Next step: Restart LUTHUR. Save a real ElevenLabs key (starts sk_) in Settings → Voice, press Preview, then have a voice conversation with the fans on: it should speak in the LUTHUR voice and return to “Say Hey LUTHUR” after ~5 s of quiet.
 
 ### Waiting on the owner
+- ElevenLabs: Settings → Voice → paste the sk_ key, Save, Preview: LUTHUR speaks in the "LUTHUR" voice. With no credits it falls back to a British device voice.
+- Voice noise: talk with fans/wind going; when you stop, LUTHUR shows "Say Hey LUTHUR" after ~5 s and ignores everything until you say the name.
+- War Room conversation panel: opens on the newest message and stays there as replies arrive.
 - Voice: while LUTHUR talks, say "stop": it should go quiet and Hey LUTHUR stays on in Settings. Then ask something and talk over the answer: it should stop and answer you. Check the War Room 5H ring s…
 - Desktop control: say "Luther, take control", check the bar appears, then ask it to open Notepad and type a line (press Allow on the bar). Say "release control", then take control again: Notepad shoul…
 - Wake word: with LUTHUR on screen, "Hey LUTHUR" listens in the app (no hologram); minimized, a small corner hologram opens (not full screen).
@@ -64,6 +68,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-07 14:41 · claude**: ElevenLabs voice + voice/chat fixes (owner asks). src/lib/tts.ts + web/eleven-voice.js: ElevenLabs TTS (Flash v2.5) is the default voice when a key is saved; it routes speechSynthesis.speak() to /api/tts/speak and keeps the speechSynthesis API (speaking/pending/cancel, start/end/error events) so mic pausing/orb/hologr…
 - **2026-10-07 03:50 · claude**: Voice + usage fixes (owner reports). "Stop"/"shut up"/"LUTHUR stop" now only hush speech; force stop is "force stop"/"stop everything"/the button, and no stop turns off the Hey LUTHUR wake word any more (it was being disabled). Talking over LUTHUR silences it at once and sends what the owner said when the sentence end…
 - **2026-10-07 03:35 · claude**: Desktop control loosened (owner ask): app Allows are now remembered across sessions in data/pc/desktop-allowed.json (blocked apps filtered out on load); saying or typing "forget allowed apps" clears them (POST /api/desktop {forget:true}). Terminals are no longer view-only: once Allowed, LUTHUR can type and press keys …
 - **2026-10-07 03:15 · claude**: Desktop control (like Claude computer use). Owner says "Luther, take control" (dashboard-handled; the AI can't start it); scripts/pc-desktop.exe shows a top bar with Stop and per-app Allow/Deny; desktop_screenshot/click/type/key/scroll tools return screenshots. Refuses password fields, card-like numbers, LUTHUR's own …
@@ -71,6 +76,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-07 03:06 · claude**: PC control (owner asked for computer control; guardrailed instead of full control). chrome_open opens pages/searches in the owner's Chrome; app_open opens allowlisted apps (chrome, spotify, discord, vs code, file explorer, notepad, calculator, steam; pc.apps adds); browser_open/read/click/type/scroll/back drive LUTHUR…
 - **2026-10-07 02:52 · claude**: Interrupt by name: while LUTHUR speaks, "Luther, <request>" cancels playback and sends the new request (stop phrases, single words, interim results and LUTHUR's own words ignored). Screen-first: chat() ingests screen drops each second while busy and the poll applies this turn's screen during the reply; read-aloud wait…
 - **2026-10-07 02:46 · claude**: Faster voice turns. Early speech (web/voice-stream.js): the <spoken> sentence is spoken as soon as it appears in the 500ms partial poll, while the rest generates; the final reply is not repeated. Mid-thought pauses: turnPauseFor() waits longer (2x, +2s min, 6s max) when speech ends on a comma or words like and/so/um/b…
-- **2026-10-07 02:42 · claude**: Self-learning preferences (owner ask: learn constantly, improve on its own, anticipate). preference_suggest now saves inferred preferences active at once (id p-l-, shown "(learned)" in Settings), dedupes, accepts replaces=<id>, and when memory is full drops the oldest learned items, never explicit ones. Context budget…
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.

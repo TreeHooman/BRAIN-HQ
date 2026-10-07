@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Update + Restart LUTHUR. Try \"Luther, take control\", then ask it to open Notepad and type a line (Allow on the bar). Also chrome_open/app_open and LUTHUR browser checks. Report anything off.",
+  "nextStep": "Restart LUTHUR. Save a real ElevenLabs key (starts sk_) in Settings → Voice, press Preview, then have a voice conversation with the fans on: it should speak in the LUTHUR voice and return to “Say Hey LUTHUR” after ~5 s of quiet.",
   "updated": "2026-10-07",
   "paths": [],
   "repos": [],

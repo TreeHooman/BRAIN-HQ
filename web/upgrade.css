@@ -59,7 +59,7 @@ body.up-hud-hidden .top:focus-within { opacity:1; transform:none; pointer-events
 .code-workroom section { border-top:1px solid #6ff2ff22; padding:12px 0; }
 .code-workroom section > b { color:var(--text2); font:10px var(--mono); letter-spacing:.12em; }
 #cdWorkroom { max-height:260px; overflow:auto; scrollbar-width:thin; overflow-wrap:anywhere; }
-#cmdReply .up-chat-log { max-height:min(26dvh,240px); overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; overflow-wrap:anywhere; overscroll-behavior:contain; }
+#cmdReply .up-chat-log { max-height:min(62dvh,680px); overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; overflow-wrap:anywhere; overscroll-behavior:contain; }
 body:not(.hologram-mode) #cmdReply > .cmd-md { max-height:min(26dvh,240px); overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; overflow-wrap:anywhere; overscroll-behavior:contain; }
 #cmdReply .up-chat-log .cmd-md { max-height:none; overflow:visible; }
 #cmdReply .up-chat-log .you-said { white-space:normal; }
