@@ -12,7 +12,7 @@ function voiceActivity(){
   if(SpeechUI.phase==='sending')return {state:'sending',label:'SENDING',hint:ready?'Sending your words · mic is still on':'Sending your words'};
   if(busy)return {state:'thinking',label:'THINKING',hint:ready?'Working on your reply · mic is still on':'Working on your reply'};
   if(ready)return {state:'listening',label:'LISTENING',hint:'Mic ready · you can speak now'};
-  if(SpeechUI.phase==='wake'&&!UPG.conversation)return {state:'wake',label:'WAITING FOR YOUR NAME',hint:'Say “Hey LUTHUR” to start'};
+  if(SpeechUI.phase==='wake'&&!UPG.conversation)return {state:'wake',label:'SAY “HEY LUTHUR”',hint:'Say “Hey LUTHUR” to start'};
   if(SpeechUI.editing)return {state:'paused',label:'MIC PAUSED',hint:'Edit your words below, then send'};
   if(UPG.conversation&&Wake.paused)return {state:'paused',label:'MIC PAUSED',hint:'Wait for Listening before speaking'};
   if(UPG.conversation&&Wake.on)return {state:'connecting',label:'MIC CONNECTING',hint:'Wait for Listening before speaking'};

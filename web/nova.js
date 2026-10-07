@@ -453,7 +453,7 @@ function hudRings() {
     <circle class="h-hair" cx="200" cy="200" r="158"/><circle class="h-hair b" cx="200" cy="200" r="118"/>
     <g class="h-fan">${fan}</g>
     <g class="h-usage">${usage}</g>
-    <g class="h-right"><path d="${right}"/><text class="h-clock" id="hudClock" x="${pt(222, 0)[0]}" y="${pt(222, 0)[1]}"></text></g>
+    <g class="h-right"><path d="${right}"/><text class="h-clock" id="hudClock" x="${ux}" y="${(+uy + 50).toFixed(2)}"></text></g>
   </svg>`;
 }
 function hudFan(vals) {
