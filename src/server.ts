@@ -33,6 +33,7 @@ import * as todayPlan from "./lib/today.ts";
 import * as routines from "./lib/routines.ts";
 import * as browser from "./lib/browser.ts";
 import { startPcControl } from "./lib/pc-control.ts";
+import * as desktop from "./lib/desktop-control.ts";
 import { killAll, sweepOrphans } from "./lib/claude.ts";
 
 ensureLocalConfig();
@@ -239,7 +240,10 @@ const routes: [string, RegExp, Handler][] = [
   ["DELETE", /^\/api\/today\/items\/([\w-]{1,40})$/, m => todayPlan.remove(m[1])],
   ["GET", /^\/api\/models$/, () => MODEL_CATALOG],
   ["GET", /^\/api\/control$/, () => ({stopped:isStopped(),stopping:orch.status().chatBusy||orch.status().active.length>0||code.hasActiveWork()})],
-  ["POST", /^\/api\/control\/stop$/, () => {code.stopAll();return orch.forceStop();}],
+  ["POST", /^\/api\/control\/stop$/, () => {code.stopAll();desktop.end("Force stop.");return orch.forceStop();}],
+  // Desktop control: only the owner (this PIN-locked API) turns it on. The AI has no tool for it.
+  ["GET", /^\/api\/desktop$/, () => desktop.status()],
+  ["POST", /^\/api\/desktop$/, (_, b) => b.on === true ? desktop.start() : desktop.end("You released control.")],
   ["POST", /^\/api\/control\/resume$/, () => {if(code.hasActiveWork())throw new Error('Coding work is still stopping. Wait a moment, then resume.');return orch.resumeWork();}],
   ["GET", /^\/api\/chat$/, () => orch.chat()],
   ["GET", /^\/api\/pc-voice$/, () => pcVoice.status()],
@@ -433,7 +437,7 @@ server.listen(PORT, HOST, () => {
   if (!process.env.HQ_NO_ORCHESTRATOR) code.watchStart();
   seedGoals();
 });
-const shutdown = () => { orch.stop(); killAll(); browser.stop(); process.exit(0); };
+const shutdown = () => { orch.stop(); killAll(); browser.stop(); desktop.end("LUTHUR shut down."); process.exit(0); };
 process.on("exit", () => { killAll(); browser.stop(); });
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);

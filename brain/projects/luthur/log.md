@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-07 03:15 · claude
+Desktop control (like Claude computer use). Owner says "Luther, take control" (dashboard-handled; the AI can't start it); scripts/pc-desktop.exe shows a top bar with Stop and per-app Allow/Deny; desktop_screenshot/click/type/key/scroll tools return screenshots. Refuses password fields, card-like numbers, LUTHUR's own dashboard/bar, password managers and system tools; terminals view-only. Owner chose full control of their Chrome and 10 min idle / 60 min max. Live test (scratch copy): off-before-start, screenshot, own-bar refusal, end. Real clicks/typing not exercised. Update + Restart LUTHUR.
+
 ## 2026-10-07 03:20 · claude
 Wake word + hologram: "Hey LUTHUR" now goes to the main window when it is on screen (the page reports visibility to /desktop-overlay main-visible; pc-voice routes the event to target main) and only opens the hologram otherwise. Hologram is a 330x440 corner mini (small orb, one-line activity, chat box, reply); app-window.exe leaves inherited full screen first. Orb wake label reads SAY "HEY LUTHUR". Layout checked on a test copy; routing unit-checked; real mic untested.
 

@@ -11,6 +11,7 @@ import { spawn } from "node:child_process";
 import { DATA, DROP, readJson, uid, writeJson } from "./store.ts";
 import { loadConfig } from "./config.ts";
 import * as browser from "./browser.ts";
+import * as desktop from "./desktop-control.ts";
 
 export const PC_DIR = path.join(DATA, "pc");
 const err = (m: string) => new Error(m);
@@ -108,6 +109,12 @@ async function handle(req: any): Promise<string> {
     case "browser_click": return browserClick(a.ref, ok);
     case "browser_type": return browserType(a.ref, String(a.text || ""), a.submit === true, ok);
     case "browser_scroll": await browser.input({ type: "wheel", x: 400, y: 300, dy: a.up ? -700 : 700 }); await settle(); return read();
+    // Desktop control: answers carry a screenshot; the MCP turns {__image} into image content.
+    case "desktop_screenshot": return JSON.stringify({ __image: await desktop.screenshot() });
+    case "desktop_click": return JSON.stringify({ __image: await desktop.click(a) });
+    case "desktop_type": return JSON.stringify({ __image: await desktop.type(String(a.text || "")) });
+    case "desktop_key": return JSON.stringify({ __image: await desktop.key(String(a.key || "")) });
+    case "desktop_scroll": return JSON.stringify({ __image: await desktop.scroll(a) });
     case "browser_back": await browser.input({ type: "back" }); await settle(); return read();
     default: throw err("Unknown PC action.");
   }
