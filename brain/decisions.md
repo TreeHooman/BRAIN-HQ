@@ -2,6 +2,7 @@
 
 Newest first. What was decided, and why.
 
+- **2026-10-07** [hq] Claude stays in the main seat; Codex shares the brain and gets the same permission as Claude (up to build). Claude may deploy Codex whenever needed, and Codex covers chats and missions during Claude limits. _Why:_ owner wants Codex as a full backup, not a read/plan-only stand-in.
 - **2026-10-06** [loancentral] Prioritize LoanCentral growth in this order: survive Reddit API changes, strengthen Discord and explore other suitable outreach channels, bring relevant users to the website, then consider monetization after stable growth. _Why:_ The owner clarified that continuity comes first and revenue should wait until reach and website use are established.
 - **2026-10-05** [hq] HQ built as the business brain: plain files in /brain, Claude Code as the agent engine (subscription, no API bill), autonomy up to build (dev only). _Why:_ one place to plan and track every project, reusing Claude Code instead of rebuilding an agent loop.
 - **2026-10-03** [loancentral-discord] The Discord bot runs standalone as "LoanCentral" on the host PC (own SQLite, no Reddit data); separate Reddit and Discord dashboards one click apart.

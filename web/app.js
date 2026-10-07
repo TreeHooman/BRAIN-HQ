@@ -810,9 +810,9 @@ async function prefCardFill() {
   const data = await api("/preferences").catch(e => ({ confirmed: [], suggestions: [], error: e.message }));
   if (!$("#prefCard")) return;
   root.innerHTML = `${data.error ? `<div class="small">${esc(data.error)}</div>` : ""}
-    <div class="small muted">Only confirmed preferences guide replies. Suggestions wait for your decision. Full chats stay in History.</div>
+    <div class="small muted">LUTHUR learns these as you talk. Learned ones work right away; Forget any that are wrong. Full chats stay in History.</div>
     <div class="small" style="margin-top:10px"><b>Confirmed</b></div>
-    ${(data.confirmed || []).map(p => `<div class="row small" style="margin-top:6px"><span class="grow"><b>${esc(p.scope === "project" ? p.project : p.scope)}</b> · ${esc(p.text)}</span><button class="btn sm ghost" data-pref-remove="${esc(p.id)}">Forget</button></div>`).join("") || `<div class="small faint">No preferences saved yet.</div>`}
+    ${(data.confirmed || []).map(p => `<div class="row small" style="margin-top:6px"><span class="grow"><b>${esc(p.scope === "project" ? p.project : p.scope)}</b> · ${esc(p.text)}${p.id.startsWith("p-l-") ? ` <span class="faint">(learned)</span>` : ""}</span><button class="btn sm ghost" data-pref-remove="${esc(p.id)}">Forget</button></div>`).join("") || `<div class="small faint">No preferences saved yet.</div>`}
     <div class="small" style="margin-top:12px"><b>Suggestions</b></div>
     ${(data.suggestions || []).map(p => `<div class="row small" style="margin-top:6px"><span class="grow">${esc(p.text)} <span class="faint">(${esc(p.reason)})</span></span><button class="btn sm" data-pref-review="${esc(p.id)}" data-accept="1">Keep</button><button class="btn sm ghost" data-pref-review="${esc(p.id)}">Dismiss</button></div>`).join("") || `<div class="small faint">No suggestions waiting.</div>`}
     <div class="two" style="margin-top:12px"><label class="f">Scope<select id="prefScope"><option value="global">Everywhere</option><option value="challenger">Challenger</option><option value="project">Project</option></select></label><label class="f">Project<select id="prefProject">${projOptions("", "Choose project")}</select></label></div>

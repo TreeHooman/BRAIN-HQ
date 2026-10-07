@@ -1,6 +1,8 @@
 "use strict";
 const ModelConsole={ready:false,checking:null,catalog:{codex:[['auto','Auto · Luna / Sol 6.1'],['gpt-6-luna','Luna 6'],['gpt-6.1-sol','Sol 6.1'],['gpt-6-astra','Astra · adaptive']],claude:[['auto','Auto · Haiku / Sonnet'],['haiku','Haiku'],['sonnet','Latest Sonnet'],['opus','Opus · adaptive']]}};
-const modelEngine=()=>hstore.get('hq-model-engine','codex')==='claude'?'claude':'codex';
+// Claude is in the main seat (2026-10-07): one-time reset of the old Codex default; later picks are kept.
+if(!hstore.get('hq-engine-claude-default',false)){hstore.set('hq-model-engine','claude');hstore.set('hq-engine-claude-default',true);}
+const modelEngine=()=>hstore.get('hq-model-engine','claude')==='codex'?'codex':'claude';
 function modelPicked(engine){const model=hstore.get('hq-model-'+engine,'auto');return ModelConsole.catalog[engine].some(([id])=>id===model)?model:'auto';}
 function modelEffort(engine){const effort=hstore.get('hq-model-effort-'+engine,'low');return ['low','medium','high'].includes(effort)?effort:'low';}
 currentTier=function(){const pick=modelPicked(modelEngine());return ['haiku','gpt-6-luna','gpt-5.6-luna'].includes(pick)?'fast':'balanced';};

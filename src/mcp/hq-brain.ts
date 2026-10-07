@@ -53,9 +53,9 @@ const tools: Tool[] = [
     run: a => preferences.remember(a) },
   { name: "preference_remove", write: true, chatOnly: true, description: "Remove a confirmed preference by ID when the owner asks to forget it.",
     inputSchema: S({ id: str("preference id") }, ["id"]), run: a => preferences.remove(a.id) ? "Removed." : "No such preference." },
-  { name: "preference_suggest", write: true, chatOnly: true, description: "Propose a possible pattern from repeated owner behavior. It remains inactive until the owner confirms it. Do not suggest on every turn.",
-    inputSchema: S({ text: str("proposed preference"), scope: { type: "string", enum: ["global", "project", "challenger"] }, project: str("required for project scope"), reason: str("brief evidence for asking") }, ["text", "scope", "reason"]),
-    run: a => preferences.suggest(a) },
+  { name: "preference_suggest", write: true, chatOnly: true, description: "Save a preference you inferred from how the owner talks, corrects you or keeps choosing. It is active immediately (marked learned; the owner can forget it). Tell the owner in one short line what you picked up. Skip ones already known; pass replaces when it supersedes an older preference.",
+    inputSchema: S({ text: str("proposed preference"), scope: { type: "string", enum: ["global", "project", "challenger"] }, project: str("required for project scope"), reason: str("brief evidence"), replaces: str("optional id of an older preference this replaces") }, ["text", "scope", "reason"]),
+    run: a => { const p = preferences.suggest(a); return `Learned (${p.id}): ${p.text}`; } },
   { name: "preference_review", write: true, chatOnly: true, description: "Accept or reject a pending suggestion only after the owner explicitly decides.",
     inputSchema: S({ id: str("suggestion id"), accept: { type: "boolean" } }, ["id", "accept"]),
     run: a => preferences.review(a.id, a.accept === true) || "Rejected and removed." },
@@ -223,6 +223,7 @@ const tools: Tool[] = [
     inputSchema: S({ text: str("the brief in markdown") }, ["text"]), run: a => { brain.writeBrief(a.text); return "Brief saved."; } },
   { name: "queue_followup", write: true, description: "Queue a background mission for later (one project, small and specific). It can't have more permission than you.",
     inputSchema: S({ title: str("short title"), prompt: str("exact instructions for the next run"), project: str("project slug"), tier: TIER, permission: LEVELP,
+      engine: { type: "string", enum: ["claude", "codex"], description: "Optional. Claude is default; pick codex to hand this run to Codex (same permission) when Claude is busy, limited, or Codex suits the job." },
       owner_approved: { type: "boolean", description: "Chat only: true ONLY if the owner explicitly said in this conversation to run it without asking. Otherwise new tasks wait for their approval in HQ." } }, ["title", "prompt"]),
     run: a => { if (a.project && !brain.getProject(a.project)) throw new Error(`Unknown project ${a.project}`); drop("followup", { ...a, owner_approved: a.owner_approved === true }); return a.owner_approved === true ? "Queued. HQ will run it within budget." : "Sent to the owner for approval in HQ (it runs once they approve)."; } },
   { name: "request_approval", write: true, description: "Ask the owner to approve something beyond your permission (deploy, push, publish, anything live, public or irreversible). Describe exactly what would be done.",
@@ -236,7 +237,10 @@ const tools: Tool[] = [
     run: a => { drop("mission", a); return "Mission scheduled. It shows in HQ → Missions."; } },
 ];
 
-const visible = tools.filter(t => (!t.write || CAN_WRITE) && (!t.chatOnly || IS_CHAT) && (!t.name.startsWith("screen_") || !!ACTIVE_FILE) && !(String(process.env.HQ_RUN_ID||'').startsWith('code-')&&t.name==='queue_followup'));
+// Every tool definition is sent with every model call, so coding runs get only the brain tools they use (~45 -> ~16).
+const CODE_SET = new Set(["hq_index", "project_get", "project_log", "project_update", "project_write", "goal_list", "goal_step_done", "decision_log", "recent_decisions", "history_search", "chat_memory_search", "request_approval", "list_reminders", "reminder_add", "list_milestones", "milestone_add"]);
+const TOOLSET = process.env.HQ_TOOLSET || (RUN_ID.startsWith("code-") ? "code" : "");
+const visible = tools.filter(t => (TOOLSET !== "code" || CODE_SET.has(t.name)) && (!t.write || CAN_WRITE) && (!t.chatOnly || IS_CHAT) && (!t.name.startsWith("screen_") || !!ACTIVE_FILE) && !(String(process.env.HQ_RUN_ID||'').startsWith('code-')&&t.name==='queue_followup'));
 
 function reply(id: unknown, result?: unknown, error?: { code: number; message: string }) {
   process.stdout.write(JSON.stringify(error ? { jsonrpc: "2.0", id, error } : { jsonrpc: "2.0", id, result }) + "\n");

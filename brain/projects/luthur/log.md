@@ -1,5 +1,11 @@
 # Log
 
+## 2026-10-07 03:05 · claude
+Token + speed pass: text-only runs (Explain, briefings, brain-sync, Write with LUTHUR, memory cleanup, sign-in check) now run bare: no tools/MCP, own system prompt. They had been loading every account connector (~542k tokens) and failing; now ~2k. Settings sources off (drops duplicate CLAUDE.md/agent rules, ~1.5k/call). Code runs get 16 brain tools instead of 39. Chat system prompt is stable (per-turn facts moved into the message, so the prompt cache holds) and chats roll over to a fresh session with a compact handoff past 60k context. Auto HANDOFF.md block (src/lib/handoff.ts) replaces hand-written handoff notes; old notes in docs/HANDOFF-HISTORY.md. PIN hash removed from source (first PIN on a fresh install sets it). UI (web/polish.js/.css): phone War Room = orb, message box, Today/Upcoming/Needs you only; model controls fold to one row (phone: one chip); orb hint line removed; LUTHUR page conversation much taller; Code page "Talk to LUTHUR" box + clickable orchestrator node; Missions tiles and War Room vitals open their details. Verified on an isolated copy with fake Claude/Codex CLIs and real Haiku token measurements.
+
+## 2026-10-07 02:36 · claude
+Codex equal-permission backup (owner rule): Claude leads, Codex may take any run with the same permission. Removed the Codex plan cap in chat and the build-mission Claude-only gate; queue_followup gains optional engine claude|codex, carried through approvals and enqueue. Runs with extraAllow or a Claude session stay on Claude. Restart LUTHUR to activate.
+
 ## 2026-10-07 02:05 · claude
 Made music player movable with MUSIC drag header, X close, keyboard arrows, stored position and viewport bounds. Detached player stays open across outside clicks, with playback/volume/seek kept separate from dragging. Mocked browser verified movement, no music action from dragging, restored position, control click and resized containment. Installed syntax/hash verified; refresh to activate.
 

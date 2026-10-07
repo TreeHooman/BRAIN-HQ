@@ -1,0 +1,98 @@
+/* Loads last (see polish.js). */
+
+/* Orb: the state word is enough; no hint line under it in any state. */
+.voice-core-status > span { display: none !important; }
+
+/* Clickable summaries */
+.p-click { cursor: pointer; }
+.card.p-click:hover, .card.p-click:focus-visible { border-color: rgba(103, 232, 249, .45); box-shadow: 0 0 0 1px rgba(103, 232, 249, .18), 0 6px 24px rgba(0, 0, 0, .25); }
+.p-click:focus-visible { outline: 2px solid #67e8f9; outline-offset: 2px; }
+.nv-vital.p-click:hover { filter: brightness(1.25); }
+@keyframes pFlash { 0% { box-shadow: 0 0 0 2px rgba(103, 232, 249, .7); } 100% { box-shadow: 0 0 0 2px rgba(103, 232, 249, 0); } }
+.p-flash { animation: pFlash 1.4s ease-out; border-radius: 12px; }
+
+/* Model console folded to one row */
+.model-console { position: relative; }
+.model-console.mc-mini { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 8px; min-height: 0; height: auto; }
+.model-console.mc-mini .model-pair { display: contents; }
+.model-console.mc-mini .model-card:not([data-active="true"]) { display: none; }
+.model-console.mc-mini .model-card { display: flex; align-items: center; gap: 6px; padding: 0; margin: 0; border: 0; background: none; box-shadow: none; min-width: 0; flex: 0 0 auto; width: auto !important; max-width: 100% !important; }
+.model-console.mc-mini .model-card > :not(select):not(.model-effort) { display: none !important; }
+.model-console.mc-mini .model-card select { height: 30px; padding: 0 26px 0 8px; font-size: 13px; flex: 0 0 auto; width: auto; min-width: 150px; max-width: 200px; }
+.model-console.mc-mini .model-effort { display: inline-flex; gap: 2px; margin: 0; }
+.model-console.mc-mini .model-effort button { padding: 3px 8px; font-size: 11px; min-height: 0; line-height: 1.4; }
+.model-console.mc-mini .model-engine { display: inline-flex; gap: 4px; margin: 0; }
+.model-console.mc-mini .model-engine button { padding: 3px 9px; font-size: 11px; min-height: 0; }
+.model-console.mc-mini .model-connection:empty { display: none; }
+.mc-toggle { margin-left: auto; background: none; border: 0; color: var(--muted, #94a3b8); font-size: 11px; cursor: pointer; padding: 3px 6px; border-radius: 6px; }
+.mc-toggle:hover, .mc-toggle:focus-visible { color: #e2e8f0; background: rgba(148, 163, 184, .12); }
+.model-console:not(.mc-mini) .model-engine { position: relative; }
+.model-console:not(.mc-mini) .mc-toggle { position: absolute; top: 50%; right: 0; transform: translateY(-50%); }
+.nv-stage.has-model-console .model-console.mc-mini { width: auto; max-width: 100%; margin: 0 auto 6px; }
+
+/* LUTHUR page: conversation gets the space, usage strips become one small line each */
+#view[data-view="assistant"] .chat-tier { margin-bottom: 4px; }
+#view[data-view="assistant"] .chat-claude-usage { padding: 2px 10px; min-height: 0; font-size: 11px; gap: 8px; border-radius: 8px; margin: 2px 0; }
+#view[data-view="assistant"] .chat-claude-usage small { display: none; }
+#view[data-view="assistant"] .chat-log { min-height: max(320px, calc(100dvh - 430px)); }
+
+/* Code: talk to LUTHUR box */
+.cm-ask { margin: 10px 0 12px; padding: 12px 14px; display: grid; gap: 8px; }
+.cm-ask-l { display: grid; gap: 2px; }
+.cm-ask-l b { font-size: 14px; letter-spacing: .02em; }
+.cm-ask-l span { font-size: 12px; color: var(--muted, #94a3b8); }
+.cm-ask-row { display: flex; gap: 8px; align-items: flex-end; }
+.cm-ask-row select { flex: 0 0 auto; max-width: 180px; height: 38px; }
+.cm-ask-row textarea { flex: 1; min-height: 38px; resize: none; padding: 9px 10px; line-height: 1.35; }
+.cm-ask-row .btn { height: 38px; }
+.lv-hub.p-click:hover { filter: brightness(1.3); }
+
+/* ---------- phone ---------- */
+.m-model-chip { display: none; }
+@media (max-width: 760px) {
+  /* War Room on a phone is its own layout: LUTHUR, the message box, and what needs you. */
+  #view[data-view="command"] .nv-head, #view[data-view="command"] .nv-hud, #view[data-view="command"] .nv-core-label,
+  #view[data-view="command"] .nv-cmd .m-off { display: none !important; }
+  #view[data-view="command"]:not(.m-models-open) .war-models { display: none !important; }
+  #view[data-view="command"] .nv-core { width: 200px !important; height: 200px !important; margin: 6px auto 2px !important; }
+  .m-model-chip { display: block; margin: 0 auto 8px; padding: 5px 12px; border-radius: 999px; border: 1px solid rgba(148, 163, 184, .25); background: rgba(15, 23, 42, .55);
+    color: #94a3b8; font-size: 12px; min-height: 30px; }
+  .m-model-chip[aria-expanded="true"] { color: #e0f2fe; border-color: rgba(103, 232, 249, .5); }
+  /* War Room: compact stage (orb + controls), no project orbit or tip card */
+  #view[data-view="command"] #nvOrbit, #view[data-view="command"] #nvTip, #view[data-view="command"] #nvUsageNote { display: none !important; }
+  #view[data-view="command"] .nv-stage { min-height: 0 !important; height: auto !important; padding-bottom: 4px; }
+  #view[data-view="command"] .nv-core { margin: 4px auto; }
+  #view[data-view="command"] .nv-head { padding-bottom: 4px; }
+  #view[data-view="command"] .nv-vitals { gap: 4px; }
+  #view[data-view="command"] .nv-vital { padding: 3px 8px; font-size: 11px; }
+
+  /* One panel at a time */
+  .m-tabbar { position: sticky; top: 0; z-index: 5; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 8px 2px; margin: 4px 0 6px;
+    background: linear-gradient(180deg, rgba(5, 10, 24, .92), rgba(5, 10, 24, .75)); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .m-tabbar::-webkit-scrollbar { display: none; }
+  .m-tabbar button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(148, 163, 184, .25);
+    background: rgba(15, 23, 42, .6); color: #cbd5e1; font-size: 13px; font-weight: 600; min-height: 36px; }
+  .m-tabbar button b { font-size: 11px; min-width: 18px; padding: 1px 6px; border-radius: 999px; background: rgba(148, 163, 184, .2); color: #e2e8f0; }
+  .m-tabbar button[aria-selected="true"] { border-color: rgba(103, 232, 249, .6); background: rgba(103, 232, 249, .14); color: #e0f2fe; }
+  .nv-cmd.m-tabs .nv-panel:not(.m-on), .nv-cmd.m-tabs #nvScreen:not(.m-on) { display: none !important; }
+  .nv-cmd.m-tabs { row-gap: 6px !important; }
+  .nv-cmd.m-tabs .nv-l:not(:has(.m-on)), .nv-cmd.m-tabs .nv-r:not(:has(.m-on)) { display: none !important; }
+  .nv-cmd.m-tabs .nv-l, .nv-cmd.m-tabs .nv-r { margin: 0 !important; padding: 0 !important; gap: 0 !important; min-height: 0 !important; }
+  .nv-cmd.m-tabs .m-on { max-height: none !important; margin: 0 0 8px !important; transform: none !important; }
+
+  /* Model console row wraps nicely */
+  .model-console.mc-mini { justify-content: center; position: relative; z-index: 3; margin-bottom: 30px !important; }
+  .model-console.mc-mini .model-engine { flex: 1 1 100%; justify-content: center; }
+  .model-console.mc-mini .model-card select { min-width: 0 !important; width: 168px !important; max-width: 48vw !important; font-size: 14px !important; }
+  .model-console.mc-mini .mc-toggle { margin-left: 4px; }
+
+  /* LUTHUR page and Code on phone */
+  #view[data-view="assistant"] .chat-log { min-height: max(300px, calc(100dvh - 380px)); }
+  .cm-ask-row { flex-wrap: wrap; }
+  .cm-ask-row select { max-width: none; flex: 1 1 100%; }
+}
+
+/* Phone: the always-available Stop button stays, but as a small chip above the tab bar on the right */
+@media (max-width: 760px) {
+  .force-stop-button { left: auto !important; right: 12px !important; padding: 5px 10px !important; font-size: 11px !important; min-height: 0 !important; opacity: .9; }
+}

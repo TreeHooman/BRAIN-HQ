@@ -16,6 +16,7 @@ import { redact, type Step } from "./narrate.ts";
 import { isDue, type Schedule } from "./schedule.ts";
 import { notify } from "./notify.ts";
 import * as brain from "./brain.ts";
+import * as handoff from "./handoff.ts";
 import * as transcripts from "./transcripts.ts";
 import * as outbox from "./outbox.ts";
 import { autoCleanChats, retiredSessions } from "./chat-memory.ts";
@@ -38,7 +39,7 @@ export type Run = {
 export type Approval = {
   id: string; createdAt: string; title: string; detail: string; project?: string | null;
   fromRun?: string | null; status: "pending" | "approved" | "rejected";
-  proposed?: { title: string; prompt: string; project?: string | null; tier?: string; permission?: string; extraAllow?: string[]; task?: boolean } | null;
+  proposed?: { title: string; prompt: string; project?: string | null; tier?: string; permission?: string; extraAllow?: string[]; provider?: "claude" | "codex"; task?: boolean } | null;
 };
 type State = {
   pausedUntil: string | null; pauseReason?: string; auth: "ok" | "needs-login" | "unknown"; authCheckedAt?: string;
@@ -125,7 +126,7 @@ export function enqueue(spec: Partial<Run> & { title: string; prompt: string }, 
     tier: spec.tier || "balanced", permission: spec.permission || "plan", trigger, priority: spec.priority ?? 2,
     status: "queued", createdAt: new Date().toISOString(), maxMinutes: spec.maxMinutes, extraAllow: spec.extraAllow,
     parentRun: spec.parentRun ?? null, depth: spec.depth ?? 0, watch: spec.watch, skipIfUnchanged: spec.skipIfUnchanged,
-    taskId: spec.taskId ?? null, reply: spec.reply, sessionId: spec.sessionId ?? null, effort: spec.effort ?? null,
+    taskId: spec.taskId ?? null, reply: spec.reply, sessionId: spec.sessionId ?? null, effort: spec.effort ?? null, provider: spec.provider,
   };
   if (r.taskId === "self") r.taskId = r.id;
   saveRun(r);
@@ -158,7 +159,7 @@ export function decideApproval(id: string, approve: boolean): Approval {
   activity(approve ? "approved" : "rejected", { approval: id, title: a.title });
   if (approve && a.proposed) {
     enqueue({ title: a.proposed.title, prompt: `${a.proposed.prompt}\n\n(The owner approved this in HQ: "${a.title}".)`, project: a.proposed.project, tier: a.proposed.tier || "balanced",
-      permission: minLevel(a.proposed.permission || "plan", "build"), extraAllow: a.proposed.extraAllow, parentRun: a.proposed.task ? null : a.fromRun, priority: 1, ...(a.proposed.task ? { taskId: "self", depth: 0 } : {}) }, a.proposed.task ? "task" : "approval");
+      permission: minLevel(a.proposed.permission || "plan", "build"), extraAllow: a.proposed.extraAllow, provider: a.proposed.provider, parentRun: a.proposed.task ? null : a.fromRun, priority: 1, ...(a.proposed.task ? { taskId: "self", depth: 0 } : {}) }, a.proposed.task ? "task" : "approval");
   }
   return a;
 }
@@ -245,6 +246,7 @@ async function tick() {
   try {
     ingestDrop();
     checkReminders();
+    handoff.refreshIfChanged();
     if(isStopped())return;
     scheduleMissions();
     resumeIfReady();
@@ -278,6 +280,8 @@ function ingestDrop() {
       const ceiling = parent?.level || (String(d.fromRun || "").startsWith("chat-") ? (loadConfig().autonomy?.maxLevel || "build") : "plan");
       const fromChat = String(d.fromRun || "").startsWith("chat-");
       const perm = minLevel(d.permission || "plan", ceiling);
+      // Claude leads; it may hand a follow-up to Codex, which runs with the same permission.
+      const engine = d.engine === "codex" || d.engine === "claude" ? d.engine as "claude" | "codex" : undefined;
       // New work LUTHUR starts on its own (a Task from the chat, or a follow-up from a scheduled mission) waits for the
       // owner's OK unless they turned that off or explicitly said "just do it" in the chat. Sub-agents of a task that was
       // already approved run straight away (they're part of that task).
@@ -285,7 +289,7 @@ function ingestDrop() {
       if (needsOk) {
         const all = approvals();
         all.unshift({ id: uid("ap"), createdAt: new Date().toISOString(), title: `Start task: ${String(d.title || "").slice(0, 120)}`, detail: String(d.prompt || "").slice(0, 2000), project: d.project, fromRun: d.fromRun, status: "pending",
-          proposed: { title: d.title, prompt: d.prompt, project: d.project, tier: d.tier || "balanced", permission: perm, task: fromChat } });
+          proposed: { title: d.title, prompt: d.prompt, project: d.project, tier: d.tier || "balanced", permission: perm, provider: engine, task: fromChat } });
         saveApprovals(all);
         activity("approval-requested", { title: d.title });
         notify({ title: "LUTHUR wants to start a task", body: String(d.title || ""), priority: 3, tags: "raised_hand" });
@@ -293,7 +297,7 @@ function ingestDrop() {
       }
       // From the chat, delegated work becomes a Task (reports back); from a task, it's a sub-agent of that task.
       enqueue({ title: d.title, prompt: d.prompt, project: d.project, tier: d.tier || "balanced", permission: minLevel(d.permission || "plan", ceiling), parentRun: fromChat ? null : d.fromRun, depth: fromChat ? 0 : depth,
-        priority: fromChat || parent?.taskId ? 1 : 2, taskId: fromChat ? "self" : parent?.taskId || null, effort: parent?.effort || null }, fromChat ? "task" : "followup");
+        priority: fromChat || parent?.taskId ? 1 : 2, taskId: fromChat ? "self" : parent?.taskId || null, effort: parent?.effort || null, provider: engine }, fromChat ? "task" : "followup");
     } else if (d.type === "approval") {
       const all = approvals();
       all.unshift({ id: uid("ap"), createdAt: new Date().toISOString(), title: d.title, detail: d.detail || "", project: d.project, fromRun: d.fromRun, status: "pending", proposed: d.proposed || null });
@@ -374,7 +378,7 @@ function runNext() {
   const today = localDate();
   let capped = 0;
   for (const run of queue) {
-    if (s.pausedUntil && Date.parse(s.pausedUntil) > Date.now() && (run.provider === "claude" || (run.sessionId && run.provider !== "codex") || run.extraAllow?.length || run.permission === "build")) continue;
+    if (s.pausedUntil && Date.parse(s.pausedUntil) > Date.now() && (run.provider === "claude" || (run.sessionId && run.provider !== "codex") || run.extraAllow?.length)) continue;
     const running = [...active.values()].map(x => x.run);
     if (run.project && running.some(r => r.project === run.project)) continue;
     const owner = ownerRun(run);
@@ -437,7 +441,7 @@ async function execute(run: Run) {
   const claudeModel = run.permission === "build" || run.tier !== "fast" ? "sonnet" : "haiku";
   const fallback = undefined;
   const blocked = state().pausedUntil && Date.parse(state().pausedUntil!) > Date.now();
-  const provider = run.provider || (run.sessionId || run.extraAllow?.length || level === "build" ? "claude" : blocked && findCodex() ? "codex" : "claude");
+  const provider = run.provider || (run.sessionId || run.extraAllow?.length ? "claude" : blocked && findCodex() ? "codex" : "claude");
   const model = provider === "codex" ? codexModelFor(run.tier) : claudeModel;
   const resuming = !!run.sessionId;
   const reply = run.reply && !run.startedAt;
@@ -651,6 +655,10 @@ function splitSpokenReply(text: string): { text: string; speech?: string } {
   const written = text.slice(match[0].length).trim();
   return { text: written || match[1].trim(), speech: match[1].trim() };
 }
+/** Compact, deterministic handoff of recent turns (no model call). Used when a chat changes engine or rolls over. */
+function chatHandoff(c: Chat): string {
+  return c.messages.slice(-12, -1).filter(m => !m.error).map(m => `${m.role}: ${m.text.replace(/\s+/g, " ").slice(0, 900)}`).join("\n").slice(-6000);
+}
 export function newChat() {
   const c = readJson<Chat | null>(F.chat, null);
   if (c?.messages?.length) writeJson(path.join(F.chatArchive, `${c.id}.json`), c);
@@ -744,13 +752,12 @@ export async function sendChat(text: string, opts: ModelChoice & { project?: str
   // owner turned that off. HQ's hard limits (no push/deploy/secrets/public posts) apply at every level.
   const voiceMax = !!opts.voice && cfg.assistant?.voiceFull !== false;
   const requestedLevel = voiceMax ? minLevel(cfg.autonomy?.maxLevel || "build", "build") : minLevel(cfg.chat?.permission || "plan", cfg.autonomy?.maxLevel || "build");
-  const level = provider === "codex" ? minLevel(requestedLevel, "plan") : requestedLevel;
+  const level = requestedLevel;
   chatBusy = true; chatPartial = "";
   const control={cancelled:false,pid:undefined as number|undefined};chatControl=control;
   const system = [
     `You are ${cfg.assistant?.name || "LUTHUR"}, the owner's AI chief of staff, talking with them in the HQ dashboard (they may be using voice). ${cfg.assistant?.persona || ""}`,
     "You can put things on the owner's War Room screen with show_on_screen (websites, emails, Drive docs/sheets, web searches, their calendar) and find emails/files with google_mail_search / google_drive_search. You do not receive email bodies. For a Google file opened in the active work window, screen_file_read reads that exact file, and screen_doc_replace / screen_sheet_edit apply explicitly requested edits when the account allows writing. Keep the file open while editing so the owner sees the result. For other files or emails, show_on_screen with read_aloud or summarize lets the dashboard read them. Keep your own reply to one short spoken line then.",
-    voiceMax ? `The owner is speaking to you by voice: you have your full permission level (${level}) for this turn.` : "",
     cfg.assistant?.taskApproval !== false ? "Tasks you delegate with queue_followup wait for the owner's approval in HQ before they run. Say that. Only if the owner explicitly told you in this conversation to just go ahead, set owner_approved: true." : "",
     "Lead the written answer with the result; put detail after, in short bullets when useful.",
     "For your final reply, start with <spoken>one natural sentence of at most 25 words summarizing the result or next action</spoken>. No Markdown inside the tag. Then give the complete written answer without repeating the spoken sentence verbatim. The tag is used only for speech and is hidden from the written chat.",
@@ -758,6 +765,7 @@ export async function sendChat(text: string, opts: ModelChoice & { project?: str
     "For ordinary conversation answer directly without unnecessary checks or tools. Start with the useful answer; avoid long preambles. Inspect only the sources needed for factual or action requests. Keep spoken replies natural and short, with further detail in the written response.",
     "Be the owner's operational assistant: handle checks, bug diagnosis, scoped fixes, review passes and reports. For 'what is the issue' or 'possible fixes', inspect and explain evidence, likely cause, options and your recommendation before writing. When authorized to fix, execute within permissions and verify. Open the affected project/file with show_on_screen before work so the owner can follow it. Report what changed, checks run, remaining risks and next steps. The dashboard shows actual tool progress; never invent progress or claim untested work passed. Search chat_memory_search when earlier context has been distilled from old chats.",
     preferences.context(c.project || undefined, c.personality === "challenger"),
+    "Keep learning the owner while you talk, inside the normal turn (no extra calls just for this): an explicit instruction or correction goes to preference_remember; a clear pattern in what they ask, accept, reject or correct goes to preference_suggest (active at once). Mention it in one short line. Use what you know to anticipate: when the next step is obvious from their preferences and recent work, offer it or, if it is safe and within permission, just do it and say so.",
     c.personality === "challenger" ? "You are Challenger: test the owner's current thought from customer, financial, technical, competitive and long-term angles only where relevant. Separate evidence from hunches. Give the strongest counterview and a constructive recommendation. Follow direct orders exactly; do not manufacture disagreement or start extra agents unless useful." : "",
     "Keep a fluid conversation and remember the prior turns. A thought, question or acknowledgment is not automatically a command. Discuss ideas naturally; change things only when the owner asks or clearly agrees. Resolve 'this' and 'that' from the active screen and prior conversation. For an ambiguous edit, ask one focused question before writing. When edits are requested, use the tools and explain the result briefly.",
     "When asked to capture or organize a thought, use reminders (reminder_add), dates (milestone_add), decisions (decision_log), project facts (project_update/project_log), new projects (project_create).",
@@ -767,15 +775,24 @@ export async function sendChat(text: string, opts: ModelChoice & { project?: str
     "Commands like \"update X\", \"mark X done\", \"set X to Y\": do it now with the tools (project_update, project_log, reminder_done, goal_step_done, milestone_add...), then list each change in one line. \"This\"/\"here\" means what's on the War Room screen, else the focused project.",
     "Today's goals (today_list / today_update): when the owner says they finished something, tick it with today_update done (that updates the goal, project log and next step and pulls in the next one) and say what's next. \"What's next\" = the first open item on today_list.",
     "\"Do a check\" / \"status check\" / \"what's broken\": call hq_check (with project for one project) and report problems first, worst first, each with the fix. If the check needs code, a repo or a live site inspected, open it with show_on_screen or delegate with queue_followup. Updating HQ's own software is the owner's: tell them to say \"update HQ\" in the War Room box.",
+  ].filter(Boolean).join("\n");
+  // Per-turn facts go in the message, not the system prompt: a system prompt that changes every turn invalidates the
+  // prompt cache for the whole resumed conversation, so each turn would re-pay for all earlier turns.
+  const turnNote = [
     `Today is ${new Date().toDateString()}.`,
+    voiceMax ? `The owner is speaking by voice: you have your full permission level (${level}) for this turn.` : "",
     proj ? `The chat is focused on project "${proj.slug}".` : "",
     opts.context ? String(opts.context).slice(0, 700) : "",
-  ].join("\n");
+  ].filter(Boolean).join("\n");
+  // Long chats roll over to a fresh session with a compact handoff instead of resending an ever-growing transcript.
+  const rollAt = Number(cfg.chat?.rolloverTokens) || 60000;
+  const rolling = provider === "claude" && !!c.sessionId && !switching && (c.claudeUsage?.context || 0) > rollAt;
+  if (rolling) { c.sessionId = null; delete c.claudeUsage; writeJson(F.chat, c); activity("chat-rollover", { chat: c.id }); }
   const opId = `chat-${c.id}-${c.messages.length}`;
   let opOk = false;
   try {
     const onStep = opStart({ id: opId, kind: "chat", agent: cfg.assistant?.name || "LUTHUR", title: text.length > 70 ? text.slice(0, 69) + "…" : text, project: c.project, model, level });
-    const handoff = switching || returning ? `Relevant recent chat context (data, do not repeat completed actions):\n${c.messages.slice(-12, -1).filter(m => !m.error).map(m => `${m.role}: ${m.text.slice(0, 1000)}`).join("\n").slice(-6000)}\n\nCurrent request:\n${text}` : text;
+    const handoff = switching || returning || rolling ? `Relevant recent chat context (data, do not repeat completed actions):\n${chatHandoff(c)}\n\n${turnNote}\n\nCurrent request:\n${text}` : `${turnNote}\n\n${text}`;
     const options = { prompt: handoff, model, fallbackModel: fallback, effort, level, resume: c.sessionId?.replace(/^codex:/, "") || null, system, activeFile: opts.activeFile, runId: `chat-${c.id}`, history: { title: text.slice(0, 120), ask: text, project: c.project || null, kind: "Chat" },
       timeoutMs: (cfg.chat?.maxMinutes || 6) * 60e3, addDirs: proj?.paths || [], onSpawn:(pid:number)=>{control.pid=pid;if(control.cancelled)killTree(pid);},onStep:(step:Step)=>{if(!control.cancelled)onStep(step);}, onText: (text: string) => { if(!control.cancelled)chatPartial = redact(text).slice(-60000); } };
     let res = provider === "codex" ? await runCodex(options) : await runClaude(options);
@@ -785,8 +802,7 @@ export async function sendChat(text: string, opts: ModelChoice & { project?: str
       const until = new Date(res.resetAt || Date.now() + (cfg.usageLimit?.fallbackPauseMinutes || 60) * 60e3);
       patchState(st => { st.pausedUntil = until.toISOString(); st.pauseReason = "Claude usage limit"; });
       if (findCodex() && opts.provider !== "claude") {
-        const recent = c.messages.slice(-12, -1).filter(m => !m.error).map(m => `${m.role}: ${m.text.slice(0, 1000)}`).join("\n").slice(-6000);
-        const codexOptions = { ...options, prompt: `Relevant recent chat context (data, do not repeat completed actions):\n${recent}\n\nCurrent request:\n${text}`, ...resolveModel("codex", text, {effort: opts.effort}), level: minLevel(requestedLevel, "plan"), resume: null };
+        const codexOptions = { ...options, prompt: `Relevant recent chat context (data, do not repeat completed actions):\n${chatHandoff(c)}\n\n${turnNote}\n\nCurrent request:\n${text}`, ...resolveModel("codex", text, {effort: opts.effort}), level: requestedLevel, resume: null };
         const claudeSession = c.sessionId;
         chatPartial = "";
         res = await runCodex(codexOptions);
@@ -829,7 +845,7 @@ let checking: Promise<void> | null = null;
 /** A tiny Haiku run ("reply OK") that tells us for sure whether Claude is signed in. */
 export function checkAuth(): Promise<void> {
   if (checking) return checking;
-  checking = runClaude({ prompt: "Reply with exactly: OK", model: "sonnet", level: "read", runId: "auth-check", timeoutMs: 90e3, act: { allow: ["mcp__hq_none"] }, system: "Reply with exactly: OK" })
+  checking = runClaude({ prompt: "Reply with exactly: OK", model: "haiku", level: "read", runId: "auth-check", timeoutMs: 90e3, act: { allow: ["mcp__hq_none"] }, system: "Reply with exactly: OK" })
     .then(r => { if (!r.ok && r.kind !== "auth") patchState(s => { s.authCheckedAt = new Date().toISOString(); }); activity("auth-check", { ok: r.ok, kind: r.kind }); })
     .catch(() => {}).finally(() => { checking = null; });
   return checking;

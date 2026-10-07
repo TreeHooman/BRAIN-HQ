@@ -38,10 +38,10 @@ function cmpVer(a: string, b: string): number {
 }
 
 /** Writes the MCP config for one permission level: hq-brain (always) + extras allowed at that level. */
-export function mcpConfigFor(level: Level, runId = "adhoc", activeFile?: { acct: string; id: string }): string {
+export function mcpConfigFor(level: Level, runId = "adhoc", activeFile?: { acct: string; id: string }, toolset = ""): string {
   const extras = loadMcpExtras().mcpServers || {};
   const servers: Record<string, any> = {
-    "hq-brain": { command: process.execPath, args: ["--no-warnings", path.join(ROOT, "src", "mcp", "hq-brain.ts")], env: { HQ_LEVEL: level, HQ_RUN_ID: runId, HQ_ACTIVE_FILE: activeFile ? JSON.stringify(activeFile) : "" } },
+    "hq-brain": { command: process.execPath, args: ["--no-warnings", path.join(ROOT, "src", "mcp", "hq-brain.ts")], env: { HQ_LEVEL: level, HQ_RUN_ID: runId, HQ_ACTIVE_FILE: activeFile ? JSON.stringify(activeFile) : "", HQ_TOOLSET: toolset } },
   };
   for (const [name, def] of Object.entries<any>(extras)) {
     if (levelRank(def.minLevel || "read") <= levelRank(level)) { const { minLevel, ...rest } = def; servers[name] = rest; }
@@ -49,6 +49,12 @@ export function mcpConfigFor(level: Level, runId = "adhoc", activeFile?: { acct:
   const file = path.join(DATA, "mcp", `${runId}.json`);
   writeJson(file, { mcpServers: servers });
   return file;
+}
+
+let emptyMcpFile = "";
+function emptyMcp(): string {
+  if (!emptyMcpFile || !fs.existsSync(emptyMcpFile)) { emptyMcpFile = path.join(DATA, "mcp", "_none.json"); writeJson(emptyMcpFile, { mcpServers: {} }); }
+  return emptyMcpFile;
 }
 
 export type RunOptions = {
@@ -60,6 +66,11 @@ export type RunOptions = {
   onText?: (text: string) => void;
   /** Outbox executor: no built-in tools, no hq-brain, no agent rules; only these MCP tool prefixes (account connectors). */
   act?: { allow: string[] };
+  /** Text-only run (explain, briefings, compose, sync, checks): no tools, no MCP servers at all, and only `system` as the
+   *  system prompt (not Claude Code's coding prompt). Smallest and fastest possible call. */
+  bare?: boolean;
+  /** hq-brain tool profile. "code" = the small project/brain set coding runs need (default for code-* run ids). */
+  toolset?: "code" | "";
   /** Thinking effort (Claude Code --effort). Omitted = the model default. */
   effort?: string | null;
   /** Build-level code sessions only. safe = allowlisted commands; auto = any command except the blocked list;
@@ -81,6 +92,13 @@ export function effortArg(e: unknown, model: string): string | null { return typ
 
 export function buildArgs(o: RunOptions): string[] {
   const perms = loadPermissions();
+  // An act run that may call nothing is really a text-only run. Without --strict-mcp-config it would load every account
+  // connector (measured ~540k tokens: over the context limit, so the run failed), so treat it as bare.
+  if (o.bare || (o.act && !o.act.allow.some(a => a !== "mcp__hq_none"))) {
+    return ["-p", "--output-format", "stream-json", "--verbose", "--model", o.model, "--setting-sources", "",
+      "--strict-mcp-config", "--mcp-config", emptyMcp(), "--disable-slash-commands", "--tools", "",
+      "--system-prompt", o.system || "Answer briefly.", ...(effortArg(o.effort, o.model) ? ["--effort", o.effort as string] : [])];
+  }
   if (o.act) {
     // Account connectors (claude.ai Gmail/Calendar) only load without --strict-mcp-config. Everything else stays off:
     // no built-in tools, and only the approved connector's tools are allowed (the rest are denied in -p mode).
@@ -97,8 +115,10 @@ export function buildArgs(o: RunOptions): string[] {
   const args = [
     "-p", "--output-format", "stream-json", "--verbose", // one JSON event per line: feeds the live operations view
     "--model", o.model,
-    "--setting-sources", "project",          // skip user-level plugins/hooks: fewer tokens, predictable
-    "--strict-mcp-config", "--mcp-config", mcpConfigFor(o.level, o.runId, o.activeFile), // only HQ's MCP servers, not every connector
+    // No settings files at all: skips user plugins/hooks and HQ's developer CLAUDE.md (~1.5k tokens, and it repeated the
+    // agent rules that are appended below anyway). Measured: base drops from ~9.6k to ~8.1k tokens.
+    "--setting-sources", "",
+    "--strict-mcp-config", "--mcp-config", mcpConfigFor(o.level, o.runId, o.activeFile, o.toolset), // only HQ's MCP servers, not every connector
     "--disable-slash-commands",
     "--tools", (lv.tools || ["Read"]).join(","),
     "--append-system-prompt", [agentRules(), o.system || ""].join("\n\n"),

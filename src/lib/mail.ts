@@ -32,7 +32,7 @@ async function readTools(server: string): Promise<string[]> {
   if (Array.isArray(known) && known.length && known.every((t: string) => t.startsWith(toolPrefix(server)))) return known;
   const res = await runClaude({
     prompt: "List the exact names of every tool you can call, one per line, nothing else. Do not call any tool.",
-    model: modelFor("fast").model, level: "read", runId: "mail-tools", timeoutMs: 90e3, act: { allow: ["mcp__hq_none"] }, // nothing callable: it only names the tools it sees
+    model: modelFor("fast").model, level: "read", runId: "mail-tools", timeoutMs: 90e3, act: { allow: ["mcp__hq_list_only"] }, // loads connectors but nothing is callable: it only names the tools it sees
     system: "Reply only with tool names, one per line.",
   });
   const p = toolPrefix(server);
