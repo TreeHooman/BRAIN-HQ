@@ -46,12 +46,12 @@ Test orchestrator/engine changes on a COPY of HQ with `HQ_FAKE_CLAUDE=<fake cli 
 The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/relaxed-turing-tnsbre` (Settings → Updates, `src/lib/updater.ts`). Push only when the owner asks.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-07 10:15 UTC)
+## Current state (auto, 2026-10-07 10:19 UTC)
 - Stage: building · health: good
 - Next step: Update + Restart LUTHUR. Try "Luther, take control", then ask it to open Notepad and type a line (Allow on the bar). Also chrome_open/app_open and LUTHUR browser checks. Report anything off.
 
 ### Waiting on the owner
-- Desktop control: say "Luther, take control", check the bar appears, then ask it to open Notepad and type a line (press Allow on the bar). Say "release control" after.
+- Desktop control: say "Luther, take control", check the bar appears, then ask it to open Notepad and type a line (press Allow on the bar). Say "release control", then take control again: Notepad shoul…
 - Wake word: with LUTHUR on screen, "Hey LUTHUR" listens in the app (no hologram); minimized, a small corner hologram opens (not full screen).
 - PC control: say "Luther, pull up YouTube in Chrome", "open Spotify", then "find red running shoes on Amazon" (LUTHUR's browser on the War Room). It must ask before anything like Buy or Send.
 - Voice: while LUTHUR is talking, say "Luther, open my calendar": it should stop and do the new request. Screens should open while it is still answering.
@@ -63,6 +63,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-07 03:35 · claude**: Desktop control loosened (owner ask): app Allows are now remembered across sessions in data/pc/desktop-allowed.json (blocked apps filtered out on load); saying or typing "forget allowed apps" clears them (POST /api/desktop {forget:true}). Terminals are no longer view-only: once Allowed, LUTHUR can type and press keys …
 - **2026-10-07 03:15 · claude**: Desktop control (like Claude computer use). Owner says "Luther, take control" (dashboard-handled; the AI can't start it); scripts/pc-desktop.exe shows a top bar with Stop and per-app Allow/Deny; desktop_screenshot/click/type/key/scroll tools return screenshots. Refuses password fields, card-like numbers, LUTHUR's own …
 - **2026-10-07 03:20 · claude**: Wake word + hologram: "Hey LUTHUR" now goes to the main window when it is on screen (the page reports visibility to /desktop-overlay main-visible; pc-voice routes the event to target main) and only opens the hologram otherwise. Hologram is a 330x440 corner mini (small orb, one-line activity, chat box, reply); app-wind…
 - **2026-10-07 03:06 · claude**: PC control (owner asked for computer control; guardrailed instead of full control). chrome_open opens pages/searches in the owner's Chrome; app_open opens allowlisted apps (chrome, spotify, discord, vs code, file explorer, notepad, calculator, steam; pc.apps adds); browser_open/read/click/type/scroll/back drive LUTHUR…
@@ -70,6 +71,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-07 02:46 · claude**: Faster voice turns. Early speech (web/voice-stream.js): the <spoken> sentence is spoken as soon as it appears in the 500ms partial poll, while the rest generates; the final reply is not repeated. Mid-thought pauses: turnPauseFor() waits longer (2x, +2s min, 6s max) when speech ends on a comma or words like and/so/um/b…
 - **2026-10-07 02:42 · claude**: Self-learning preferences (owner ask: learn constantly, improve on its own, anticipate). preference_suggest now saves inferred preferences active at once (id p-l-, shown "(learned)" in Settings), dedupes, accepts replaces=<id>, and when memory is full drops the oldest learned items, never explicit ones. Context budget…
 - **2026-10-07 03:05 · claude**: Token + speed pass: text-only runs (Explain, briefings, brain-sync, Write with LUTHUR, memory cleanup, sign-in check) now run bare: no tools/MCP, own system prompt. They had been loading every account connector (~542k tokens) and failing; now ~2k. Settings sources off (drops duplicate CLAUDE.md/agent rules, ~1.5k/call…
-- **2026-10-07 02:36 · claude**: Codex equal-permission backup (owner rule): Claude leads, Codex may take any run with the same permission. Removed the Codex plan cap in chat and the build-mission Claude-only gate; queue_followup gains optional engine claude|codex, carried through approvals and enqueue. Runs with extraAllow or a Claude session stay o…
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.

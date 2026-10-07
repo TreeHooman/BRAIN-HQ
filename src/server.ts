@@ -243,7 +243,7 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/control\/stop$/, () => {code.stopAll();desktop.end("Force stop.");return orch.forceStop();}],
   // Desktop control: only the owner (this PIN-locked API) turns it on. The AI has no tool for it.
   ["GET", /^\/api\/desktop$/, () => desktop.status()],
-  ["POST", /^\/api\/desktop$/, (_, b) => b.on === true ? desktop.start() : desktop.end("You released control.")],
+  ["POST", /^\/api\/desktop$/, (_, b) => b.forget === true ? desktop.forgetAllowed() : b.on === true ? desktop.start() : desktop.end("You released control.")],
   ["POST", /^\/api\/control\/resume$/, () => {if(code.hasActiveWork())throw new Error('Coding work is still stopping. Wait a moment, then resume.');return orch.resumeWork();}],
   ["GET", /^\/api\/chat$/, () => orch.chat()],
   ["GET", /^\/api\/pc-voice$/, () => pcVoice.status()],

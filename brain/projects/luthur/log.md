@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-07 03:35 · claude
+Desktop control loosened (owner ask): app Allows are now remembered across sessions in data/pc/desktop-allowed.json (blocked apps filtered out on load); saying or typing "forget allowed apps" clears them (POST /api/desktop {forget:true}). Terminals are no longer view-only: once Allowed, LUTHUR can type and press keys in cmd/PowerShell/Windows Terminal. Deny still lasts one session; owner-only start, password/card refusal and own-dashboard block unchanged. Persistence/forget tested on a scratch copy. Update + Restart LUTHUR.
+
 ## 2026-10-07 03:15 · claude
 Desktop control (like Claude computer use). Owner says "Luther, take control" (dashboard-handled; the AI can't start it); scripts/pc-desktop.exe shows a top bar with Stop and per-app Allow/Deny; desktop_screenshot/click/type/key/scroll tools return screenshots. Refuses password fields, card-like numbers, LUTHUR's own dashboard/bar, password managers and system tools; terminals view-only. Owner chose full control of their Chrome and 10 min idle / 60 min max. Live test (scratch copy): off-before-start, screenshot, own-bar refusal, end. Real clicks/typing not exercised. Update + Restart LUTHUR.
 
