@@ -430,6 +430,7 @@ server.listen(PORT, HOST, () => {
   console.log(`HQ running → http://localhost:${PORT}`);
   if (!process.env.HQ_FAKE_CLAUDE) { const n = sweepOrphans(); if (n) console.log(`Stopped ${n} leftover agent process${n > 1 ? "es" : ""} from a previous run`); }
   if (!process.env.HQ_NO_ORCHESTRATOR) orch.start();
+  if (!process.env.HQ_NO_ORCHESTRATOR) usage.startClaudeLimits();
   startPcControl();
   cal.kick();
   outbox.recover();

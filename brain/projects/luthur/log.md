@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-07 03:50 · claude
+Voice + usage fixes (owner reports). "Stop"/"shut up"/"LUTHUR stop" now only hush speech; force stop is "force stop"/"stop everything"/the button, and no stop turns off the Hey LUTHUR wake word any more (it was being disabled). Talking over LUTHUR silences it at once and sends what the owner said when the sentence ends, with a note so it answers first and may finish its thought (echo of its own words ignored). Stop button and notifications moved to the bottom right. Claude 5-hour/weekly usage was never filled in (run events carry no percentage until near the limit): server now reads the CLI's /usage every 4 min (local command, no tokens) into data/usage-rates.json; scratch test read 83% / 11%. Phrase/echo logic unit-checked; live mic untested.
+
 ## 2026-10-07 03:35 · claude
 Desktop control loosened (owner ask): app Allows are now remembered across sessions in data/pc/desktop-allowed.json (blocked apps filtered out on load); saying or typing "forget allowed apps" clears them (POST /api/desktop {forget:true}). Terminals are no longer view-only: once Allowed, LUTHUR can type and press keys in cmd/PowerShell/Windows Terminal. Deny still lasts one session; owner-only start, password/card refusal and own-dashboard block unchanged. Persistence/forget tested on a scratch copy. Update + Restart LUTHUR.
 

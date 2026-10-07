@@ -5,7 +5,7 @@ function usageRateView(rate,percent=false){
   const now=Date.now(),at=typeof rate.at==='number'?rate.at:Date.parse(rate.at),reset=Number(rate.resetsAt)||null;
   const fresh=!rate.failed&&Number.isFinite(at)&&now-at<=300000&&now>=at-60000&&(!reset||reset>now);
   const raw=percent?rate.usedPercent:rate.utilization,known=typeof raw==='number'&&Number.isFinite(raw);
-  const value=known?Math.max(0,Math.min(100,percent?raw:rate.utilizationUnit==='fraction'||raw<=1?raw*100:raw)):rate.status==='rejected'?100:null;
+  const value=known?Math.max(0,Math.min(100,percent||rate.utilizationUnit==='percent'?raw:rate.utilizationUnit==='fraction'||raw<=1?raw*100:raw)):rate.status==='rejected'?100:null;
   const expired=reset&&reset<=now;
   const stamp=Number.isFinite(at)?new Date(at).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):'unknown';
   return {value:fresh?value:null,label:fresh&&value!==null?`${Math.round(value)}% used`:expired?'awaiting reset update':value!==null?`stale · last ${Math.round(value)}%`:'unavailable',detail:`${percent?'Account reading':'Last CLI report'}: ${stamp}${reset?'; resets '+new Date(reset).toLocaleString():''}. ${!fresh?'Not a current reading.':''}`,reset:fresh?reset:null};

@@ -1,10 +1,11 @@
 // Usage ledger: every Claude run (Code, chat, missions, inbox, explain…) is logged with what the CLI reported, so the
 // Code page can show today / this week, where it went, and the plan limit. Numbers come from Claude Code's own output;
 // cost is the pay-per-use equivalent (on a subscription it counts toward your plan, it isn't billed).
+import { execFile } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { DATA, readJson, writeJson } from "./store.ts";
-import { onRunResult } from "./claude.ts";
+import { findClaude, onRunResult } from "./claude.ts";
 
 const FILE = path.join(DATA, "usage.jsonl"), RATE = path.join(DATA, "usage-rate.json"), RATES = path.join(DATA, "usage-rates.json");
 const rateBucket = (type: string) => /five|5.?hour/i.test(type) ? "fiveHour" : /seven|week/i.test(type) ? "weekly" : "other";
@@ -25,7 +26,10 @@ onRunResult((r, o) => {
     const rate = { ...st.rate, at: st.rate.at || row.at };
     writeJson(RATE, rate);
     const rates = readJson<Record<string, any>>(RATES, {});
-    rates[rateBucket(String(rate.type || ""))] = rate;
+    const bucket = rateBucket(String(rate.type || "")), prev = rates[bucket];
+    // Run events only carry a percentage near the limit; keep the last /usage reading for the same window.
+    if (rate.utilization == null && prev?.utilization != null && Math.abs(Number(prev.resetsAt) - Number(rate.resetsAt)) < 120e3) Object.assign(rate, { utilization: prev.utilization, utilizationUnit: prev.utilizationUnit });
+    rates[bucket] = rate;
     writeJson(RATES, rates);
   }
   if (r.kind === "limit") {
@@ -57,4 +61,33 @@ export function summary() {
   const rate = readJson<any>(RATE, null), rates = readJson<Record<string, any>>(RATES, {});
   if (rate?.type && !rates[rateBucket(String(rate.type))]) rates[rateBucket(String(rate.type))] = rate;
   return { today, week, hour5, days: days.map(({ start, ...d }) => d), bySrc, byModel, rate, rates, since: rows[0]?.at || null };
+}
+
+// Real 5-hour/weekly percentages: the CLI's /usage is a local command in print mode (no model call, no tokens) and its
+// stream-json result carries usage_report.rate_limits. Run events alone only report a percentage near the limit.
+export function readClaudeLimits(): Promise<boolean> {
+  const bin = process.env.HQ_FAKE_CLAUDE ? null : findClaude();
+  if (!bin) return Promise.resolve(false);
+  return new Promise(resolve => {
+    execFile(bin, ["-p", "/usage", "--output-format", "stream-json", "--verbose", "--strict-mcp-config", "--setting-sources", "", "--no-session-persistence"],
+      { timeout: 60e3, windowsHide: true, maxBuffer: 8e6, env: { ...process.env, MSYS_NO_PATHCONV: "1" } }, (_e, out) => {
+        let limits: any[] | null = null;
+        for (const line of String(out || "").split(/\r?\n/)) { try { const j = JSON.parse(line); if (j?.usage_report?.rate_limits?.limits) limits = j.usage_report.rate_limits.limits; } catch {} }
+        if (!limits) return resolve(false);
+        const rates = readJson<Record<string, any>>(RATES, {}), at = new Date().toISOString();
+        for (const l of limits) {
+          const bucket = l.group === "session" || l.kind === "session" ? "fiveHour" : l.kind === "weekly_all" ? "weekly" : null;
+          if (!bucket || typeof l.percent !== "number") continue;
+          rates[bucket] = { status: l.percent >= 100 ? "rejected" : "allowed", type: bucket === "fiveHour" ? "five_hour" : "seven_day", resetsAt: Date.parse(l.resets_at) || null, utilization: l.percent, utilizationUnit: "percent", at, source: "usage" };
+        }
+        writeJson(RATES, rates);
+        resolve(true);
+      });
+  });
+}
+let limitsTimer: NodeJS.Timeout | null = null;
+export function startClaudeLimits(everyMs = 4 * 60e3) {
+  if (limitsTimer) return;
+  void readClaudeLimits();
+  limitsTimer = setInterval(() => void readClaudeLimits(), everyMs);
 }
