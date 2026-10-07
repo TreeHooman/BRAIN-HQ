@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Restart LUTHUR. Save a real ElevenLabs key (starts sk_) in Settings → Voice, press Preview, then have a voice conversation with the fans on: it should speak in the LUTHUR voice and return to “Say Hey LUTHUR” after ~5 s of quiet.",
+  "nextStep": "Restart LUTHUR so the phase 0 guard goes live, then check that a Codex build task on GenBot runs normally. Next build: phase 1 (brain audit + Undo, docs/AUTONOMY-DESIGN.md).",
   "updated": "2026-10-07",
   "paths": [],
   "repos": [],

@@ -7,6 +7,7 @@ import path from "node:path";
 import { DATA, ROOT, writeJson } from "./store.ts";
 import { loadConfig, loadMcpExtras, loadPermissions, agentRules, levelRank, type Level } from "./config.ts";
 import { createNarrator, type Step } from "./narrate.ts";
+import { guarded } from "./guard.ts";
 
 let cachedBin: { bin: string | null; at: number } | null = null;
 
@@ -141,7 +142,7 @@ export function buildArgs(o: RunOptions): string[] {
 const resultListeners = new Set<(r: RunResult, o: RunOptions) => void>();
 export function onRunResult(fn: (r: RunResult, o: RunOptions) => void) { resultListeners.add(fn); }
 export function runClaude(o: RunOptions): Promise<RunResult> {
-  return runClaudeInner(o).then(r => { for (const fn of resultListeners) { try { fn(r, o); } catch {} } return r; });
+  return guarded(o.runId, o.level, () => runClaudeInner(o)).then(r => { for (const fn of resultListeners) { try { fn(r, o); } catch {} } return r; });
 }
 function runClaudeInner(o: RunOptions): Promise<RunResult> {
   const fake = process.env.HQ_FAKE_CLAUDE; // test seam: a JS file that imitates the CLI

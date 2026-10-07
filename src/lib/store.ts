@@ -21,7 +21,16 @@ export function readJson<T>(file: string, fallback: T): T {
   try { return JSON.parse(fs.readFileSync(file, "utf8").replace(/^\uFEFF/, "")) as T; } catch { return fallback; }
 }
 
+const writeHooks: ((file: string) => void)[] = [];
+/** Called after HQ itself writes a file (guard.ts uses it to tell the server's own writes from an agent's). */
+export function onWrite(fn: (file: string) => void) { writeHooks.push(fn); }
+
 export function writeText(file: string, text: string): void {
+  writeTextRaw(file, text);
+  for (const fn of writeHooks) try { fn(file); } catch {}
+}
+
+function writeTextRaw(file: string, text: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
   fs.writeFileSync(tmp, text);

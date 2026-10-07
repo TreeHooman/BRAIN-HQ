@@ -32,7 +32,7 @@ export type Run = {
   status: "queued" | "running" | "done" | "failed" | "paused" | "skipped" | "timeout" | "cancelled";
   createdAt: string; startedAt?: string; endedAt?: string; sessionId?: string | null;
   output?: string; error?: string; model?: string; provider?: "claude" | "codex"; durationMs?: number; maxMinutes?: number;
-  extraAllow?: string[]; parentRun?: string | null; depth: number; followups?: number;
+  extraAllow?: string[]; parentRun?: string | null; depth: number; followups?: number; restarts?: number;
   watch?: string[]; skipIfUnchanged?: boolean;
   taskId?: string | null; reply?: boolean; reportedAt?: string; effort?: string | null; dismissed?: boolean; ownerDone?: boolean;
 };
@@ -58,6 +58,7 @@ const F = {
   chatArchive: path.join(DATA, "chat", "archive"),
 };
 const MAX_DEPTH = 3;
+const MAX_RESTARTS = 2;
 const KEEP_RUNS = 300;
 
 // ---------------- persistence ----------------
@@ -229,8 +230,17 @@ let ticking = false;
 export function start() {
   fs.mkdirSync(DROP, { recursive: true });
   loadRuns();
-  // A crash mid-run leaves "running" records; put them back in the queue.
-  for (const r of runCache.values()) if (r.status === "running") { r.status = "queued"; saveRun(r); }
+  // A crash mid-run leaves "running" records; put them back in the queue, but only twice: a run that keeps
+  // taking HQ down (or keeps being cut off by restarts) fails instead of looping forever.
+  for (const r of runCache.values()) if (r.status === "running") {
+    r.restarts = (r.restarts ?? 0) + 1;
+    if (r.restarts > MAX_RESTARTS) {
+      Object.assign(r, { status: "failed", endedAt: new Date().toISOString(), error: `Stopped after HQ restarted ${r.restarts} times while it was running. Start it again if you still need it.` });
+      activity("run-crash-loop", { run: r.id, title: r.title });
+      notify({ title: "LUTHUR stopped a task that kept getting cut off", body: r.title, priority: 3, tags: "warning" });
+    } else r.status = "queued";
+    saveRun(r);
+  }
   brain.regenerateIndex();
   timer = setInterval(() => void tick(), 30_000);
   setTimeout(() => void tick(), 2000);
@@ -259,14 +269,26 @@ async function tick() {
   } finally { ticking = false; }
 }
 
+/** An unreadable request is kept (not deleted) so nothing an agent asked for vanishes silently. Keeps the newest 50. */
+function deadLetter(file: string, name: string) {
+  const dir = path.join(DROP, "bad");
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.renameSync(file, path.join(dir, `${Date.now()}-${name}`));
+    const old = fs.readdirSync(dir).sort().slice(0, -50);
+    for (const x of old) try { fs.unlinkSync(path.join(dir, x)); } catch {}
+  } catch { return; } // locked (OneDrive/editor): try again next tick
+  activity("drop-unreadable", { file: name });
+}
+
 function ingestDrop() {
   let files: string[] = [];
   try { files = fs.readdirSync(DROP).filter(f => f.endsWith(".json")); } catch { return; }
   for (const f of files) {
     const file = path.join(DROP, f);
     const d = readJson<any>(file, null);
+    if (!d || typeof d !== "object") { deadLetter(file, f); continue; }
     try { fs.unlinkSync(file); } catch {}
-    if (!d) continue;
     if(isStopped()&&['followup','screen','mission'].includes(d.type))continue;
     const parent = d.fromRun ? runCache.get(d.fromRun) : undefined;
     if (d.type === "followup") {

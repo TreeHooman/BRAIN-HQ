@@ -21,6 +21,7 @@ the `.ts` files directly, with no npm dependencies.
   - normal: tools per permission level + hq-brain MCP only (`--strict-mcp-config`), `--setting-sources ""`, agent rules appended.
   - `bare` (and any `act` run that allows nothing): no tools, no MCP, `--system-prompt` only (~2k tokens). Use it for every text-only job.
   - `act`: Outbox sends through account connectors (loads every connector, which is huge; avoid).
+- `src/lib/guard.ts`: code-enforced limits for every `build` run (Claude and Codex). Codex build runs work in the first safe project folder (never HQ, a folder around it, or LoanCentral-Test; else `data/codex-work`). HQ's `config/`, `src/` and `scripts/` are snapshotted before the run: `config/`+`scripts/` changes are put back, `src/` changes are reported (owner may be editing), and copies go to `data/guard/<run>/` + `log.jsonl`. HQ's own writes (`store.writeText`) update the snapshot. Unreadable `data/drop` files go to `drop/bad/` (newest 50); a run cut off by more than 2 restarts fails. Plan for more autonomy: `docs/AUTONOMY-DESIGN.md`.
 - `src/lib/codex.ts`: Codex CLI. Claude leads; Codex may take any run with the same permission (owner rule, 2026-10-07). `queue_followup` accepts `engine`. `src/lib/model-policy.ts`: Auto routing (Luna/Haiku for chat, Sol/Sonnet for work); Astra/Opus only when selected.
 - `src/lib/pc-control.ts`: chat-only PC control: `chrome_open` (owner's Chrome, open only), `app_open` (allowlist, `pc.apps` in config, `pc.enabled:false` turns all off), `browser_*` (drives LUTHUR's screen browser by element ref; passwords/payment refused, send/buy/post/delete clicks and non-search submits need `owner_confirmed`). MCP → server via `data/pc/req-*.json` / `res-*.json` (250 ms poll).
 - `src/lib/desktop-control.ts` + `scripts/pc-desktop.exe` (.cs): owner-started desktop control (screenshots, click, type, keys) with an always-on-top Stop/Allow bar. See `docs/DESKTOP-CONTROL.md`.
@@ -41,13 +42,13 @@ the `.ts` files directly, with no npm dependencies.
 No push/deploy/publish by agents; never edit `LoanBot/LoanCentral-Test`; never read secrets (`.env`, `config/hq.local.json` tokens, credentials). Email and calendar go only through the Outbox, after the owner approves.
 
 ## Testing
-Test orchestrator/engine changes on a COPY of HQ with `HQ_FAKE_CLAUDE=<fake cli .mjs>`, `HQ_FAKE_CODEX=<fake>` and `HQ_PORT`, never the live `data/`. Set BOTH fakes: with only the Claude fake, a Codex-selected test still calls the real Codex account. A fake CLI is in `docs/validation-2026-10-05/fake-cli.mjs`. Restarting the live server: the owner runs `scripts/RESTART-LUTHUR.cmd` (frontend-only changes just need a refresh).
+Test orchestrator/engine changes on a COPY of HQ with `HQ_FAKE_CLAUDE=<fake cli .mjs>`, `HQ_FAKE_CODEX=<fake>` and `HQ_PORT`, never the live `data/`. Set BOTH fakes: with only the Claude fake, a Codex-selected test still calls the real Codex account. A fake CLI is in `docs/validation-2026-10-05/fake-cli.mjs`. Suites: `docs/validation-2026-10-05/run-tests.mjs` (15 checks, unlocks with a test PIN) and `docs/validation-2026-10-07/phase0-test.mjs` (guard checks). Restarting the live server: the owner runs `scripts/RESTART-LUTHUR.cmd` (frontend-only changes just need a refresh).
 
 ## Updates
 The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/relaxed-turing-tnsbre` (Settings → Updates, `src/lib/updater.ts`). Push only when the owner asks.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-07 21:41 UTC)
+## Current state (auto, 2026-10-07 21:48 UTC)
 - Stage: building · health: good
 - Next step: Restart LUTHUR. Save a real ElevenLabs key (starts sk_) in Settings → Voice, press Preview, then have a voice conversation with the fans on: it should speak in the LUTHUR voice and return to “Say Hey LUTHUR” after ~5 s of quiet.
 
@@ -68,6 +69,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-07 22:10 · claude**: Compared LUTHUR with github.com/ssdavidai/alfred (Alfred Black: self-hosted Docker/Temporal/Hermes chief-of-staff, read-only clone in scratch). Found a safety gap: a Codex `build` run uses `workspace-write` with cwd = HQ root, so Claude's deny list (config/src/data edits, `.env`/`hq.local.json` reads, LoanCentral-Test…
 - **2026-10-07 14:41 · claude**: ElevenLabs voice + voice/chat fixes (owner asks). src/lib/tts.ts + web/eleven-voice.js: ElevenLabs TTS (Flash v2.5) is the default voice when a key is saved; it routes speechSynthesis.speak() to /api/tts/speak and keeps the speechSynthesis API (speaking/pending/cancel, start/end/error events) so mic pausing/orb/hologr…
 - **2026-10-07 03:50 · claude**: Voice + usage fixes (owner reports). "Stop"/"shut up"/"LUTHUR stop" now only hush speech; force stop is "force stop"/"stop everything"/the button, and no stop turns off the Hey LUTHUR wake word any more (it was being disabled). Talking over LUTHUR silences it at once and sends what the owner said when the sentence end…
 - **2026-10-07 03:35 · claude**: Desktop control loosened (owner ask): app Allows are now remembered across sessions in data/pc/desktop-allowed.json (blocked apps filtered out on load); saying or typing "forget allowed apps" clears them (POST /api/desktop {forget:true}). Terminals are no longer view-only: once Allowed, LUTHUR can type and press keys …
@@ -75,6 +77,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-07 03:20 · claude**: Wake word + hologram: "Hey LUTHUR" now goes to the main window when it is on screen (the page reports visibility to /desktop-overlay main-visible; pc-voice routes the event to target main) and only opens the hologram otherwise. Hologram is a 330x440 corner mini (small orb, one-line activity, chat box, reply); app-wind…
 - **2026-10-07 03:06 · claude**: PC control (owner asked for computer control; guardrailed instead of full control). chrome_open opens pages/searches in the owner's Chrome; app_open opens allowlisted apps (chrome, spotify, discord, vs code, file explorer, notepad, calculator, steam; pc.apps adds); browser_open/read/click/type/scroll/back drive LUTHUR…
 - **2026-10-07 02:52 · claude**: Interrupt by name: while LUTHUR speaks, "Luther, <request>" cancels playback and sends the new request (stop phrases, single words, interim results and LUTHUR's own words ignored). Screen-first: chat() ingests screen drops each second while busy and the poll applies this turn's screen during the reply; read-aloud wait…
-- **2026-10-07 02:46 · claude**: Faster voice turns. Early speech (web/voice-stream.js): the <spoken> sentence is spoken as soon as it appears in the 500ms partial poll, while the rest generates; the final reply is not repeated. Mid-thought pauses: turnPauseFor() waits longer (2x, +2s min, 6s max) when speech ends on a comma or words like and/so/um/b…
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.

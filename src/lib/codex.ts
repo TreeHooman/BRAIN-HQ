@@ -3,6 +3,7 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { ROOT } from "./store.ts";
+import { guarded, safeWriteDirs, scratchWorkspace } from "./guard.ts";
 import { agentRules, loadConfig, type Level } from "./config.ts";
 import { redact, type Step } from "./narrate.ts";
 import type { RunResult } from "./claude.ts";
@@ -59,6 +60,13 @@ export function findCodex(force = false): string | null {
   return value;
 }
 
+/** Where a Codex run works. read/plan: HQ (read-only sandbox). build: the first safe project folder, else an empty scratch folder. */
+export function codexWorkspace(o: Pick<CodexOptions, "level" | "addDirs">): { cwd: string; extra: string[]; dropped: { dir: string; reason: string }[] } {
+  if (o.level !== "build") return { cwd: ROOT, extra: [], dropped: [] };
+  const { ok, dropped } = safeWriteDirs((o.addDirs || []).filter(d => fs.existsSync(d)), loadConfig().guard?.protectedPaths || []);
+  return { cwd: ok[0] || scratchWorkspace(), extra: ok.slice(1), dropped };
+}
+
 // JSON string literals are valid TOML strings. Arguments go directly to spawn, never a shell.
 const tomlString = (s: string) => JSON.stringify(s);
 export function codexArgs(o: CodexOptions): string[] {
@@ -78,9 +86,11 @@ export function codexArgs(o: CodexOptions): string[] {
   args.push("-c", `mcp_servers.hq-brain.env.HQ_RUN_ID=${tomlString(runId)}`);
   args.push("-c", `mcp_servers.hq-brain.env.HQ_ACTIVE_FILE=${tomlString(o.activeFile ? JSON.stringify(o.activeFile) : "")}`);
   args.push("-c", "mcp_servers.hq-brain.default_tools_approval_mode=\"approve\"");
-  if (!o.resume) args.push("-C", ROOT);
-  // resume currently lacks -C, but the child is spawned with cwd: ROOT.
-  if (!o.resume && o.level === "build") for (const dir of o.addDirs || []) if (fs.existsSync(dir)) args.push("--add-dir", dir);
+  // The sandbox makes the workspace and --add-dir folders writable. A build run's workspace is never HQ itself.
+  const ws = codexWorkspace(o);
+  if (!o.resume) args.push("-C", ws.cwd);
+  // resume currently lacks -C, but the child is spawned with the same cwd.
+  if (!o.resume) for (const dir of ws.extra) args.push("--add-dir", dir);
   args.push("-");
   return args;
 }
@@ -95,6 +105,9 @@ function killTree(pid?: number) {
 export function killAllCodex() { for (const pid of children) killTree(pid); children.clear(); }
 
 export function runCodex(o: CodexOptions): Promise<RunResult> {
+  return guarded(o.runId, o.level, () => runCodexInner(o));
+}
+function runCodexInner(o: CodexOptions): Promise<RunResult> {
   const bin = process.env.HQ_FAKE_CODEX ? process.execPath : findCodex();
   if (!bin) return Promise.resolve({ ok: false, kind: "missing", text: "Codex CLI not found. Install Codex or set codex.bin in HQ config.", sessionId: null, durationMs: 0 });
   const started = Date.now();
@@ -107,14 +120,16 @@ export function runCodex(o: CodexOptions): Promise<RunResult> {
     const env = { ...process.env, HQ_BACKGROUND: "1" };
     // Never accidentally turn a subscribed CLI run into token-billed API usage.
     for (const key of Object.keys(env)) if (/^(OPENAI_API_KEY|CODEX_API_KEY|ANTHROPIC_API_KEY)$/i.test(key)) delete env[key];
-    const child = spawn(bin, fake ? [fake, ...args] : args, { cwd: ROOT, env, windowsHide: true, detached: process.platform !== "win32", stdio: ["pipe", "pipe", "pipe"] });
+    const ws = codexWorkspace(o);
+    const where = o.level !== "build" ? "" : `You can write files only in: ${[ws.cwd, ...ws.extra].join("; ")}. HQ's own code, config and data are read-only for you (changes there are undone); use the hq-brain tools for the brain.`;
+    const child = spawn(bin, fake ? [fake, ...args] : args, { cwd: ws.cwd, env, windowsHide: true, detached: process.platform !== "win32", stdio: ["pipe", "pipe", "pipe"] });
     if (child.pid) { children.add(child.pid); child.on("close", () => children.delete(child.pid!)); o.onSpawn?.(child.pid); }
     const parser = new JsonlParser(o.onStep, o.onText);
     let stderr = "", timedOut = false;
     child.stdout.on("data", data => parser.feed(String(data)));
     child.stderr.on("data", data => { stderr = (stderr + String(data)).slice(-16_000); });
     child.stdin.on("error", () => {});
-    child.stdin.end([agentRules(), o.system || "", o.prompt].filter(Boolean).join("\n\n"));
+    child.stdin.end([agentRules(), o.system || "", where, o.prompt].filter(Boolean).join("\n\n"));
     const timer = setTimeout(() => { timedOut = true; killTree(child.pid); }, Math.max(1000, o.timeoutMs));
     child.on("error", e => { clearTimeout(timer); finish({ ok: false, kind: "error", text: clean(e), sessionId: parser.sessionId, durationMs: Date.now() - started }); });
     child.on("close", code => { clearTimeout(timer); parser.finish(); finish(parser.result(code, stderr, timedOut, Date.now() - started)); });
