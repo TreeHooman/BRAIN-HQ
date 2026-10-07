@@ -439,9 +439,11 @@ function hudRings() {
   const seg = Array.from({ length: 36 }, (_, i) => i % 9 === 8 ? "" : arc(150, (i * 10 + 1) * D, (i * 10 + 8) * D)).join("");
   const brackets = [0, 120, 240].map(o => arc(132, (o + 8) * D, (o + 92) * D) + (() => { const [x0, y0] = pt(126, (o + 8) * D), [x1, y1] = pt(138, (o + 8) * D), [x2, y2] = pt(126, (o + 92) * D), [x3, y3] = pt(138, (o + 92) * D); return `M${x0} ${y0}L${x1} ${y1}M${x2} ${y2}L${x3} ${y3}`; })()).join("");
   const fan = ["runs", "queue", "inbox", "outbox"].map((k, i) => { const r0 = 196 + i * 13, a0 = 200 * D, a1 = 252 * D; return `<path class="fan-bg" d="${sector(r0, r0 + 10, a0, a1)}"/><path class="fan-v" data-fan="${k}" d="${sector(r0, r0 + 10, a0, a0 + .001)}" data-r0="${r0}"/><text class="fan-l" x="${pt(r0 + 5, 255 * D)[0]}" y="${pt(r0 + 5, 255 * D)[1]}">${k.toUpperCase()}</text>`; }).join("");
-  const usage = [["context", "CTX"], ["fiveHour", "5H"],["codexContext","GPT CTX"],["codexFiveHour","GPT 5H"]].map(([key, label], i) => {
-    const r0 = 196 + i * 13, a0 = 288 * D, a1 = 340 * D, [x, y] = pt(r0 + 5, 285 * D);
-    return `<path class="usage-bg" d="${sector(r0, r0 + 10, a0, a1)}"/><path class="usage-v" data-usage="${key}" data-r0="${r0}" d="${sector(r0, r0 + 10, a0, a0 + .001)}"/><text class="usage-l" data-usage-label="${key}" x="${x}" y="${y}">${label} —</text>`;
+  // Mirror of the left fan: bars fill from the bottom end up, labels sit in a column under the bottom end of the arcs.
+  const [ux, uy] = pt(201, 344 * D);
+  const usage = [["context", "CLAUDE CTX"], ["fiveHour", "CLAUDE 5H"],["codexContext","GPT CTX"],["codexFiveHour","GPT 5H"]].map(([key, label], i) => {
+    const r0 = 196 + i * 13, a0 = 288 * D, a1 = 340 * D, x = ux, y = (+uy + 6 + i * 9).toFixed(2);
+    return `<path class="usage-bg" d="${sector(r0, r0 + 10, a0, a1)}"/><path class="usage-v" data-usage="${key}" data-r0="${r0}" d="${sector(r0, r0 + 10, a1 - .001, a1)}"/><text class="usage-l" data-usage-label="${key}" x="${x}" y="${y}">${label} —</text>`;
   }).join("");
   const right = arc(205, -40 * D, 40 * D) + arc(212, -30 * D, 30 * D);
   return `<svg class="nv-hud" viewBox="-60 -60 520 520" aria-hidden="true">
