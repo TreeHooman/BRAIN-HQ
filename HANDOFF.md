@@ -7,7 +7,7 @@ Short, current guide for a new session. The block at the bottom regenerates itse
 - Add a dated entry to `brain/projects/luthur/log.md` (newest first) and update `nextStep` in its `project.json`.
 - Things only the owner can verify (mic, devices, real accounts) go under `## Owner checks` in `brain/projects/luthur/plan.md`. Remove a line once it is confirmed and it disappears from the block below.
 - Change this hand-written part only when the architecture or a rule changes.
-- **Commit before the owner presses Update.** The in-app updater copies the pushed commit over `src/`, `web/`, `config/`, `scripts/` and `docs/`, so uncommitted edits there are lost (a backup goes to `backup/<time>/`).
+- **Make it GitHub ready before any push or Update (owner rule).** The in-app updater copies the pushed commit over `src/`, `web/`, `config/`, `scripts/` and `docs/`, so uncommitted or unpushed edits there are lost (a backup goes to `backup/<time>/`). When you push, or the owner mentions Update: `git status --short` must be empty (commit leftovers from other sessions too, after reading their diff), push with `git push origin HEAD:claude/relaxed-turing-tnsbre`, check `HEAD` equals `origin/claude/relaxed-turing-tnsbre`, then tell the owner Update is safe.
 
 ## What it is
 LUTHUR (folder/code name HQ) is the owner's local business brain and assistant. The dashboard runs at http://localhost:8800
