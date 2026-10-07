@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-07 03:06 · claude
+PC control (owner asked for computer control; guardrailed instead of full control). chrome_open opens pages/searches in the owner's Chrome; app_open opens allowlisted apps (chrome, spotify, discord, vs code, file explorer, notepad, calculator, steam; pc.apps adds); browser_open/read/click/type/scroll/back drive LUTHUR's own browser shown live on the War Room. Refuses passwords/payment/ID numbers; send/post/buy/delete/accept clicks and non-search submits need the owner's yes in chat. Chat only (missions don't see the tools). Scratch-copy test with a real headless page passed all guards; real Chrome/app launch not exercised. Restart LUTHUR to activate.
+
 ## 2026-10-07 02:52 · claude
 Interrupt by name: while LUTHUR speaks, "Luther, <request>" cancels playback and sends the new request (stop phrases, single words, interim results and LUTHUR's own words ignored). Screen-first: chat() ingests screen drops each second while busy and the poll applies this turn's screen during the reply; read-aloud waits for the end. Simulated tests passed. Restart LUTHUR + refresh.
 

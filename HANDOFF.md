@@ -22,6 +22,7 @@ the `.ts` files directly, with no npm dependencies.
   - `bare` (and any `act` run that allows nothing): no tools, no MCP, `--system-prompt` only (~2k tokens). Use it for every text-only job.
   - `act`: Outbox sends through account connectors (loads every connector, which is huge; avoid).
 - `src/lib/codex.ts`: Codex CLI. Claude leads; Codex may take any run with the same permission (owner rule, 2026-10-07). `queue_followup` accepts `engine`. `src/lib/model-policy.ts`: Auto routing (Luna/Haiku for chat, Sol/Sonnet for work); Astra/Opus only when selected.
+- `src/lib/pc-control.ts`: chat-only PC control: `chrome_open` (owner's Chrome, open only), `app_open` (allowlist, `pc.apps` in config, `pc.enabled:false` turns all off), `browser_*` (drives LUTHUR's screen browser by element ref; passwords/payment refused, send/buy/post/delete clicks and non-search submits need `owner_confirmed`). MCP → server via `data/pc/req-*.json` / `res-*.json` (250 ms poll).
 - `src/mcp/hq-brain.ts`: zero-dep stdio MCP. Write tools hidden at `read`; `chatOnly` tools only for `chat-*` runs; `code-*` runs get the small `CODE_SET`.
 - `src/lib/code.ts` + `code-manager.ts`: Code workrooms. LUTHUR manages, with at most 2 sequential workers + 1 review per turn and fresh context each turn. Notes are in `data/code/workrooms/<id>/`.
 - `src/lib/brain.ts`: all brain I/O; regenerates `brain/INDEX.md`. `src/lib/handoff.ts`: the auto block below.
@@ -44,11 +45,12 @@ Test orchestrator/engine changes on a COPY of HQ with `HQ_FAKE_CLAUDE=<fake cli 
 The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/relaxed-turing-tnsbre` (Settings → Updates, `src/lib/updater.ts`). Push only when the owner asks.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-07 09:46 UTC)
+## Current state (auto, 2026-10-07 10:02 UTC)
 - Stage: building · health: good
-- Next step: Restart LUTHUR and refresh, then talk to it: it should start speaking sooner and wait when you trail off on "and…"/"um…". Learned preferences show in Settings. Next candidates: canvas updates on tool use; barge-in.
+- Next step: Restart LUTHUR and refresh, then try voice: earlier speech, longer wait on "and…/um…", interrupt with "Luther, <request>", screens opening mid-answer.
 
 ### Waiting on the owner
+- Voice: while LUTHUR is talking, say "Luther, open my calendar": it should stop and do the new request. Screens should open while it is still answering.
 - Voice: LUTHUR starts speaking before the full answer is done, and waits when you trail off on "and…" or "um…".
 - Restart LUTHUR (scripts/RESTART-LUTHUR.cmd) and refresh so the 2026-10-07 token fixes and auto handoff go live.
 - Say "Hey LUTHUR" with the app minimized: the hologram opens, listens and answers in your voice choice.
@@ -57,6 +59,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-07 02:52 · claude**: Interrupt by name: while LUTHUR speaks, "Luther, <request>" cancels playback and sends the new request (stop phrases, single words, interim results and LUTHUR's own words ignored). Screen-first: chat() ingests screen drops each second while busy and the poll applies this turn's screen during the reply; read-aloud wait…
 - **2026-10-07 02:46 · claude**: Faster voice turns. Early speech (web/voice-stream.js): the <spoken> sentence is spoken as soon as it appears in the 500ms partial poll, while the rest generates; the final reply is not repeated. Mid-thought pauses: turnPauseFor() waits longer (2x, +2s min, 6s max) when speech ends on a comma or words like and/so/um/b…
 - **2026-10-07 02:42 · claude**: Self-learning preferences (owner ask: learn constantly, improve on its own, anticipate). preference_suggest now saves inferred preferences active at once (id p-l-, shown "(learned)" in Settings), dedupes, accepts replaces=<id>, and when memory is full drops the oldest learned items, never explicit ones. Context budget…
 - **2026-10-07 03:05 · claude**: Token + speed pass: text-only runs (Explain, briefings, brain-sync, Write with LUTHUR, memory cleanup, sign-in check) now run bare: no tools/MCP, own system prompt. They had been loading every account connector (~542k tokens) and failing; now ~2k. Settings sources off (drops duplicate CLAUDE.md/agent rules, ~1.5k/call…
@@ -64,6 +67,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-07 02:05 · claude**: Made music player movable with MUSIC drag header, X close, keyboard arrows, stored position and viewport bounds. Detached player stays open across outside clicks, with playback/volume/seek kept separate from dragging. Mocked browser verified movement, no music action from dragging, restored position, control click and…
 - **2026-10-07 02:00 · claude**: Detached War Room hover movement from side columns. Each card keeps its holographic angle and only hovered card lifts/straightens. Keyboard focus works independently when nothing is hovered; hover takes priority over an old focused card. Browser measured sibling transforms/bounds unchanged, columns stationary and redu…
 - **2026-10-07 01:56 · claude**: Restored typed/voice briefing to guided Brief tour ahead of conflicting Screen quest/search routing; general briefing uses local state, zero model calls. Added Daily and separate project next moves, correct approvals route, navigation readiness, voice tour controls, lock/Stop guards. Work windows/screens briefly highl…
-- **2026-10-07 01:49 · claude**: Added project creation directly in Add to canvas, optional repository folder and chat reason/name. New folder-backed project returns selected; idea-only project gets an overview card. Stays on canvas; avoids duplicate creation on partial retry. Isolated browser flow and syntax passed, no model calls; installed fronten…
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.

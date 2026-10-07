@@ -7,9 +7,10 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 1. Core brain, dashboard, missions (done).
 2. Voice, War Room, Code workrooms, Workspace (done, being polished).
 3. Efficiency and mobile: cheap model calls, phone-first layout (in progress).
-4. Later: Obsidian notes, guarded computer control (see docs/BACKLOG.md).
+4. Later: Obsidian notes (see docs/BACKLOG.md). Guarded computer control: first version done 2026-10-07.
 
 ## Owner checks
+- PC control: say "Luther, pull up YouTube in Chrome", "open Spotify", then "find red running shoes on Amazon" (LUTHUR's browser on the War Room). It must ask before anything like Buy or Send.
 - Voice: while LUTHUR is talking, say "Luther, open my calendar": it should stop and do the new request. Screens should open while it is still answering.
 - Voice: LUTHUR starts speaking before the full answer is done, and waits when you trail off on "and…" or "um…".
 - Restart LUTHUR (scripts/RESTART-LUTHUR.cmd) and refresh so the 2026-10-07 token fixes and auto handoff go live.

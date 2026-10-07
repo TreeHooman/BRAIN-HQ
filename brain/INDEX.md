@@ -1,6 +1,6 @@
 # HQ index
 
-_Auto-generated 2026-10-07 02:46. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-07 03:02. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
@@ -13,7 +13,7 @@ _Auto-generated 2026-10-07 02:46. Don't edit; change project.json files instead.
 | frontier-plan | strategy | planned | unknown | Collect scaling ideas here as they come up; review after the mid-Feb 2027 decision. | 2026-10-05 |
 | ai-hockey | product | live | good | Check HANDOFF.md in the repo for what's left; confirm the hosting PC auto-update is healthy. | 2026-10-05 |
 | blueprint-estimator | product | paused | unknown | Owner: is this still active? Last work was pre-calibration prep (4 Jul). | 2026-10-05 |
-| luthur | tool | building | good | Restart LUTHUR and refresh, then talk to it: it should start speaking sooner and wait when you trail off on "and…"/"um…". Learned preferences show in Settings. Next candidates: canvas updates on tool use; barge-in. | 2026-10-07 |
+| luthur | tool | building | good | Restart LUTHUR and refresh, then try voice: earlier speech, longer wait on "and…/um…", interrupt with "Luther, <request>", screens opening mid-answer. | 2026-10-07 |
 
 ## Due in the next 14 days
 - 2026-10-06 18:00 Discord bot: run the lender-claim test on REQ-0002 [loancentral-discord]

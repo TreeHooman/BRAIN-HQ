@@ -20,7 +20,7 @@ const B: {
   frame: Buffer | null; frameN: number; target?: string; dw?: number; dh?: number; top?: number; ih?: number; viewers: Set<ServerResponse>; url: string; title: string; w: number; h: number; lastUse: number; idle: NodeJS.Timeout | null; loading: boolean; error: string;
 } = { proc: null, starting: null, id: 0, wait: new Map(), session: null, buf: "", frame: null, frameN: 0, viewers: new Set(), url: "", title: "", w: 1280, h: 760, lastUse: 0, idle: null, loading: false, error: "" };
 
-function findChrome(): string | null {
+export function findChrome(): string | null {
   if (process.env.HQ_SCREEN_CHROME && fs.existsSync(process.env.HQ_SCREEN_CHROME)) return process.env.HQ_SCREEN_CHROME;
   const c = process.platform === "win32" ? [
     path.join(process.env["PROGRAMFILES"] || "C:\\Program Files", "Google\\Chrome\\Application\\chrome.exe"),
@@ -113,9 +113,20 @@ export async function navigate(raw: string) {
   const u = String(raw || "").trim();
   if (!/^https?:\/\//i.test(u)) throw err("Only http/https pages.");
   await start(); touch();
-  B.url = u; B.loading = true;
+  // LUTHUR's agent opens a page and the War Room viewer then asks for the same URL: don't reload it under the agent.
+  if (B.url === u && Date.now() - lastNav < 15000) return state();
+  B.url = u; B.loading = true; lastNav = Date.now();
   await send("Page.navigate", { url: u });
   return state();
+}
+let lastNav = 0;
+/** Runs a page expression that returns a JSON string (used by LUTHUR's agent tools in pc-control.ts). */
+export async function evaluateJson(expression: string): Promise<any> {
+  if (!B.proc) throw err("Nothing open in LUTHUR's browser. Open a page first.");
+  touch();
+  const r = await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
+  if (r?.exceptionDetails) throw err("The page script failed.");
+  return JSON.parse(String(r?.result?.value || "null"));
 }
 /** What's on the page right now, as text (for "brief me"). */
 export async function text() {

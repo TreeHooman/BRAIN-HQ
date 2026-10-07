@@ -32,6 +32,7 @@ import * as codexChats from "./lib/codex-transcripts.ts";
 import * as todayPlan from "./lib/today.ts";
 import * as routines from "./lib/routines.ts";
 import * as browser from "./lib/browser.ts";
+import { startPcControl } from "./lib/pc-control.ts";
 import { killAll, sweepOrphans } from "./lib/claude.ts";
 
 ensureLocalConfig();
@@ -425,6 +426,7 @@ server.listen(PORT, HOST, () => {
   console.log(`HQ running → http://localhost:${PORT}`);
   if (!process.env.HQ_FAKE_CLAUDE) { const n = sweepOrphans(); if (n) console.log(`Stopped ${n} leftover agent process${n > 1 ? "es" : ""} from a previous run`); }
   if (!process.env.HQ_NO_ORCHESTRATOR) orch.start();
+  startPcControl();
   cal.kick();
   outbox.recover();
   if (!process.env.HQ_NO_ORCHESTRATOR) mail.startAuto();

@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Restart LUTHUR and refresh, then try voice: earlier speech, longer wait on \"and…/um…\", interrupt with \"Luther, <request>\", screens opening mid-answer.",
+  "nextStep": "Update + Restart LUTHUR, then try: \"pull up YouTube in Chrome\", \"open Spotify\", \"find X on Amazon\" (LUTHUR asks before Buy/Send). Report anything off.",
   "updated": "2026-10-07",
   "paths": [],
   "repos": [],
