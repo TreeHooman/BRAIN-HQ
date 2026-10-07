@@ -15,6 +15,7 @@ import * as cal from "./lib/calendar.ts";
 import * as outbox from "./lib/outbox.ts";
 import * as code from "./lib/code.ts";
 import * as spotify from "./lib/spotify.ts";
+import * as tts from "./lib/tts.ts";
 import * as canvas from "./lib/canvas.ts";
 import * as mail from "./lib/mail.ts";
 import * as google from "./lib/google.ts";
@@ -258,6 +259,9 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/chat$/, (_, b) => { checkStopped();if (orch.chat().busy) throw Object.assign(new Error("LUTHUR is still answering. Your follow-up can wait for this reply."), { code: 409 }); if (!String(b.text || "").trim()) throw new Error("Say what you want to discuss."); writeCheck(); validateChoice({...b,...explicitModel(String(b.text||""))}); void orch.sendChat(String(b.text || ""), { provider: b.provider, model: b.model, astraApproved: b.astraApproved === true, opusApproved: b.opusApproved === true, adaptive:b.adaptive!==false, project: b.project, tier: b.tier, effort: b.effort, voice: b.voice === true, context: chatContext(b.context), personality: b.personality, activeFile: b.context?.screen?.k === "file" && /^g-[a-f0-9]{10}$/.test(b.context.screen.acct || "") && /^[A-Za-z0-9_-]{10,200}$/.test(b.context.screen.id || "") ? { acct: b.context.screen.acct, id: b.context.screen.id } : undefined }).catch(() => {}); return { ok: true }; }],
   ["POST", /^\/api\/chat\/new$/, () => { orch.newChat(); return { ok: true }; }],
 
+  ["GET", /^\/api\/tts$/, () => tts.status()],
+  ["PUT", /^\/api\/tts$/, (_, b) => tts.save(b)],
+  ["GET", /^\/api\/tts\/voices$/, () => tts.voices()],
   ["GET", /^\/api\/spotify$/, () => spotify.status(PORT)],
   ["POST", /^\/api\/spotify\/client$/, (_, b) => spotify.setClientId(String(b.clientId || ""))],
   ["POST", /^\/api\/spotify\/login$/, () => ({ url: spotify.loginUrl(PORT) })],
@@ -361,6 +365,11 @@ const server = http.createServer(async (req, res) => {
       if(url.pathname==='/api/access/lock'&&req.method==='POST'){pcVoice.setEnabled(false,PORT);return send(res,200,accessLock.lock(res));}
       const oauthCallback=req.method==='GET'&&['/api/google/callback','/api/spotify/callback'].includes(url.pathname);
       if(!oauthCallback&&!accessLock.allowed(req))return send(res,401,{error:'Unlock LUTHUR with your PIN.',locked:true});
+      if (url.pathname === "/api/tts/speak" && req.method === "POST") {
+        const b = await body(req), audio = await tts.speak(b.text, b.speed);
+        res.writeHead(200, { "Content-Type": "audio/mpeg", "Content-Length": audio.length, "Cache-Control": "no-store" });
+        return res.end(audio);
+      }
       if(url.pathname==='/api/pc-voice'&&req.method==='PUT'){writeCheck();return send(res,200,pcVoice.setEnabled((await body(req)).enabled===true,PORT,String(req.headers.cookie||'')));}
       // Screen browser live view (MJPEG for an <img>). Same-site only: another site can't embed it.
       if (url.pathname === "/api/browser/live" && req.method === "GET") {
