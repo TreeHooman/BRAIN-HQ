@@ -92,7 +92,13 @@
   .cm-ask-row select { max-width: none; flex: 1 1 100%; }
 }
 
+/* Owner ask: Stop and notifications live in the bottom-right corner (they covered the sidebar/Settings on the left and top) */
+.force-stop-button { left: auto; right: 18px; bottom: 44px; }
+.hn-box { top: auto; bottom: 92px; }
+.toast { left: auto; right: 18px; bottom: 92px; transform: none; }
+
 /* Phone: the always-available Stop button stays, but as a small chip above the tab bar on the right */
 @media (max-width: 760px) {
-  .force-stop-button { left: auto !important; right: 12px !important; padding: 5px 10px !important; font-size: 11px !important; min-height: 0 !important; opacity: .9; }
+  .hn-box, .toast { bottom: 132px; right: 12px; }
+  .force-stop-button { bottom: 90px; left: auto !important; right: 12px !important; padding: 5px 10px !important; font-size: 11px !important; min-height: 0 !important; opacity: .9; }
 }
