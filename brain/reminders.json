@@ -1,12 +1,48 @@
 [
   {
+    "id": "rmuv6wk65855t",
+    "title": "lender thingy",
+    "due": "2026-10-05T16:00",
+    "repeat": null,
+    "done": true,
+    "notifiedAt": "2026-10-05T23:00:06.611Z",
+    "createdAt": "2026-10-05T11:52:08.477Z"
+  },
+  {
+    "id": "rmuwhdjy65qjj",
+    "title": "12:00 p.m. alarm",
+    "due": "2026-10-06T12:00",
+    "repeat": null,
+    "done": true,
+    "notifiedAt": "2026-10-06T19:00:25.909Z",
+    "createdAt": "2026-10-06T09:33:03.678Z"
+  },
+  {
+    "id": "rmuwhfj7yy7vk",
+    "title": "12:00 p.m. alarm",
+    "due": "2026-10-06T12:00",
+    "repeat": null,
+    "done": true,
+    "notifiedAt": "2026-10-06T19:00:25.918Z",
+    "createdAt": "2026-10-06T09:34:36.046Z"
+  },
+  {
+    "id": "rmux7hu62s1f0",
+    "title": "Alarm in one hour",
+    "due": "2026-10-06T15:44",
+    "repeat": null,
+    "done": true,
+    "notifiedAt": "2026-10-06T22:44:29.569Z",
+    "createdAt": "2026-10-06T21:44:13.562Z"
+  },
+  {
     "id": "r-seed-1",
     "title": "Discord bot: run the lender-claim test on REQ-0002",
     "due": "2026-10-06T18:00",
     "project": "loancentral-discord",
     "repeat": null,
     "done": false,
-    "notifiedAt": null,
+    "notifiedAt": "2026-10-07T01:00:28.362Z",
     "createdAt": "2026-10-05T12:00:00Z"
   },
   {
@@ -40,6 +76,16 @@
     "createdAt": "2026-10-05T12:00:00Z"
   },
   {
+    "id": "r-seed-7",
+    "title": "Weekly 10-minute HQ review (projects, inbox, approvals)",
+    "due": "2026-10-11T19:00",
+    "project": null,
+    "repeat": "weekly",
+    "done": false,
+    "notifiedAt": null,
+    "createdAt": "2026-10-05T12:00:00Z"
+  },
+  {
     "id": "r-seed-5",
     "title": "Send the Reddit Data Access Request resubmission (deadline 31 Oct)",
     "due": "2026-10-24T10:00",
@@ -55,16 +101,6 @@
     "due": "2026-11-06T10:00",
     "project": "reddit",
     "repeat": null,
-    "done": false,
-    "notifiedAt": null,
-    "createdAt": "2026-10-05T12:00:00Z"
-  },
-  {
-    "id": "r-seed-7",
-    "title": "Weekly 10-minute HQ review (projects, inbox, approvals)",
-    "due": "2026-10-11T19:00",
-    "project": null,
-    "repeat": "weekly",
     "done": false,
     "notifiedAt": null,
     "createdAt": "2026-10-05T12:00:00Z"

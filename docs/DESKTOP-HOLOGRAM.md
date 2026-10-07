@@ -1,0 +1,13 @@
+# Desktop hologram
+
+Enable PC wake listener in Voice & conversation settings while unlocked. Keep the local server running; the main app can be minimized. Say “Hey LUTHUR” (Luther/Luthor variants also supported). The Windows listener posts the wake event to the authenticated local server, which opens or restores one compact companion window rather than moving the full dashboard forward.
+
+The hologram uses the main app's Chrome/Edge profile, saved voice, volume, model selection, conversation and PIN protection. It shows the same signal-driven orb/status, captured transcript, message box, latest response, published operation activity and Stop now / Resume. First use may require browser microphone permission or a click to allow audio. Speech recognition needs the Windows en-US recognizer and a working microphone. Account model latency is unchanged.
+
+The native helper gives the companion an always-on-top translucent tool window (opacity 238/255) on the monitor currently in use. Drag its native title bar to move it. Dismiss (× or Escape) silences speech, stops the active conversation mic, returns to wake-only listening when applicable and hides the companion. Full app dismisses it and focuses the existing main window. Dismissing does not cancel ongoing work; Stop now does. Closing the native window releases voice ownership and attempts to re-arm wake listening; ownership also expires after 30 seconds without a heartbeat.
+
+The main dashboard does not claim overlay-targeted wake events or play responses while the hologram owns voice. The authenticated claim endpoint ensures one consumer. Opening the companion checks the existing unlock session rather than locking the owner's other window again. An expired or absent session still displays PIN protection. Model and PC wake controls remain in full app settings; an Open hologram button permits manual access.
+
+Tested with an isolated server and browser recognition/speech mocks: protected endpoints, shared unlock, exclusive claim/playback, listening and speaking colors/status, published activity, dismiss, reload, relock and compact bounds. Main voice-state, model-menu, speaker-echo and legacy wake-handoff regressions passed. Native helpers compiled with Windows .NET. Desktop topmost/translucency and real microphone recognition require an interactive check after activation; no native wake listener or paid agent was started during tests.
+
+Activation: desktop Restart LUTHUR shortcut, then refresh and unlock the full app. Enable PC wake listener again if the restart stopped it. The source and compiled helper updates must both be installed. Code-only backup: artifacts/desktop-overlay/installed-backup.

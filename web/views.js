@@ -51,7 +51,7 @@ async function codeLoad(full) {
     ta.onkeydown = e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); codeSend(); } };
     document.getElementById("cdForm").onsubmit = e => { e.preventDefault(); codeSend(); };
     document.getElementById("cdStop").onclick = () => api(`/code/${slug}/stop`, "POST").catch(x => toast(x.message));
-    document.getElementById("cdNew").onclick = async () => { if (!confirm("Start a fresh session? The current one is archived.")) return; await api(`/code/${slug}/new`, "POST").then(() => codeLoad(true)).catch(x => toast(x.message)); };
+    document.getElementById("cdNew").onclick = async () => { if (!(await uiConfirm("Start a fresh session? The current one is archived."))) return; await api(`/code/${slug}/new`, "POST").then(() => codeLoad(true)).catch(x => toast(x.message)); };
   }
   const log = document.getElementById("cdLog");
   const stick = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
@@ -110,7 +110,7 @@ function vOutbox(el) {
       if (a === "edit") return outboxCompose(x.kind, x);
       if (a === "discard") return act(() => api(`/outbox/${x.id}`, "DELETE"), "Discarded");
       const what = x.kind === "email" ? `Send this email to ${x.payload.to.join(", ")}?` : `${cap(x.payload.action)} "${x.payload.title}" on your Google Calendar?`;
-      if (!confirm(what)) return;
+      if (!(await uiConfirm(what))) return;
       b.disabled = true; b.textContent = "Sending…";
       await act(() => api(`/outbox/${x.id}/send`, "POST"), "Sending… you'll get a notification");
       setTimeout(async () => { await refresh(); if (route.view === "outbox") render(); }, 4000);
@@ -157,3 +157,4 @@ async function connCardFill(force) {
     <div class="row end"><button type="button" class="btn" id="connCheck">Check connectors</button></div>`;
   document.getElementById("connCheck").onclick = () => connCardFill(true);
 }
+

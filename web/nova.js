@@ -133,7 +133,7 @@ async function micOn() {
     if (!Mic.want) { s.getTracks().forEach(t => t.stop()); return; }
     const ac = Snd.ac(), src = ac.createMediaStreamSource(s), an = ac.createAnalyser(); an.fftSize = 512; src.connect(an);
     Object.assign(Mic, { stream: s, an, buf: new Uint8Array(an.fftSize) });
-  } catch { /* no permission: fall back to a synthetic level */ } finally { Mic.starting = false; }
+  } catch { /* no microphone samples: remain calm instead of fabricating a level */ } finally { Mic.starting = false; }
 }
 function micOff() { Mic.stream?.getTracks().forEach(t => t.stop()); Object.assign(Mic, { stream: null, an: null, level: 0 }); }
 function micLevel() {
@@ -163,23 +163,29 @@ function coreLoop(now = performance.now()) {
   if (!reduced() || !Core.drawn) { Core.drawn = true; Core.raf = requestAnimationFrame(coreLoop); }
 }
 function coreDraw(now) {
-  const { x, w, h } = Core, t = (now - NV.t0) / 1000, dt = Math.min(.05, (now - (Core.last || now)) / 1000); Core.last = now;
+  const { x, w, h } = Core, dt = Math.min(.05, (now - (Core.last || now)) / 1000); Core.last = now;
   const el = Core.el, busy = el.classList.contains("busy") ? 1 : 0, lis = el.classList.contains("listening") ? 1 : 0;
-  const speaking = !!window.speechSynthesis?.speaking;
+  const speaking = el.dataset.voiceState === "speaking";
   // mic follows the listening state
-  Mic.want = !!lis; if (lis && !Mic.stream && !matchMedia("(pointer: coarse)").matches) micOn(); else if (!lis && Mic.stream) micOff();
+  Mic.want = !!lis && !reduced(); if (Mic.want && !Mic.stream && !matchMedia("(pointer: coarse)").matches) micOn(); else if (!Mic.want && Mic.stream) micOff();
   Core.b = lerp(Core.b, busy, .05); NV.listen = lerp(NV.listen, lis, .08); NV.pulse = Math.max(0, NV.pulse - dt * .9);
   Core.spk = lerp(Core.spk, speaking ? 1 : 0, .08);
   // target amplitude per state
-  let target = .05 + Math.sin(t * 1.2) * .015;                                     // idle breathing
-  if (Core.b > .1) target = Math.max(target, .16 + Math.sin(t * 3.1) * .04);       // thinking hum
-  if (lis) target = Math.max(target, Mic.an ? .08 + micLevel() * .9 : .2 + Math.abs(Math.sin(t * 5.3) * Math.sin(t * 2.1)) * .35);
-  if (speaking) { const syl = Math.abs(Math.sin(t * 9.7) * Math.sin(t * 3.3 + 1) + Math.sin(t * 15.1) * .3); target = Math.max(target, .15 + syl * .55); }
+  const input=lis&&!reduced()?micLevel():0,output=speaking&&typeof voiceMotionLevel==='function'?voiceMotionLevel(now):0;
+  const heardCue=lis&&!Mic.an&&typeof VoiceVisual!=='undefined'?Math.max(0,Math.min(1,(VoiceVisual.heardUntil-Date.now())/900)):0;
+  let target=.025;
+  if (Core.b > .1) target=Math.max(target,.10*Core.b); // work indicator, not an audio waveform
+  if (lis) target=Math.max(target,.035+input*.9+heardCue*.10);
+  if (speaking) target=Math.max(target,.035+output*.65);
+  Core.input=input;Core.output=output;
+  Core.phase=(Core.phase||0)+(reduced()?0:dt*(input*3+output*2+busy*.7+heardCue*.3));const t=Core.phase;
+  if(lis&&Mic.an){Mic.freq ||= new Uint8Array(Mic.an.frequencyBinCount);Mic.an.getByteFrequencyData(Mic.freq);}
   target += NV.pulse * .4;
   Core.amp = lerp(Core.amp, target, target > Core.amp ? .35 : .08);
   const A = Core.amp, B = Core.b, L = NV.listen, Sp = Core.spk;
-  // palette: listening = cyan/teal, speaking = cyan/white, thinking = violet/magenta
-  const hue = (i) => { const c1 = [110, 240, 255], c2 = [169, 139, 255], c3 = [255, 122, 217]; const k = Math.min(1, B * .9); const base = i === 0 ? c1 : i === 1 ? c2 : i === 2 ? c3 : [200, 245, 255]; const tgt = i === 0 ? c2 : i === 1 ? c3 : c1; return base.map((v, j) => Math.round(lerp(v, tgt[j], k * .7))); };
+  // Voice palette matches the explicit status: green ready, cyan hearing, amber speech, violet thinking.
+  const activeColor=({listening:[100,240,183],hearing:[100,240,255],captured:[100,240,255],speaking:[255,204,126],thinking:[186,150,255],sending:[186,150,255]})[el.dataset.voiceState];
+  const hue = (i) => { if(activeColor)return activeColor.map(v=>Math.min(255,v+i*8));const c1 = [110, 240, 255], c2 = [169, 139, 255], c3 = [255, 122, 217]; const k = Math.min(1, B * .9); const base = i === 0 ? c1 : i === 1 ? c2 : i === 2 ? c3 : [200, 245, 255]; const tgt = i === 0 ? c2 : i === 1 ? c3 : c1; return base.map((v, j) => Math.round(lerp(v, tgt[j], k * .7))); };
   const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a.toFixed(3)})`;
   x.clearRect(0, 0, w, h);
   x.globalCompositeOperation = "lighter";
@@ -210,8 +216,8 @@ function coreDraw(now) {
   x.lineCap = "round";
   for (let i = 0; i < N; i++) {
     const th = i / N * Math.PI * 2 - Math.PI / 2, k = Math.min(i, N - i) / (N / 2);
-    const n = (Math.sin(k * 11 + t * 4.3) * .5 + Math.sin(k * 23 - t * 6.1) * .3 + Math.sin(k * 5 + t * 2.2) * .2) * .5 + .5;
-    const want = (.04 + n * A * 1.3) * (1 - k * .35);
+    const sample=lis&&Mic.an?(Mic.freq[Math.min(Mic.freq.length-1,Math.floor(k*Mic.freq.length*.65))]/255)*input:output*(.65+.35*Math.cos(k*Math.PI*4));
+    const want = .015+sample*.8;
     Core.bars[i] = lerp(Core.bars[i], want, .25);
     const len = R * (.03 + Core.bars[i] * .5), c = hue(i % 3 === 0 ? 1 : 0);
     x.strokeStyle = rgba(c, .25 + Core.bars[i] * 1.2); x.lineWidth = 1.3;
@@ -232,9 +238,9 @@ function coreDraw(now) {
     x.fillStyle = rgba([255, 255, 255], .9 * B); x.beginPath(); x.arc(ox + Math.cos(a0) * rr, oy + Math.sin(a0) * rr, 1.8, 0, 6.283); x.fill();
   }
   // listening: rings breathe outward
-  if (L > .02) for (let k = 0; k < 3; k++) {
+  if (L > .02&&input>.025) for (let k = 0; k < 3; k++) {
     const u = ((t * .7 + k / 3) % 1), rr = R * (1 + u * .9);
-    x.strokeStyle = rgba(hue(0), (1 - u) * .35 * L); x.lineWidth = 1; x.beginPath(); x.arc(ox, oy, rr, 0, 6.283); x.stroke();
+    x.strokeStyle = rgba(hue(0), (1 - u) * .35 * L*input); x.lineWidth = 1; x.beginPath(); x.arc(ox, oy, rr, 0, 6.283); x.stroke();
   }
   // ping: one expanding shock ring
   if (NV.pulse > .01) { const rr = R * (1 + (1 - NV.pulse) * 1.3); x.strokeStyle = rgba([220, 250, 255], NV.pulse * .8); x.lineWidth = 1.4; x.beginPath(); x.arc(ox, oy, rr, 0, 6.283); x.stroke(); }
@@ -366,7 +372,7 @@ async function vCommand(el) {
         </div>
         <form class="nv-ask" id="cmdAsk" autocomplete="off"><button type="button" class="btn mic" id="cmdMic" title="Talk (Alt+J)" aria-label="Talk">${MIC_SVG}</button><input id="cmdText" placeholder="Ask, or: update a project · do a check · pull up a site…" aria-label="Ask ${esc(name)}"><button class="btn primary">Send</button></form>
         <div class="nv-under">${tierSwitch()}</div>
-        <div class="card nv-reply" id="cmdReply"></div>
+        <div class="card nv-reply no-fold" id="cmdReply"></div>
       </div>
       <div class="nv-r" id="cmdRight"></div>
     </div>`;
@@ -433,7 +439,7 @@ function hudRings() {
   const seg = Array.from({ length: 36 }, (_, i) => i % 9 === 8 ? "" : arc(150, (i * 10 + 1) * D, (i * 10 + 8) * D)).join("");
   const brackets = [0, 120, 240].map(o => arc(132, (o + 8) * D, (o + 92) * D) + (() => { const [x0, y0] = pt(126, (o + 8) * D), [x1, y1] = pt(138, (o + 8) * D), [x2, y2] = pt(126, (o + 92) * D), [x3, y3] = pt(138, (o + 92) * D); return `M${x0} ${y0}L${x1} ${y1}M${x2} ${y2}L${x3} ${y3}`; })()).join("");
   const fan = ["runs", "queue", "inbox", "outbox"].map((k, i) => { const r0 = 196 + i * 13, a0 = 200 * D, a1 = 252 * D; return `<path class="fan-bg" d="${sector(r0, r0 + 10, a0, a1)}"/><path class="fan-v" data-fan="${k}" d="${sector(r0, r0 + 10, a0, a0 + .001)}" data-r0="${r0}"/><text class="fan-l" x="${pt(r0 + 5, 255 * D)[0]}" y="${pt(r0 + 5, 255 * D)[1]}">${k.toUpperCase()}</text>`; }).join("");
-  const usage = [["context", "CTX"], ["fiveHour", "5H"]].map(([key, label], i) => {
+  const usage = [["context", "CTX"], ["fiveHour", "5H"],["codexContext","GPT CTX"],["codexFiveHour","GPT 5H"]].map(([key, label], i) => {
     const r0 = 196 + i * 13, a0 = 288 * D, a1 = 340 * D, [x, y] = pt(r0 + 5, 285 * D);
     return `<path class="usage-bg" d="${sector(r0, r0 + 10, a0, a1)}"/><path class="usage-v" data-usage="${key}" data-r0="${r0}" d="${sector(r0, r0 + 10, a0, a0 + .001)}"/><text class="usage-l" data-usage-label="${key}" x="${x}" y="${y}">${label} —</text>`;
   }).join("");
@@ -522,6 +528,7 @@ function cmdFill(quiet) {
   const authBad = st.auth === "needs-login" || !st.claudeBin, paused = st.pausedUntil && new Date(st.pausedUntil) > now;
   if (V) V.innerHTML = [
     `<span class="nv-vital"><i class="${authBad ? "red" : st.auth === "ok" ? "" : "amber"}"></i>Claude <b>${authBad ? "sign-in needed" : st.auth === "ok" ? "online" : "standby"}</b></span>`,
+    `<span class="nv-vital" data-codex-status title="Local Codex CLI sign-in status"><i class="${st.codexStatus==='online'?'':st.codexStatus==='needs-login'||st.codexStatus==='unavailable'?'red':'amber'}"></i>Codex <b>${esc(({online:'online','needs-login':'sign-in needed',unavailable:'unavailable',unknown:'status unavailable',checking:'checking'})[st.codexStatus]||(st.codexBin?'checking':'unavailable'))}</b></span>`,
     `<span class="nv-vital">Runs <b>${st.today}/${st.maxRunsPerDay}</b></span>`,
     st.queued ? `<span class="nv-vital"><i class="amber"></i>Queue <b>${st.queued}</b></span>` : "",
     paused ? `<span class="nv-vital"><i class="amber"></i>Paused <b>${esc(fmtWhen(st.pausedUntil))}</b></span>` : "",
@@ -530,7 +537,7 @@ function cmdFill(quiet) {
   hudFan({ runs: [st.today, st.maxRunsPerDay], queue: [st.queued, 5], inbox: [S.inbox.length, 10], outbox: [drafts.length, 5] });
   // timeline: calendar events + reminders, today and tomorrow, with a NOW marker
   const evs = (S.calendar?.upcoming || []).map(e => ({ t: e.title, s: e.allDay ? toDate(e.start + "T00:00") : new Date(e.start), en: e.allDay ? toDate(e.end + "T00:00") : new Date(e.end), all: e.allDay, loc: e.location, k: "ev" }));
-  const rem = open.map(r => ({ t: r.title, s: toDate(r.due), en: toDate(r.due), all: String(r.due).length <= 10, k: "rem", p: r.project }));
+  const rem = open.map(r => ({ id: r.id, t: r.title, s: toDate(r.due), en: toDate(r.due), all: String(r.due).length <= 10, k: "rem", p: r.project }));
   const items = [...evs, ...rem].filter(x => x.en >= new Date(ymd(now) + "T00:00") && x.s <= tmrEnd).sort((a, b) => a.s - b.s);
   const over = rem.filter(r => r.s < now);
   let tl = "", nowShown = false, tmrShown = false;
@@ -539,7 +546,7 @@ function cmdFill(quiet) {
     if (!tmrShown && x.s > todayEnd) { tmrShown = true; tl += `<div class="nv-now" style="color:var(--text3)">TOMORROW</div>`; }
     if (!nowShown && x.s > now && x.s <= todayEnd) { nowShown = true; tl += `<div class="nv-now">NOW ${pad(now.getHours())}:${pad(now.getMinutes())}</div>`; }
     const live = x.k === "ev" && !x.all && x.s <= now && x.en > now;
-    tl += `<a class="nv-row ${live ? "t-live" : x.k === "ev" ? "t-ev" : "t-rem"}" href="${x.p ? "#project/" + x.p : "#calendar"}"><span class="tm">${x.all ? "all day" : `${pad(x.s.getHours())}:${pad(x.s.getMinutes())}`}</span><div style="min-width:0"><div class="t">${esc(x.t)}</div><small>${live ? "HAPPENING NOW" : x.k === "ev" ? "CALENDAR" : "REMINDER"}${x.loc ? " · " + esc(x.loc).slice(0, 40) : ""}${x.p ? " · " + esc(projName(x.p)) : ""}</small></div></a>`;
+    tl += `<a class="nv-row ${live ? "t-live" : x.k === "ev" ? "t-ev" : "t-rem"}" data-upopen="${esc(JSON.stringify(x.k === "rem" ? { kind: "reminder", id: x.id } : { kind: "agenda" }))}" href="${x.p ? "#project/" + x.p : "#calendar"}"><span class="tm">${x.all ? "all day" : `${pad(x.s.getHours())}:${pad(x.s.getMinutes())}`}</span><div style="min-width:0"><div class="t">${esc(x.t)}</div><small>${live ? "HAPPENING NOW" : x.k === "ev" ? "CALENDAR" : "REMINDER"}${x.loc ? " · " + esc(x.loc).slice(0, 40) : ""}${x.p ? " · " + esc(projName(x.p)) : ""}</small></div></a>`;
   }
   const feedOn = (S.calendar?.feeds || []).length > 0;
   L.innerHTML = `<div class="card nv-panel"><div class="ttl">Today <b>${items.filter(x => !(x.k === "rem" && x.s < now)).length || "clear"}</b></div>${tl || `<div class="nv-empty">Nothing scheduled.${feedOn ? "" : ` <a href="#settings">Connect your calendar</a>`}</div>`}</div>
@@ -604,3 +611,6 @@ function sidePin(pin) { hstore.set("hq-side", pin ? "pin" : "hide"); document.bo
   // wake from power-down: restart loops
   new MutationObserver(() => { if (!HUD.asleep) { sceneKick(); if (Core.ok && !Core.raf) Core.raf = requestAnimationFrame(coreLoop); } }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
 })();
+
+
+

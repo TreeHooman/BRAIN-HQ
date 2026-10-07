@@ -4,13 +4,8 @@ const US = { d: null, t: 0 };
 const usMoney = n => n >= 10 ? "$" + n.toFixed(0) : n >= 1 ? "$" + n.toFixed(2) : n > 0 ? "$" + n.toFixed(2) : "$0";
 const usK = n => n >= 1e6 ? (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : String(n || 0);
 function usRate(r) {
-  if (!r) return `<span class="us-dim">plan limit: shows after your next run</span>`;
-  const pct = typeof r.utilization === "number" ? Math.round(r.utilization * (r.utilization <= 1 ? 100 : 1)) : null;
-  const when = r.resetsAt ? new Date(r.resetsAt).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" }) : "";
-  const kind = /seven|week/i.test(r.type || "") ? "weekly" : /five|5/i.test(r.type || "") ? "5-hour" : "plan";
-  const cls = r.status === "rejected" ? "bad" : /warn/.test(r.status || "") || (pct ?? 0) >= 80 ? "warn" : "ok";
-  const label = r.status === "rejected" ? `${kind} limit reached` : pct != null ? `${kind} limit ${pct}% used` : /warn/.test(r.status || "") ? `${kind} limit: getting close` : `${kind} limit OK`;
-  return `<span class="us-rate ${cls}">${pct != null ? `<i style="--w:${Math.min(100, pct)}%"></i>` : ""}${esc(label)}${when ? ` · resets ${esc(when)}` : ""}</span>`;
+  const view=usageRateView(r),kind=/seven|week/i.test(r?.type||'')?'weekly':/five|5/i.test(r?.type||'')?'5-hour':'plan';
+  return `<span class="us-rate ${view.value===null?'warn':view.value>=80?'warn':'ok'}" title="${esc(view.detail)}">${view.value===null?'':`<i style="--w:${view.value}%"></i>`}Claude ${kind} ${esc(view.label)}${view.reset?' · resets '+esc(new Date(view.reset).toLocaleTimeString()):''}</span>`;
 }
 function usHTML() {
   const d = US.d; if (!d) return `<div class="us-strip"><span class="us-dim">Loading usage…</span></div>`;
@@ -25,7 +20,7 @@ function usHTML() {
       <div class="us-col"><div class="us-h">LAST 7 DAYS · ${usMoney(d.week.cost)} · ${d.week.runs} runs</div><div class="us-bars">${d.days.map(x => `<div title="${esc(x.date)}: ${usMoney(x.cost)}, ${x.runs} runs"><i style="height:${Math.max(3, (x.cost || x.runs / 100) / max * 100)}%"></i><span>${esc(x.label)}</span></div>`).join("")}</div></div>
       <div class="us-col"><div class="us-h">WHERE IT WENT (7 DAYS)</div>${srcs.map(([k, v]) => `<div class="us-src"><span>${esc(k)}</span><i style="--w:${Math.max(2, (v.cost || v.runs / 100) / top * 100)}%"></i><b>${usMoney(v.cost)}</b><small>${v.runs}</small></div>`).join("") || `<div class="us-dim">No runs yet.</div>`}
         <div class="us-h" style="margin-top:10px">BY MODEL</div><div class="us-models">${Object.entries(d.byModel).map(([k, v]) => `<span>${esc(k)} <b>${usMoney(v.cost)}</b> · ${v.runs}</span>`).join("")}</div></div>
-      <div class="us-col"><div class="us-h">SESSIONS · CONTEXT USED</div>${sess.map(s => { const w = s.usage.win || 200000, p = Math.min(100, Math.round((s.usage.ctx || 0) / w * 100)); return `<div class="us-sess"><span>${esc(s.name || s.project)}</span><i class="${p >= 85 ? "bad" : p >= 60 ? "warn" : ""}" style="--w:${p}%"></i><small>${usK(s.usage.ctx)}/${usK(w)} · ${usMoney(s.usage.cost || 0)}</small></div>`; }).join("") || `<div class="us-dim">Sessions show here after they run.</div>`}</div>
+      <div class="us-col"><div class="us-h">SESSIONS · CONTEXT USED</div>${sess.map(s => { const w = s.usage.win || 0, p = w>0 ? Math.min(100, Math.round((s.usage.ctx || 0) / w * 100)) : 0; return `<div class="us-sess"><span>${esc(s.name || s.project)}</span><i class="${p >= 85 ? "bad" : p >= 60 ? "warn" : ""}" style="--w:${p}%"></i><small>${w>0?usK(s.usage.ctx)+"/"+usK(w):"Context window unavailable"} · ${usMoney(s.usage.cost || 0)}</small></div>`; }).join("") || `<div class="us-dim">Sessions show here after they run.</div>`}</div>
     </div><div class="us-note">Dollar amounts are the pay-per-use equivalent. On your Claude plan they count toward the plan limit; nothing is billed.</div>` : ""}</div>`;
 }
 function usPaint() {
@@ -46,3 +41,4 @@ vCode = async function (el) {
   const h = document.createElement("div"); h.id = "usHost"; head.after(h); usPaint(); usLoad();
 };
 document.addEventListener("visibilitychange", () => { if (!document.hidden) usLoad(); });
+

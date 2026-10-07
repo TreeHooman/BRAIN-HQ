@@ -2,8 +2,7 @@
 
 Newest first. What was decided, and why.
 
-- **2026-10-05** [hq] HQ may send email and change the calendar, but only through the Outbox: every item needs the owner's click, and the send runs with only that one connector allowed. _Why:_ the owner wants JARVIS to act, but an instruction hidden in an email it reads must never be able to send mail as them.
-- **2026-10-05** [hq] Calendar comes in through the read-only iCal secret address, stored only in config/hq.local.json. _Why:_ simplest option, no Google developer account or extra dependencies needed, and it works with Outlook and iCloud too.
+- **2026-10-06** [loancentral] Prioritize LoanCentral growth in this order: survive Reddit API changes, strengthen Discord and explore other suitable outreach channels, bring relevant users to the website, then consider monetization after stable growth. _Why:_ The owner clarified that continuity comes first and revenue should wait until reach and website use are established.
 - **2026-10-05** [hq] HQ built as the business brain: plain files in /brain, Claude Code as the agent engine (subscription, no API bill), autonomy up to build (dev only). _Why:_ one place to plan and track every project, reusing Claude Code instead of rebuilding an agent loop.
 - **2026-10-03** [loancentral-discord] The Discord bot runs standalone as "LoanCentral" on the host PC (own SQLite, no Reddit data); separate Reddit and Discord dashboards one click apart.
 - **2026-10-02** [loancentral] No interest % shown anywhere: amount and repay amount only.

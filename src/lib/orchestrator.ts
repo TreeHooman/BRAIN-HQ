@@ -1,20 +1,24 @@
 // The orchestrator: event loop that owns missions, the queue, budgets, usage-limit pauses,
 // approvals, follow-up handoffs, reminders and keep-awake. It spends zero tokens while idle.
 import fs from "node:fs";
+import {isStopped,setStopped,checkStopped} from './stop-control.ts';
+import { resolveModel, validateChoice, explicitModel, type ModelChoice } from "./model-policy.ts";
+import {sessionContext} from './codex-usage.ts';
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import { DATA, DROP, appendLine, fingerprint, localDate, readJson, uid, writeJson } from "./store.ts";
-import { budget, loadConfig, minLevel, modelFor, type Level } from "./config.ts";
+import { budget, loadConfig, minLevel, type Level } from "./config.ts";
 import { findClaude, killTree, onRunResult, runClaude, type RunResult } from "./claude.ts";
-import { findCodex, runCodex } from "./codex.ts";
+import { findCodex, runCodex, codexAvailability } from "./codex.ts";
 import * as preferences from "./preferences.ts";
 import { recordHistory } from "./history.ts";
-import type { Step } from "./narrate.ts";
+import { redact, type Step } from "./narrate.ts";
 import { isDue, type Schedule } from "./schedule.ts";
 import { notify } from "./notify.ts";
 import * as brain from "./brain.ts";
 import * as transcripts from "./transcripts.ts";
 import * as outbox from "./outbox.ts";
+import { autoCleanChats, retiredSessions } from "./chat-memory.ts";
 
 export type Mission = {
   id: string; title: string; prompt: string; project?: string | null;
@@ -29,7 +33,7 @@ export type Run = {
   output?: string; error?: string; model?: string; provider?: "claude" | "codex"; durationMs?: number; maxMinutes?: number;
   extraAllow?: string[]; parentRun?: string | null; depth: number; followups?: number;
   watch?: string[]; skipIfUnchanged?: boolean;
-  taskId?: string | null; reply?: boolean; reportedAt?: string; effort?: string | null;
+  taskId?: string | null; reply?: boolean; reportedAt?: string; effort?: string | null; dismissed?: boolean; ownerDone?: boolean;
 };
 export type Approval = {
   id: string; createdAt: string; title: string; detail: string; project?: string | null;
@@ -164,17 +168,27 @@ type Slot = { run: Run; pid?: number; cancelled?: boolean };
 const active = new Map<string, Slot>();
 const ownerRun = (r: Run) => !!r.taskId || r.trigger === "manual" || r.trigger === "approval";
 const maxTasks = () => Math.max(1, Math.min(6, Number(loadConfig().tasks?.maxParallel) || 3));
-const codexModelFor = (tier: string): string => loadConfig().codex?.tiers?.[tier] || ({ fast: "gpt-6-luna", balanced: "gpt-6.1-sol", deep: "gpt-6-astra" } as Record<string, string>)[tier] || "gpt-6.1-sol";
+const codexModelFor = (tier: string): string => tier === "fast" ? "gpt-6-luna" : "gpt-6.1-sol";
 let chatBusy = false;
+let chatControl: {pid?:number;cancelled:boolean}|null=null;
+export function forceStop(){
+  setStopped(true);
+  if(chatControl){chatControl.cancelled=true;killTree(chatControl.pid);}
+  for(const run of runCache.values())if(OPEN.has(run.status))cancelRun(run.id);
+  const work=readJson<Record<string,any>>(GOAL_WORK,{});for(const goal of Object.values(work))goal.active=false;writeJson(GOAL_WORK,work);
+  ingestDrop();activity('owner-force-stop');return {stopped:true};
+}
+export function resumeWork(){if(chatBusy||active.size)throw new Error('LUTHUR is still stopping. Wait a moment, then resume.');setStopped(false);kick();return {stopped:false};}
+let chatPartial = "";
 export function status() {
   const s = state(); const b = budget();
   const queued = [...runCache.values()].filter(r => r.status === "queued").length;
   return {
-    pausedUntil: s.pausedUntil, pauseReason: s.pauseReason, auth: s.auth, claudeBin: findClaude(), codexBin: findCodex(),
+    pausedUntil: s.pausedUntil, pauseReason: s.pauseReason, auth: s.auth, claudeBin: findClaude(), codexBin: findCodex(),codexStatus:codexAvailability(),
     backupActive: !!(s.pausedUntil && Date.parse(s.pausedUntil) > Date.now() && findCodex()),
     running: (r => r ? { id: r.id, title: r.title, startedAt: r.startedAt } : null)([...active.values()][0]?.run),
     active: [...active.values()].map(({ run: r }) => ({ id: r.id, title: r.title, startedAt: r.startedAt, taskId: r.taskId || null, project: r.project })), maxParallel: maxTasks() + 1,
-    chatBusy, queued, today: s.day.date === localDate() ? s.day.runs : 0, maxRunsPerDay: b.maxRunsPerDay, budget: b.preset,
+    stopped:isStopped(),chatBusy, queued, today: s.day.date === localDate() ? s.day.runs : 0, maxRunsPerDay: b.maxRunsPerDay, budget: b.preset,
     pendingApprovals: approvals().filter(a => a.status === "pending").length,
   };
 }
@@ -183,7 +197,7 @@ export function status() {
 export type Op = {
   id: string; kind: "chat" | "mission" | "code"; title: string; project?: string | null; model: string; level?: string;
   agent?: string; task?: string | null; parent?: string | null;
-  startedAt: number; endedAt?: number; status: "running" | "done" | "failed";
+  startedAt: number; endedAt?: number; status: "running" | "done" | "failed" | "cancelled";
   steps: Step[]; calls: number; added: number; removed: number;
 };
 const ops = new Map<string, Op>();
@@ -201,7 +215,7 @@ export function opStart(o: Omit<Op, "startedAt" | "status" | "steps" | "calls" |
     }
   };
 }
-export function opEnd(id: string, ok: boolean) { const op = ops.get(id); if (op) { op.status = ok ? "done" : "failed"; op.endedAt = Date.now(); } }
+export function opEnd(id: string, ok: boolean, cancelled=false) { const op = ops.get(id); if (op) { op.status = cancelled ? "cancelled" : ok ? "done" : "failed"; op.endedAt = Date.now(); } }
 export function liveOps() {
   const now = Date.now();
   for (const [k, o] of ops) if (o.endedAt && now - o.endedAt > OP_KEEP_MS) ops.delete(k);
@@ -231,10 +245,13 @@ async function tick() {
   try {
     ingestDrop();
     checkReminders();
+    if(isStopped())return;
     scheduleMissions();
     resumeIfReady();
+    advanceGoalWork();
     manageAwake();
     runNext();
+    autoCleanChats(!chatBusy && !active.size && !status().queued);
   } catch (e) {
     activity("error", { where: "tick", error: String(e) });
   } finally { ticking = false; }
@@ -248,6 +265,7 @@ function ingestDrop() {
     const d = readJson<any>(file, null);
     try { fs.unlinkSync(file); } catch {}
     if (!d) continue;
+    if(isStopped()&&['followup','screen','mission'].includes(d.type))continue;
     const parent = d.fromRun ? runCache.get(d.fromRun) : undefined;
     if (d.type === "followup") {
       const b = budget();
@@ -416,7 +434,8 @@ async function execute(run: Run) {
     }
   }
 
-  const { model: claudeModel, fallback } = modelFor(run.tier);
+  const claudeModel = run.permission === "build" || run.tier !== "fast" ? "sonnet" : "haiku";
+  const fallback = undefined;
   const blocked = state().pausedUntil && Date.parse(state().pausedUntil!) > Date.now();
   const provider = run.provider || (run.sessionId || run.extraAllow?.length || level === "build" ? "claude" : blocked && findCodex() ? "codex" : "claude");
   const model = provider === "codex" ? codexModelFor(run.tier) : claudeModel;
@@ -441,13 +460,13 @@ async function execute(run: Run) {
     history: { title: run.title, ask: reply ? run.prompt : run.prompt.slice(0, 2000), project: run.project || null, kind: "Mission" },
     addDirs: level === "build" || level === "read" || level === "plan" ? (proj?.paths || []) : [],
     extraAllow: run.extraAllow, timeoutMs: minutes * 60e3,
-    onSpawn: pid => { slot.pid = pid; }, onStep,
+    onSpawn: pid => { slot.pid = pid;if(slot.cancelled)killTree(pid); }, onStep,
   };
   res = provider === "codex" ? await runCodex(options) : await runClaude(options);
   if (provider === "codex") recordHistory(res, options, "codex");
   } finally { active.delete(run.id); }
   const cancelled = slot.cancelled;
-  opEnd(run.id, res.ok && !cancelled);
+  opEnd(run.id, res.ok && !cancelled,!!cancelled);
   handleResult(run, res, !!cancelled);
 }
 
@@ -547,22 +566,84 @@ export function replyTask(id: string, text: string): Run {
     taskId: id, parentRun: lead.id, depth: 0, sessionId: lead.sessionId || null, reply: !!lead.sessionId, priority: 1, effort: root.effort }, "task");
 }
 export function cancelTask(id: string) { for (const r of taskRuns(id)) if (OPEN.has(r.status)) cancelRun(r.id); }
+export function editTask(id: string, patch: { title?: string; done?: boolean }) {
+  const root = runCache.get(id); if (!root || root.taskId !== id || root.dismissed) throw Object.assign(new Error("Task not found"), { code: 404 });
+  if (patch.done !== undefined && taskRuns(id).some(r => OPEN.has(r.status))) throw new Error("Stop the working task before marking it complete.");
+  if (patch.title !== undefined) { const title = String(patch.title).trim().slice(0, 200); if (!title) throw new Error("A task needs a title."); root.title = title; }
+  if (patch.done !== undefined) root.ownerDone = !!patch.done;
+  saveRun(root); return { ok: true };
+}
+export function dismissTask(id: string) {
+  const root = runCache.get(id); if (!root || root.taskId !== id) throw Object.assign(new Error("Task not found"), { code: 404 });
+  if (taskRuns(id).some(r => OPEN.has(r.status))) throw new Error("Stop the working task before removing it.");
+  root.dismissed = true; saveRun(root); return { ok: true };
+}
 export function tasks(limit = 30) {
-  const roots = [...runCache.values()].filter(r => r.taskId && r.taskId === r.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
+  const roots = [...runCache.values()].filter(r => r.taskId && r.taskId === r.id && !r.dismissed).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
   return roots.map(root => {
     const rs = taskRuns(root.id);
-    return { id: root.id, title: root.title, prompt: root.prompt.slice(0, 2000), project: root.project, createdAt: root.createdAt, status: taskStatus(rs), reportedAt: root.reportedAt || null,
+    return { id: root.id, title: root.title, prompt: root.prompt.slice(0, 2000), project: root.project, createdAt: root.createdAt, status: root.ownerDone && !rs.some(r => OPEN.has(r.status)) ? "done" : taskStatus(rs), reportedAt: root.reportedAt || null,
       runs: rs.map(r => ({ id: r.id, title: r.title, status: r.status, parent: r.parentRun, depth: r.depth, reply: !!r.reply, prompt: r.reply ? r.prompt.slice(0, 600) : undefined, level: r.level || r.permission, model: r.model || r.tier,
         startedAt: r.startedAt, endedAt: r.endedAt, durationMs: r.durationMs, output: r.output?.slice(0, 6000), error: r.error?.slice(0, 800) })) };
   });
 }
 
+// Workstreams use the existing task scheduler, budget and permission ceiling. No new engine or API billing.
+type GoalWork = { goalId: string; permission: string; tier: string; active: boolean; steps: Record<string, string>; finished?: Record<string, string> };
+const GOAL_WORK = path.join(DATA, "goal-work.json");
+export function goalWork() { return readJson<GoalWork[]>(GOAL_WORK, []); }
+export function startGoalWork(goalId: string, permission = "plan", tier = "balanced") {
+  const g = brain.listGoals().find(g => g.id === goalId); if (!g?.steps.length) throw new Error("Add goal steps first.");
+  const all = goalWork(); let work = all.find(w => w.goalId === goalId);
+  if (!work) { work = { goalId, permission, tier, active: true, steps: {} }; all.push(work); }
+  work.permission = minLevel(permission, loadConfig().autonomy?.maxLevel || "build"); work.tier = tier; work.active = true;
+  work.finished ||= {};
+  for (const [sid, tid] of Object.entries(work.steps)) {
+    const rs = taskRuns(tid);
+    const reopened = work.finished[sid] === tid && !g.steps.find(s => s.id === sid)?.done;
+    if (reopened || (!rs.some(r => OPEN.has(r.status)) && taskStatus(rs) !== "done" && !runCache.get(tid)?.ownerDone)) { delete work.steps[sid]; delete work.finished[sid]; }
+  }
+  writeJson(GOAL_WORK, all); advanceGoalWork(); return goalWork();
+}
+export function stopGoalWork(goalId: string) {
+  const all = goalWork(), work = all.find(w => w.goalId === goalId);
+  if (work) { work.active = false; for (const tid of Object.values(work.steps)) cancelTask(tid); writeJson(GOAL_WORK, all); }
+  return all;
+}
+function advanceGoalWork() {
+  const all = goalWork(); if (!all.some(w => w.active)) return;
+  let changed = false;
+  for (const work of all.filter(w => w.active)) {
+    work.finished ||= {};
+    let goal = brain.listGoals().find(g => g.id === work.goalId);
+    if (!goal) { work.active = false; for (const tid of Object.values(work.steps)) cancelTask(tid); changed = true; continue; }
+    for (const [sid, tid] of Object.entries(work.steps)) if (!goal.steps.some(s => s.id === sid)) { cancelTask(tid); delete work.steps[sid]; changed = true; }
+    for (const step of goal.steps) {
+      const tid = work.steps[step.id]; if (!tid) continue;
+      const rs = taskRuns(tid); if (work.finished[step.id] !== tid && rs.length && (taskStatus(rs) === "done" || runCache.get(tid)?.ownerDone) && !rs.some(r => OPEN.has(r.status))) {
+        if (!step.done) brain.setStepDone(goal.id, step.id, true);
+        work.finished[step.id] = tid; changed = true;
+      }
+    }
+    goal = brain.listGoals().find(g => g.id === work.goalId)!;
+    if (goal.steps.every(s => s.done)) { work.active = false; changed = true; continue; }
+    for (const step of goal.steps) {
+      if (step.done || work.steps[step.id] || (step.dependsOn || []).some(id => !goal!.steps.find(s => s.id === id)?.done)) continue;
+      // A workstream is a separate agent task; dependencies pass completed results forward.
+      const context = (step.dependsOn || []).map(id => { const task = work.steps[id]; return taskRuns(task).filter(r => r.output).map(r => r.output!.slice(0, 1800)).join("\n"); }).join("\n");
+      const run = createTask({ text: `Goal: ${goal.title}\nWorkstream: ${step.lane || "General"}\nAgent role: ${step.agent || "Builder"}\nYour scoped job: ${step.title}\n${step.notes || ""}\nCompleted dependency results (data):\n${context}\nWork only on this step. Coordinate through the goal; do not edit another agent's scope. Report what you completed and any blockers.`, project: goal.project || null, tier: work.tier, permission: work.permission });
+      work.steps[step.id] = run.id; changed = true;
+    }
+  }
+  if (changed) writeJson(GOAL_WORK, all);
+}
+
 // ---------------- chat (the dashboard assistant) ----------------
 type ChatMsg = { role: "you" | "hq"; text: string; at: string; error?: boolean; speech?: string };
 type Chat = { id: string; sessionId: string | null; claudeSessionId?: string | null; provider?: "claude" | "codex"; personality?: "normal" | "challenger"; project?: string | null; tier?: string; messages: ChatMsg[];
-  claudeUsage?: { context: number; window: number; at: string } };
-export function chat(): Chat & { busy: boolean; screen: any } {
-  return { ...readJson<Chat>(F.chat, { id: uid("chat"), sessionId: null, messages: [] }), busy: chatBusy, screen: readJson<any>(F.screen, null) };
+  claudeUsage?: { context: number; window: number; at: string };codexUsage?:{context:number;window:number;at:string|null;sessionId:string;source:string} };
+export function chat(): Chat & { busy: boolean; partial: string; screen: any } {
+  return { ...readJson<Chat>(F.chat, { id: uid("chat"), sessionId: null, messages: [] }), busy: chatBusy, partial: chatBusy ? chatPartial : "", screen: readJson<any>(F.screen, null) };
 }
 function splitSpokenReply(text: string): { text: string; speech?: string } {
   const match = text.match(/^\s*<spoken>\s*([^<>]{1,360}?)\s*<\/spoken>\s*/i);
@@ -593,7 +674,8 @@ export function listChats(): ChatRow[] {
   const bySession = new Map(hq.filter(c => c.sessionId).map(c => [c.sessionId as string, c]));
   // LUTHUR's own background runs (explain, briefings, missions, checks) also leave session files here: only list
   // real dashboard chats and sessions the owner started in Claude (app or terminal). The rest is on the History page.
-  const out: ChatRow[] = transcripts.listTranscripts().filter(t => t.source === "claude" || bySession.has(t.sessionId)).map(t => {
+  const retired = retiredSessions();
+  const out: ChatRow[] = transcripts.listTranscripts().filter(t => !retired.includes(t.sessionId) && (t.source === "claude" || bySession.has(t.sessionId))).map(t => {
     const h = bySession.get(t.sessionId);
     return { id: t.sessionId, title: t.title, at: t.at, count: t.count, source: t.source || (h ? "dashboard" : "claude"), project: h?.project || null, current: cur?.sessionId === t.sessionId, resumable: true };
   });
@@ -607,6 +689,7 @@ export function listChats(): ChatRow[] {
   return out.sort((a, b) => b.at.localeCompare(a.at));
 }
 export function getChat(id: string): { id: string; title: string; sessionId: string | null; messages: { role: string; text: string; at: string }[] } | null {
+  if (retiredSessions().includes(id)) return null;
   const t = transcripts.getTranscript(id);
   if (t) return { id, title: t.title, sessionId: t.sessionId, messages: t.messages };
   if (!/^[\w-]{1,64}$/.test(id)) return null;
@@ -627,7 +710,10 @@ export function continueChat(id: string): Chat {
   writeJson(F.chat, next);
   return next;
 }
-export async function sendChat(text: string, opts: { project?: string | null; tier?: string; effort?: string; voice?: boolean; context?: string; personality?: string } = {}): Promise<void> {
+export async function sendChat(text: string, opts: ModelChoice & { project?: string | null; tier?: string; voice?: boolean; context?: string; personality?: string; activeFile?: { acct: string; id: string } } = {}): Promise<void> {
+  checkStopped();
+  opts = {...opts,...explicitModel(text)};
+  validateChoice(opts);
   if (chatBusy) throw new Error("The assistant is still answering.");
   const s = state();
   const c = readJson<Chat>(F.chat, { id: uid("chat"), sessionId: null, messages: [] });
@@ -636,37 +722,45 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
   if (opts.personality === "challenger" || opts.personality === "normal") c.personality = opts.personality;
   writeJson(F.chat, c);
   const claudePaused = !!(s.pausedUntil && new Date(s.pausedUntil) > new Date());
-  const returning = c.provider === "codex" && !claudePaused && !!c.claudeSessionId;
-  if (returning) { c.sessionId = c.claudeSessionId!; c.provider = "claude"; writeJson(F.chat, c); }
-  let provider = c.provider === "codex" || (claudePaused && !!findCodex()) ? "codex" : "claude";
-  const switching = provider === "codex" && c.provider !== "codex";
-  if (switching) { c.claudeSessionId = c.sessionId; c.sessionId = null; c.provider = "codex"; writeJson(F.chat, c); }
+  const previousProvider = c.provider || "claude";
+  let provider: "claude" | "codex" = opts.provider === "codex" || opts.provider === "claude" ? opts.provider : claudePaused && !!findCodex() ? "codex" : "claude";
+  const returning = provider === "claude" && previousProvider === "codex";
+  const switching = provider !== previousProvider;
+  if (switching) {
+    if (previousProvider === "claude") c.claudeSessionId = c.sessionId;
+    c.sessionId = provider === "claude" ? c.claudeSessionId || null : null;
+    c.provider = provider; writeJson(F.chat, c);
+  }
   if (claudePaused && provider === "claude") {
     c.messages.push({ role: "hq", text: `Claude is paused until ${new Date(s.pausedUntil!).toLocaleString()} and Codex is unavailable. Your message is saved.`, at: new Date().toISOString(), error: true });
     writeJson(F.chat, c); return;
   }
   const cfg = loadConfig();
   const tier = opts.tier || cfg.chat?.tier || "balanced";
-  const { model: claudeModel, fallback } = modelFor(tier);
-  const model = provider === "codex" ? codexModelFor(tier) : claudeModel;
+  const { model, effort } = resolveModel(provider, text, opts);
+  const fallback = undefined;
   const proj = c.project ? brain.getProject(c.project) : null;
   // Typed: the chat's normal permission. Spoken: the most this agent may ever have (the autonomy ceiling), unless the
   // owner turned that off. HQ's hard limits (no push/deploy/secrets/public posts) apply at every level.
   const voiceMax = !!opts.voice && cfg.assistant?.voiceFull !== false;
   const requestedLevel = voiceMax ? minLevel(cfg.autonomy?.maxLevel || "build", "build") : minLevel(cfg.chat?.permission || "plan", cfg.autonomy?.maxLevel || "build");
   const level = provider === "codex" ? minLevel(requestedLevel, "plan") : requestedLevel;
-  chatBusy = true;
+  chatBusy = true; chatPartial = "";
+  const control={cancelled:false,pid:undefined as number|undefined};chatControl=control;
   const system = [
     `You are ${cfg.assistant?.name || "LUTHUR"}, the owner's AI chief of staff, talking with them in the HQ dashboard (they may be using voice). ${cfg.assistant?.persona || ""}`,
-    "You can put things on the owner's War Room screen with show_on_screen (websites, emails, Drive docs/sheets, web searches, their calendar) and find emails/files with google_mail_search / google_drive_search. You never see email or file contents: to read or go over one, call show_on_screen with read_aloud or summarize and the dashboard does it. Keep your own reply to one short spoken line then.",
+    "You can put things on the owner's War Room screen with show_on_screen (websites, emails, Drive docs/sheets, web searches, their calendar) and find emails/files with google_mail_search / google_drive_search. You do not receive email bodies. For a Google file opened in the active work window, screen_file_read reads that exact file, and screen_doc_replace / screen_sheet_edit apply explicitly requested edits when the account allows writing. Keep the file open while editing so the owner sees the result. For other files or emails, show_on_screen with read_aloud or summarize lets the dashboard read them. Keep your own reply to one short spoken line then.",
     voiceMax ? `The owner is speaking to you by voice: you have your full permission level (${level}) for this turn.` : "",
     cfg.assistant?.taskApproval !== false ? "Tasks you delegate with queue_followup wait for the owner's approval in HQ before they run. Say that. Only if the owner explicitly told you in this conversation to just go ahead, set owner_approved: true." : "",
     "Lead the written answer with the result; put detail after, in short bullets when useful.",
     "For your final reply, start with <spoken>one natural sentence of at most 25 words summarizing the result or next action</spoken>. No Markdown inside the tag. Then give the complete written answer without repeating the spoken sentence verbatim. The tag is used only for speech and is hidden from the written chat.",
     "Be brief and concrete. Read brain context only as needed (hq_index first).",
+    "For ordinary conversation answer directly without unnecessary checks or tools. Start with the useful answer; avoid long preambles. Inspect only the sources needed for factual or action requests. Keep spoken replies natural and short, with further detail in the written response.",
+    "Be the owner's operational assistant: handle checks, bug diagnosis, scoped fixes, review passes and reports. For 'what is the issue' or 'possible fixes', inspect and explain evidence, likely cause, options and your recommendation before writing. When authorized to fix, execute within permissions and verify. Open the affected project/file with show_on_screen before work so the owner can follow it. Report what changed, checks run, remaining risks and next steps. The dashboard shows actual tool progress; never invent progress or claim untested work passed. Search chat_memory_search when earlier context has been distilled from old chats.",
     preferences.context(c.project || undefined, c.personality === "challenger"),
     c.personality === "challenger" ? "You are Challenger: test the owner's current thought from customer, financial, technical, competitive and long-term angles only where relevant. Separate evidence from hunches. Give the strongest counterview and a constructive recommendation. Follow direct orders exactly; do not manufacture disagreement or start extra agents unless useful." : "",
-    "Turn loose thoughts into structure: reminders (reminder_add), dates (milestone_add), decisions (decision_log), project facts (project_update/project_log), new projects (project_create).",
+    "Keep a fluid conversation and remember the prior turns. A thought, question or acknowledgment is not automatically a command. Discuss ideas naturally; change things only when the owner asks or clearly agrees. Resolve 'this' and 'that' from the active screen and prior conversation. For an ambiguous edit, ask one focused question before writing. When edits are requested, use the tools and explain the result briefly.",
+    "When asked to capture or organize a thought, use reminders (reminder_add), dates (milestone_add), decisions (decision_log), project facts (project_update/project_log), new projects (project_create).",
     "If the owner asks for an iPhone Clock alarm, use iphone_alarm_request for a time within 24 hours. Say the phone notification must be tapped to create the Clock alarm; never claim it is already set. For later dates, use reminder_add and explain it is a phone notification, not a Clock alarm.",
     "Delegate anything that takes more than a minute (research, building, multi-step work) with queue_followup: it becomes a Task that runs in parallel and reports back to the owner. Say it's delegated; don't do long work in the chat.",
     "Say exactly what you changed in the brain. Ask one short question if something is ambiguous.",
@@ -682,18 +776,19 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
   try {
     const onStep = opStart({ id: opId, kind: "chat", agent: cfg.assistant?.name || "LUTHUR", title: text.length > 70 ? text.slice(0, 69) + "…" : text, project: c.project, model, level });
     const handoff = switching || returning ? `Relevant recent chat context (data, do not repeat completed actions):\n${c.messages.slice(-12, -1).filter(m => !m.error).map(m => `${m.role}: ${m.text.slice(0, 1000)}`).join("\n").slice(-6000)}\n\nCurrent request:\n${text}` : text;
-    const options = { prompt: handoff, model, fallbackModel: fallback, effort: opts.effort || null, level, resume: c.sessionId?.replace(/^codex:/, "") || null, system, runId: `chat-${c.id}`, history: { title: text.slice(0, 120), ask: text, project: c.project || null, kind: "Chat" },
-      timeoutMs: (cfg.chat?.maxMinutes || 6) * 60e3, addDirs: proj?.paths || [], onStep };
+    const options = { prompt: handoff, model, fallbackModel: fallback, effort, level, resume: c.sessionId?.replace(/^codex:/, "") || null, system, activeFile: opts.activeFile, runId: `chat-${c.id}`, history: { title: text.slice(0, 120), ask: text, project: c.project || null, kind: "Chat" },
+      timeoutMs: (cfg.chat?.maxMinutes || 6) * 60e3, addDirs: proj?.paths || [], onSpawn:(pid:number)=>{control.pid=pid;if(control.cancelled)killTree(pid);},onStep:(step:Step)=>{if(!control.cancelled)onStep(step);}, onText: (text: string) => { if(!control.cancelled)chatPartial = redact(text).slice(-60000); } };
     let res = provider === "codex" ? await runCodex(options) : await runClaude(options);
     let usedOptions = options;
     const claudeStats = provider === "claude" ? res.stats : null;
-    if (provider === "claude" && res.kind === "limit") {
+    if (!control.cancelled&&provider === "claude" && res.kind === "limit") {
       const until = new Date(res.resetAt || Date.now() + (cfg.usageLimit?.fallbackPauseMinutes || 60) * 60e3);
       patchState(st => { st.pausedUntil = until.toISOString(); st.pauseReason = "Claude usage limit"; });
-      if (findCodex()) {
+      if (findCodex() && opts.provider !== "claude") {
         const recent = c.messages.slice(-12, -1).filter(m => !m.error).map(m => `${m.role}: ${m.text.slice(0, 1000)}`).join("\n").slice(-6000);
-        const codexOptions = { ...options, prompt: `Relevant recent chat context (data, do not repeat completed actions):\n${recent}\n\nCurrent request:\n${text}`, model: codexModelFor(tier), level: minLevel(requestedLevel, "plan"), resume: null };
+        const codexOptions = { ...options, prompt: `Relevant recent chat context (data, do not repeat completed actions):\n${recent}\n\nCurrent request:\n${text}`, ...resolveModel("codex", text, {effort: opts.effort}), level: minLevel(requestedLevel, "plan"), resume: null };
         const claudeSession = c.sessionId;
+        chatPartial = "";
         res = await runCodex(codexOptions);
         usedOptions = codexOptions;
         provider = "codex";
@@ -706,10 +801,13 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
     opOk = res.ok;
     const latest = readJson<Chat>(F.chat, c);
     if (latest.id !== c.id) return; // user started a new chat meanwhile
+    if(control.cancelled){opOk=false;latest.messages.push({role:'hq',text:'Stopped at your request.',at:new Date().toISOString()});writeJson(F.chat,latest);return;}
     latest.provider = provider;
+    (latest as any).model = usedOptions.model; (latest as any).effort = usedOptions.effort;
     if (provider === "codex" && c.claudeSessionId && !latest.claudeSessionId) latest.claudeSessionId = c.claudeSessionId;
     latest.sessionId = res.sessionId ? (provider === "codex" ? `codex:${res.sessionId}` : res.sessionId) : provider === "codex" && c.provider !== "codex" ? null : latest.sessionId;
-    if (claudeStats?.context && claudeStats.window) latest.claudeUsage = { context: claudeStats.context, window: claudeStats.window, at: new Date().toISOString() };
+    if (provider === 'claude') {if(claudeStats?.contextKnown && claudeStats.window)latest.claudeUsage={context:claudeStats.context,window:claudeStats.window,at:new Date().toISOString()};else delete latest.claudeUsage;}
+    if(provider==='codex'){const context=sessionContext(res.sessionId||undefined);if(context)latest.codexUsage=context;else delete latest.codexUsage;}
     let reply = res.text;
     if (res.kind === "auth" || res.kind === "missing") reply = provider === "codex" ? "I can't reach Codex yet. Check its CLI sign-in, then try again." : "I can't reach Claude yet. Run **scripts\\SIGN-IN-CLAUDE.cmd** once, then try again.";
     if (res.kind === "limit") reply = provider === "codex" ? "Codex's usage limit is reached too. Your message is saved; try again after its reset." : `Claude's usage limit is reached${res.resetAt ? ` until about ${new Date(res.resetAt).toLocaleString()}` : ""}. Codex will handle new messages while Claude is paused.`;
@@ -720,7 +818,7 @@ export async function sendChat(text: string, opts: { project?: string | null; ti
     if (provider === "claude" && res.kind === "auth") patchState(st => { st.auth = "needs-login"; st.authCheckedAt = new Date().toISOString(); });
     if (res.kind === "limit" && provider === "claude") patchState(st => { st.pausedUntil = new Date(res.resetAt || Date.now() + (cfg.usageLimit?.fallbackPauseMinutes || 60) * 60e3).toISOString(); st.pauseReason = "Claude usage limit"; });
     activity("chat", { ok: res.ok, kind: res.kind });
-  } finally { try { ingestDrop(); } catch {} chatBusy = false; opEnd(opId, opOk); kick(); } // ingest now so screen commands are ready with the reply
+  } finally { try { ingestDrop(); } catch {} chatBusy = false;chatControl=null; chatPartial = ""; opEnd(opId, opOk,control.cancelled); kick(); } // ingest now so screen commands are ready with the reply
 }
 
 onRunResult(r => {
@@ -731,7 +829,7 @@ let checking: Promise<void> | null = null;
 /** A tiny Haiku run ("reply OK") that tells us for sure whether Claude is signed in. */
 export function checkAuth(): Promise<void> {
   if (checking) return checking;
-  checking = runClaude({ prompt: "Reply with exactly: OK", model: modelFor("fast").model, level: "read", runId: "auth-check", timeoutMs: 90e3, act: { allow: ["mcp__hq_none"] }, system: "Reply with exactly: OK" })
+  checking = runClaude({ prompt: "Reply with exactly: OK", model: "sonnet", level: "read", runId: "auth-check", timeoutMs: 90e3, act: { allow: ["mcp__hq_none"] }, system: "Reply with exactly: OK" })
     .then(r => { if (!r.ok && r.kind !== "auth") patchState(s => { s.authCheckedAt = new Date().toISOString(); }); activity("auth-check", { ok: r.ok, kind: r.kind }); })
     .catch(() => {}).finally(() => { checking = null; });
   return checking;
@@ -758,3 +856,4 @@ function setAwake(on: boolean) {
   }
 }
 export function awakeOn() { return !!awake; }
+

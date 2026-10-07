@@ -31,6 +31,26 @@ function toast(msg, ms = 2600) {
   const t = $("#toast"); t.textContent = msg; t.hidden = false;
   clearTimeout(toast._t); toast._t = setTimeout(() => { t.hidden = true; }, ms);
 }
+// Confirmation belongs beside the action, without blocking the whole browser.
+function uiConfirm(message, anchor = document.activeElement) {
+  uiConfirm.cancel?.();
+  return new Promise(resolve => {
+    const box=document.createElement('div');box.className='inline-confirm';box.setAttribute('role','alertdialog');box.setAttribute('aria-modal','false');
+    const id='confirm-'+Date.now();box.innerHTML=`<p id="${id}"></p><div class="row"><button type="button" class="btn sm primary" data-confirm>Confirm</button><button type="button" class="btn sm" data-cancel>Cancel</button></div>`;
+    box.querySelector('p').textContent=String(message);box.setAttribute('aria-labelledby',id);
+    const region=anchor?.closest?.('.up-window-body,.up-window,.modal-box,.card,form,.nv-panel') || document.getElementById('view');
+    const row=anchor?.closest?.('.row');
+    if(row&&region?.contains(row))row.after(box);else if(region)region.append(box);else document.body.append(box);
+    const wasDisabled=anchor?.disabled;if(anchor&&'disabled' in anchor)anchor.disabled=true;
+    let settled=false;
+    const observer=new MutationObserver(()=>{if(!box.isConnected)finish(false);});
+    const finish=value=>{if(settled)return;settled=true;observer.disconnect();document.removeEventListener('keydown',key,true);box.remove();if(anchor?.isConnected){if('disabled' in anchor)anchor.disabled=wasDisabled;anchor.focus?.({preventScroll:true});}if(uiConfirm.cancel===cancel)uiConfirm.cancel=null;resolve(value);};
+    const cancel=()=>finish(false),key=e=>{if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();cancel();}};
+    uiConfirm.cancel=cancel;document.addEventListener('keydown',key,true);observer.observe(document.body,{childList:true,subtree:true});
+    box.querySelector('[data-confirm]').onclick=()=>finish(true);box.querySelector('[data-cancel]').onclick=cancel;
+    box.querySelector('[data-cancel]').focus({preventScroll:true});box.scrollIntoView({block:'nearest',behavior:'smooth'});
+  });
+}
 async function act(fn, ok) {
   try { const r = await fn(); if (ok) toast(ok); await refresh(); render(); return r; }
   catch (e) { toast("⚠ " + e.message, 5000); }
@@ -166,7 +186,7 @@ function reminderList(items, empty = "Nothing here.") {
 }
 function bindReminders(root) {
   $$("[data-done]", root).forEach(b => b.onclick = () => act(() => api(`/reminders/${b.dataset.done}`, "PATCH", { complete: true }), "Done ✓"));
-  $$("[data-delrem]", root).forEach(b => b.onclick = () => confirm("Delete this reminder?") && act(() => api(`/reminders/${b.dataset.delrem}`, "DELETE"), "Deleted"));
+  $$("[data-delrem]", root).forEach(b => b.onclick = async () => (await uiConfirm("Delete this reminder?")) && act(() => api(`/reminders/${b.dataset.delrem}`, "DELETE"), "Deleted"));
 }
 function projectCard(p) {
   return `<div class="card click proj h-${esc(p.health)}" data-open="${p.slug}" data-stage="${esc(p.stage)}" data-q="${esc((p.name + " " + p.summary + " " + (p.tags || []).join(" ") + " " + p.kind).toLowerCase())}" tabindex="0" role="link">
@@ -330,7 +350,7 @@ async function vProject(el) {
   const lf = $("#logForm"); if (lf) lf.onsubmit = async e => { e.preventDefault(); const t = new FormData(e.target).get("text"); if (!t) return; await api(`/project/${slug}/log`, "POST", { text: t }); reload("Logged"); };
   const pr = $("#pRem"); if (pr) pr.onsubmit = async e => { e.preventDefault(); const f = new FormData(e.target); await api("/reminders", "POST", { title: f.get("title"), due: String(f.get("due")).replace("T", " "), project: slug }).catch(x => toast(x.message)); reload("Reminder added"); };
   const pm = $("#pMs"); if (pm) pm.onsubmit = async e => { e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); await api("/milestones", "POST", { ...f, project: slug }).catch(x => toast(x.message)); reload("Milestone added"); };
-  $$("[data-delms]", el).forEach(b => b.onclick = async () => { if (!confirm("Delete milestone?")) return; await api(`/milestones/${b.dataset.delms}`, "DELETE"); reload("Deleted"); });
+  $$("[data-delms]", el).forEach(b => b.onclick = async () => { if (!(await uiConfirm("Delete milestone?"))) return; await api(`/milestones/${b.dataset.delms}`, "DELETE"); reload("Deleted"); });
   bindReminders(el); bindMissionForm(el); bindRuns(el);
   const sf = $("#setupForm");
   if (sf) {
@@ -473,8 +493,9 @@ function speak(text) {
   const u = new SpeechSynthesisUtterance(plain);
   const voices = speechSynthesis.getVoices();
   u.voice = voices.find(v => /en-GB/i.test(v.lang) && /(Ryan|George|Thomas|Male|Daniel)/i.test(v.name)) || voices.find(v => /en-GB/i.test(v.lang)) || voices.find(v => /^en/i.test(v.lang)) || null;
-  u.rate = 1.05; u.pitch = 0.95;
-  speechSynthesis.cancel(); speechSynthesis.speak(u);
+  u.rate = 1.05; u.pitch = 0.95; if(typeof configureVoice==="function")configureVoice(u);
+  u.volume = Math.max(0, Math.min(1, Number(localStorage.getItem("hq-voice-volume") ?? 1)));
+  speechSynthesis.cancel(); if(typeof speechPlaybackStart==='function')speechPlaybackStart(u);if(typeof ForceStop==='undefined'||!ForceStop.stopped)speechSynthesis.speak(u);
 }
 const VoiceReply = { last: "" };
 function spokenReplyText(c) {
@@ -506,6 +527,7 @@ function speakChatReply(c, force = false) {
 }
 let rec = null;
 function listen(onText, onState) {
+  if(typeof speechPlaybackBlocked==='function'&&speechPlaybackBlocked()){toast('Wait for Listening before speaking.');return;}
   if (!SR) { toast("Voice input needs Edge or Chrome"); return; }
   if (rec) { rec.finish(); return; }
   const pauseMs = 3200;
@@ -526,6 +548,7 @@ function listen(onText, onState) {
     const r = new SR(); active = r; rec = { finish };
     r.lang = "en-US"; r.interimResults = true; r.continuous = true;
     r.onresult = e => {
+      if(finished||active!==r||(typeof speechPlaybackBlocked==='function'&&speechPlaybackBlocked()))return;
       sessionFinal = ""; interim = "";
       for (const item of e.results) (item.isFinal ? sessionFinal += item[0].transcript + " " : interim += item[0].transcript + " ");
       if (text()) { lastHeard = Date.now(); onText(text(), false); arm(); }
@@ -556,6 +579,7 @@ async function vAssistant(el) {
       <button class="btn ${voiceOn() ? "primary" : ""}" id="voiceToggle" title="Speak replies aloud">${voiceOn() ? "Voice on" : "Voice off"}</button>
       <button class="btn" id="newChat">New chat</button></div></div>
     <div class="chat-tier">${tierSwitch()} <span class="small muted">${c.provider === "codex" ? "Codex backup" : "Claude"}${c.personality === "challenger" ? " · Challenger" : ""}</span></div>
+    <div id="chatClaudeUsage" class="chat-claude-usage" role="status">Claude · Context unavailable · Usage unavailable</div>
     <div class="chat-log" id="chatLog">
       ${c.messages.length ? c.messages.map(m => `<div class="msg ${m.role} ${m.error ? "err" : ""}">${m.role === "you" ? esc(m.text) : md(m.text)}<div class="t">${ago(m.at)}</div></div>`).join("")
         : `<div class="card" style="margin-top:20px"><b>Try:</b><div class="row" style="margin-top:8px">${examples.map(x => `<button class="btn sm" data-ex="${esc(x)}">${esc(x)}</button>`).join("")}</div></div>`}
@@ -586,6 +610,7 @@ async function vAssistant(el) {
   if (sessionStorage.getItem("hq-listen") === "1") { sessionStorage.removeItem("hq-listen"); $("#micBtn").click(); }
   if (!c.busy) $("#chatText").focus();
   if (c.busy) pollChat();
+  if (typeof usageRingPoll === "function") usageRingPoll();
 }
 let chatPoll = null;
 function pollChat() {
@@ -683,7 +708,7 @@ function vMissions(el) {
   $("#newMission").onclick = () => { modal(`<h3>New mission</h3>${missionForm({})}`); bindMissionForm($("#modal")); };
   const up = $("#unpause"); if (up) up.onclick = () => act(() => api("/pause/clear", "POST"), "Resuming");
   $$("[data-run]", el).forEach(b => b.onclick = () => act(() => api(`/missions/${b.dataset.run}/run`, "POST"), "Queued"));
-  $$("[data-del]", el).forEach(b => b.onclick = () => confirm("Delete this mission?") && act(() => api(`/missions/${b.dataset.del}`, "DELETE"), "Deleted"));
+  $$("[data-del]", el).forEach(b => b.onclick = async () => (await uiConfirm("Delete this mission?")) && act(() => api(`/missions/${b.dataset.del}`, "DELETE"), "Deleted"));
   $$("[data-edit]", el).forEach(b => b.onclick = () => { const m = S.missions.find(x => x.id === b.dataset.edit); modal(`<h3>Edit mission</h3>${missionForm(m)}`); bindMissionForm($("#modal")); });
   $$("[data-tmpl]", el).forEach(b => b.onclick = () => { const t = S.templates.find(x => x.id === b.dataset.tmpl); modal(`<h3>${esc(t.title)}</h3>${missionForm({ ...t, id: undefined })}`); const f = $("#modal .mform"); f.dataset.id = t.id; bindMissionForm($("#modal")); });
 }
@@ -769,7 +794,7 @@ function vSettings(el) {
   if ($("#calSync")) $("#calSync").onclick = () => act(() => api("/calendar/sync", "POST").then(r => { calFeed.key = ""; return r; }), "Calendar synced");
   // Google calendars: Reconnect goes straight to Google's sign-in (adds the Calendar permission, keeps the rest)
   $$("[data-greco]", el).forEach(b => b.onclick = async () => { try { const { url } = await api("/google/login", "POST", { reconnect: b.dataset.greco }); location.href = url; } catch (e) { toast("⚠ " + e.message, 5000); } });
-  $$("[data-calrm]", el).forEach(b => b.onclick = () => { if (confirm("Remove this calendar from LUTHUR?")) act(() => api(`/calendar/feeds/${b.dataset.calrm}`, "DELETE"), "Calendar removed"); });
+  $$("[data-calrm]", el).forEach(b => b.onclick = async () => { if ((await uiConfirm("Remove this calendar from LUTHUR?"))) act(() => api(`/calendar/feeds/${b.dataset.calrm}`, "DELETE"), "Calendar removed"); });
   connCardFill(false);
   prefCardFill();
   $("#replayBoot").onclick = () => hudBoot(false);
@@ -805,7 +830,7 @@ $("#modal").addEventListener("click", e => { if (e.target.id === "modal" || e.ta
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && !$("#modal").hidden) closeModal();
   if (e.altKey && (e.key === "j" || e.key === "J")) { e.preventDefault(); if (route.view === "assistant") $("#micBtn")?.click(); else if (route.view === "command") $("#cmdMic")?.click(); else { sessionStorage.setItem("hq-listen", "1"); location.hash = "assistant"; } }
-  if (e.key === "/" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); $("#captureText").focus(); }
+  if (e.key === "/" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); (route.view === "command" ? $("#cmdText") : $("#captureText"))?.focus(); }
 });
 
 // ---------------- quick capture ----------------
@@ -826,3 +851,4 @@ window.addEventListener("DOMContentLoaded", async () => {
   try { render(); } finally { requestAnimationFrame(() => document.documentElement.classList.add("hq-ready")); }
   setInterval(async () => { if (HUD.asleep) return; await refresh(); render.background = true; if (!["assistant", "project", "command", "planner", "code", "tasks", "canvas"].includes(route.view) || route.view === "project" && editing === null && projTab === "work") render(); render.background = false; }, 6000);
 });
+

@@ -49,10 +49,10 @@ function upDraw(wrap) {
     upDot(); upDraw(wrap);
   };
   const del = wrap.querySelector("#upKeyDel");
-  if (del) del.onclick = async () => { if (!confirm("Remove the saved GitHub key?")) return; try { UP.s = await api("/update", "PUT", { token: "" }); } catch {} upDraw(wrap); };
+  if (del) del.onclick = async () => { if (!(await uiConfirm("Remove the saved GitHub key?"))) return; try { UP.s = await api("/update", "PUT", { token: "" }); } catch {} upDraw(wrap); };
   const go = wrap.querySelector("#upGo");
   if (go) go.onclick = async () => {
-    if (!confirm("Update LUTHUR now? It restarts and this page reloads by itself.")) return;
+    if (!(await uiConfirm("Update LUTHUR now? It restarts and this page reloads by itself."))) return;
     const sha = UP.s.latest.sha; busy(go, true);
     try { const r = await api("/update/apply", "POST", { sha }); upWait(r.latest?.sha || sha); } catch (e) { toast("⚠ " + e.message, 6000); busy(go, false); }
   };
@@ -125,3 +125,4 @@ setTimeout(async function loop() {
   if (s?.available && !told) { toast("Update available · Settings → Updates", 6000); try { sessionStorage.setItem("hq-up-told", s.latest.sha); } catch {} }
   setTimeout(loop, 6 * 3600e3);
 }, 8000);
+

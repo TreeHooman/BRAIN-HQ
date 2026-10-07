@@ -1,0 +1,16 @@
+{
+  "name": "LUTHUR",
+  "kind": "tool",
+  "stage": "building",
+  "health": "unknown",
+  "summary": "Personal assistant, War Room and project work hub.",
+  "nextStep": "Refresh LUTHUR, open Music and drag its MUSIC header. The player remembers the position and stays open while you use other screens.",
+  "updated": "2026-10-07",
+  "paths": [],
+  "repos": [],
+  "links": [],
+  "tags": [],
+  "maxPermission": "build",
+  "phases": [],
+  "order": 11
+}

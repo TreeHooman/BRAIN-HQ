@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="en" data-theme="hud">
+<html lang="en" data-theme="hud" class="access-locked">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>LUTHUR</title>
+<script>window.hqOverlay=new URLSearchParams(location.search).get('overlay')==='1';if(window.hqOverlay){document.title='LUTHUR Hologram';document.documentElement.classList.add('hologram-mode');sessionStorage.setItem('hq-visible-boot','1');sessionStorage.setItem('hq-welcomed','1');}</script>
 <script>try { document.documentElement.dataset.theme = localStorage.getItem("hq-theme") || "hud"; } catch {} setTimeout(() => document.documentElement.classList.add("hq-ready"), 6000); setTimeout(() => document.documentElement.classList.remove("hq-booting"), 12000);</script>
 <style>/* hide the half-built page until the first render (no flash of the raw sidebar) */
 html:not(.hq-ready) body > :not(#boot) { opacity: 0 !important; }
@@ -26,6 +27,7 @@ body > * { transition: opacity .25s; }</style>
 <link rel="stylesheet" href="canvas.css">
 <link rel="stylesheet" href="workspace.css">
 <link rel="stylesheet" href="work.css">
+<link rel="stylesheet" href="upgrade.css">
 </head>
 <body>
 <div class="app">
@@ -106,5 +108,23 @@ body > * { transition: opacity .25s; }</style>
 <script src="explain.js"></script>
 <script src="usage.js"></script>
 <script src="usage-ring.js"></script>
+<script src="upgrade.js"></script>
+<script src="voice.js"></script>
+<script src="welcome.js"></script>
+<script src="check-sounds.js"></script>
+<script src="access.js"></script>
+<script src="speech-feedback.js"></script>
+<script src="model-console.js"></script>
+<script src="voice-state.js"></script>
+<script src="voice-motion.js"></script>
+<script src="work-inspector.js"></script>
+<script src="force-stop.js"></script>
+<link rel="stylesheet" href="desktop-overlay.css">
+<script src="desktop-overlay.js"></script>
+<script src="wake-idle.js"></script>
+<script src="code-manager.js"></script>
+<script src="guided-actions.js"></script>
 </body>
 </html>
+
+

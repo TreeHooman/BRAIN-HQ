@@ -1,0 +1,11 @@
+# Local PIN protection and activity sounds
+
+The local server now requires an unlocked session for dashboard APIs, data, browser live stream, private Google previews and backgrounds. OAuth callbacks retain their existing state/PKCE validation. API unlock uses a salted scrypt hash, cryptographic session tokens in HttpOnly/SameSite cookies, five-attempt/one-minute throttling and a twelve-hour expiry. The salted hash lives only in data/access-lock.json (gitignored). No PIN or hash ships in source: on a fresh install the first PIN entered (4-8 digits) becomes the PIN. To reset, stop HQ, delete data/access-lock.json, start HQ and enter a new PIN. Dashboard script/assets remain public; files on disk are not encrypted.
+
+The holographic unlock screen blocks interaction and hides dashboard content. A new window session locks the app before loading data. Refresh retains a valid session. Settings → Protection → Lock LUTHUR and Ctrl+Alt+L revoke all dashboard sessions and stop PC wake listening. Browser microphone/voice commands pause while locked. Previously authorized background missions continue running.
+
+PC wake helper receives the authenticated session through its environment, rather than bypassing the access gate. Re-enable it after unlocking. The launcher recognizes locked-server HTTP 401 as running so it does not start a second server. The lock stays closed with a restart message if an older running server lacks the access endpoints.
+
+Scan/work sounds are short sine pings; completion/error tones use reported operation status. Initial operation history and unchanged polls do not produce tones. Rate-limited, paused during speech, controlled by global mute/voice volume and an independent Voice settings checkbox. Browser autoplay can prevent scan audio until interaction enables sound.
+
+Verified in isolated HQ: unauthenticated read/write rejection, wrong/right PIN, cookie flags, revocation, unlock UI and phone bounds; activity tone mocks verify controls and speech suppression. Windows authenticated wake helper compiled and its grammar check passed without microphone access. Real microphone/background wake checks remain. Backend restart is required to activate protection; no live process was stopped automatically.

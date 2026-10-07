@@ -13,7 +13,7 @@ export type Project = {
 export type Reminder = { id: string; title: string; due: string; project?: string; repeat?: string | null; done?: boolean; notifiedAt?: string | null; createdAt: string };
 export type Milestone = { id: string; date: string; title: string; project?: string; kind?: string; done?: boolean };
 export type InboxItem = { id: string; text: string; at: string; project?: string };
-export type Step = { id: string; title: string; done?: boolean; notes?: string; due?: string };
+export type Step = { id: string; title: string; done?: boolean; notes?: string; due?: string; lane?: string; agent?: string; dependsOn?: string[] };
 export type Goal = { id: string; title: string; project?: string | null; why?: string; due?: string; steps: Step[]; createdAt: string; updated?: string };
 
 export const KINDS = ["business", "product", "workstream", "strategy", "research", "frontier", "tool"];
@@ -248,17 +248,47 @@ export function saveGoal(input: Partial<Goal> & { title: string }): Goal {
   const g: Goal = { ...base, ...input, id: base.id, updated: new Date().toISOString() };
   if (!g.title?.trim()) throw new Error("A goal needs a title.");
   g.steps = (g.steps || []).filter(st => st && String(st.title || "").trim()).map(st => ({ ...st, id: st.id || uid("s"), title: String(st.title).trim(), done: !!st.done }));
+  if (g.steps.length > 80 || new Set(g.steps.map(s => s.id)).size !== g.steps.length) throw new Error("Use at most 80 steps with unique ids.");
+  const ids = new Set(g.steps.map(s => s.id));
+  for (const st of g.steps) {
+    st.lane = String(st.lane || "").trim().slice(0, 80);
+    st.agent = String(st.agent || "").trim().slice(0, 80);
+    st.dependsOn = [...new Set(st.dependsOn || [])];
+    if (st.dependsOn.some(id => id === st.id || !ids.has(id))) throw new Error("Each dependency must be another step in this goal.");
+  }
+  const visiting = new Set<string>(), visited = new Set<string>();
+  const visit = (id: string) => { if (visiting.has(id)) throw new Error("Goal dependencies cannot form a loop."); if (visited.has(id)) return; visiting.add(id); for (const dep of g.steps.find(s => s.id === id)!.dependsOn || []) visit(dep); visiting.delete(id); visited.add(id); };
+  for (const st of g.steps) visit(st.id);
   if (i >= 0) all[i] = g; else all.push(g);
   writeJson(F.goals, all); regenerateIndex();
+  syncDailyLinks();
   return g;
 }
-export function deleteGoal(id: string): void { writeJson(F.goals, listGoals().filter(g => g.id !== id)); regenerateIndex(); }
+export function deleteGoal(id: string): void { writeJson(F.goals, listGoals().filter(g => g.id !== id)); regenerateIndex(); syncDailyLinks(); }
+// Keep linked daily items consistent even when a goal is edited through MCP, Canvas or Planner.
+function syncDailyLinks() {
+  const file = path.join(BRAIN, "today.json"), day = readJson<any>(file, null); if (!day?.items) return;
+  const goals = listGoals(); let changed = false;
+  day.items = day.items.filter((item: any) => {
+    if (!item.goalId || !item.stepId) return true;
+    const step = goals.find(g => g.id === item.goalId)?.steps.find(s => s.id === item.stepId);
+    if (!step) { changed = true; return false; }
+    if (item.title !== step.title || !!item.done !== !!step.done) { item.title = step.title; item.done = !!step.done; item.doneAt = step.done ? item.doneAt || new Date().toISOString() : undefined; changed = true; }
+    return true;
+  });
+  if (changed) writeJson(file, day);
+}
 export function setStepDone(goalId: string, stepId: string, done: boolean): Goal {
   const all = listGoals(); const g = all.find(x => x.id === goalId);
   const st = g?.steps.find(x => x.id === stepId);
   if (!g || !st) throw new Error("No such goal/step");
   st.done = done; g.updated = new Date().toISOString();
+  if (done && g.project) {
+    const project = getProject(g.project), next = g.steps.find(s => !s.done);
+    if (project && project.nextStep === st.title) updateProject(g.project, { nextStep: next?.title || "Goal complete: " + g.title });
+  }
   writeJson(F.goals, all); regenerateIndex();
+  syncDailyLinks();
   return g;
 }
 

@@ -49,6 +49,317 @@
         "due": "2027-03-31",
         "done": false
       }
-    ]
+    ],
+    "updated": "2026-10-06T21:49:10.219Z"
+  },
+  {
+    "id": "seed-reddit-access",
+    "project": "reddit",
+    "title": "Keep LoanCentral allowed on Reddit",
+    "due": "2027-03-31",
+    "why": "Data Access Request was denied 2 Oct. Last day to resubmit is 31 Oct; unregistered apps are cut off 12 Jan; the public API closes March 2027.",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "Draft the access request resubmission (single-sub mod + record-keeping tool, stored data and why, red flags removed)",
+        "due": "2026-10-24",
+        "done": false
+      },
+      {
+        "id": "s2",
+        "title": "Verify the OCR/scanner \"approval\" ticket 18545872 (Gmail Show original / r/ModSupport)",
+        "due": "2026-10-24",
+        "done": false
+      },
+      {
+        "id": "s3",
+        "title": "Post the dated mod recusal rule in the r/LoanCentral wiki",
+        "due": "2026-10-10",
+        "done": false
+      },
+      {
+        "id": "s4",
+        "title": "Submit the resubmission",
+        "due": "2026-10-31",
+        "done": false
+      },
+      {
+        "id": "s5",
+        "title": "Migration bounty: decide if we apply",
+        "due": "2026-11-30",
+        "notes": "Needs context: is the bounty worth applying for, and what does it require?",
+        "done": false
+      },
+      {
+        "id": "s6",
+        "title": "Confirm the app registration is complete before the cutoff",
+        "due": "2027-01-12",
+        "done": false
+      },
+      {
+        "id": "s7",
+        "title": "Check the loancentral.net domain isn't caught by the spam filter",
+        "due": "2026-11-15",
+        "done": false
+      },
+      {
+        "id": "s8",
+        "title": "API sunset: final switch to the no-bot AutoMod flow",
+        "due": "2027-03-31",
+        "done": false
+      }
+    ],
+    "createdAt": "2026-10-05T17:35:01.267Z"
+  },
+  {
+    "id": "seed-discord-launch",
+    "project": "loancentral-discord",
+    "title": "Launch LoanBot 3.0 on Discord",
+    "due": "2026-11-15",
+    "why": "Live in the main server in preview. Public launch planned 20 Oct to 15 Nov.",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "Lender-claim test on REQ-0002 (test only)",
+        "due": "2026-10-10",
+        "done": false
+      },
+      {
+        "id": "s2",
+        "title": "Decide: stop publishing \"30-45% interest\" and stop collecting ID/paystubs in the server",
+        "due": "2026-10-10",
+        "done": false
+      },
+      {
+        "id": "s3",
+        "title": "Decide the interest-rate + ID/paystub policy and write it in the rules",
+        "due": "2026-10-17",
+        "done": false
+      },
+      {
+        "id": "s4",
+        "title": "Launch checklist: restore 30/3 waits, /setup preview:False (scam filter on)",
+        "due": "2026-10-20",
+        "done": false
+      },
+      {
+        "id": "s5",
+        "title": "Public launch announcement",
+        "due": "2026-10-20",
+        "notes": "Needs context: who posts it, where, and what it says.",
+        "done": false
+      },
+      {
+        "id": "s6",
+        "title": "Two-week review: bugs, scams caught, lender feedback",
+        "due": "2026-11-15",
+        "done": false
+      }
+    ],
+    "createdAt": "2026-10-05T17:35:01.268Z"
+  },
+  {
+    "id": "seed-ai-hockey",
+    "project": "ai-hockey",
+    "title": "Keep AI Hockey bookings running smoothly",
+    "why": "Live booking system (pay first, spot locks). Needs context: the next business goal (more schools? more sessions? revenue target?).",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "Read HANDOFF.md in the repo and list what's left",
+        "due": "2026-10-12",
+        "done": false
+      },
+      {
+        "id": "s2",
+        "title": "Confirm the hosting PC auto-update and Cloudflare tunnel are healthy",
+        "due": "2026-10-12",
+        "done": false
+      },
+      {
+        "id": "s3",
+        "title": "Test a full booking end to end (Stripe and e-transfer)",
+        "due": "2026-10-19",
+        "done": false
+      },
+      {
+        "id": "s4",
+        "title": "Age/level splitting in the UI (columns already exist)",
+        "notes": "Needs context: is it wanted, and by when?",
+        "done": false
+      },
+      {
+        "id": "s5",
+        "title": "Next growth goal",
+        "notes": "Needs context: what should AI Hockey achieve next?",
+        "done": false
+      }
+    ],
+    "createdAt": "2026-10-05T17:35:01.268Z"
+  },
+  {
+    "id": "seed-borrow-fast",
+    "project": "borrow-fast",
+    "title": "Shape Borrow Fast",
+    "why": "Next project: a mirror of / competitor to LoanCentral. Nothing built yet.",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "Write the one-page concept: where it lives, who it's for, how it differs from LoanCentral",
+        "due": "2026-10-31",
+        "done": false
+      },
+      {
+        "id": "s2",
+        "title": "Pick the platform (Reddit is out after March 2027; Devvit rejects lending apps)",
+        "notes": "Needs context: Discord, website, app?",
+        "done": false
+      },
+      {
+        "id": "s3",
+        "title": "Positioning vs LoanCentral",
+        "notes": "Needs context: speed, a different audience, same rules?",
+        "done": false
+      },
+      {
+        "id": "s4",
+        "title": "Decide: share LoanCentral's tech (site, Discord bot) or build separate",
+        "done": false
+      },
+      {
+        "id": "s5",
+        "title": "Lawyer check before anything paid; same guardrails (no selling borrower data)",
+        "done": false
+      }
+    ],
+    "createdAt": "2026-10-05T17:35:01.269Z"
+  },
+  {
+    "id": "seed-frontier",
+    "project": "frontier-plan",
+    "title": "Plan LoanCentral's growth after survival",
+    "due": "2027-09-30",
+    "why": "Survive, then grow, then money. Starts properly with Phase 5 (Q2 2027).",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "Collect scaling ideas in the parking lot",
+        "due": "2027-02-15",
+        "done": false
+      },
+      {
+        "id": "s2",
+        "title": "Review the ideas after the mid-Feb keep-bot decision",
+        "due": "2027-02-28",
+        "done": false
+      },
+      {
+        "id": "s3",
+        "title": "Pick 2-3 growth bets for Phase 5 (lender funnel, monthly stats post, request pages)",
+        "due": "2027-03-31",
+        "done": false
+      },
+      {
+        "id": "s4",
+        "title": "Money model",
+        "notes": "Needs context: undecided. Lawyer first; never paid verification or borrower data.",
+        "done": false
+      },
+      {
+        "id": "s5",
+        "title": "Multi-platform shared login (Reddit + Discord + site)",
+        "notes": "Needs context: is it worth it and when?",
+        "done": false
+      }
+    ],
+    "createdAt": "2026-10-05T17:35:01.269Z"
+  },
+  {
+    "id": "seed-blueprint",
+    "project": "blueprint-estimator",
+    "title": "Decide Blueprint Estimator's future",
+    "why": "Paused since 4 Jul (pre-calibration prep). Needs context: is it still active?",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "Decide: continue, pause, or archive",
+        "due": "2026-10-19",
+        "notes": "Needs context: owner's call.",
+        "done": false
+      },
+      {
+        "id": "s2",
+        "title": "If continuing: run calibration with the scoring sheet on past jobs",
+        "done": false
+      },
+      {
+        "id": "s3",
+        "title": "Demo to the plumbing business with the demo script",
+        "notes": "Needs context: who and when.",
+        "done": false
+      }
+    ],
+    "createdAt": "2026-10-05T17:35:01.270Z"
+  },
+  {
+    "id": "seed-genbot",
+    "project": "genbot",
+    "title": "Figure out GenBot",
+    "why": "Needs context: probably the GenBets-P repo (one commit, June 2026). What it does is unknown.",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "Confirm GenBot = GenBets-P and say what it does",
+        "due": "2026-10-19",
+        "notes": "Needs context: owner.",
+        "done": false
+      },
+      {
+        "id": "s2",
+        "title": "Decide: revive or archive",
+        "done": false
+      },
+      {
+        "id": "s3",
+        "title": "Goal and first milestone",
+        "notes": "Needs context.",
+        "done": false
+      }
+    ],
+    "createdAt": "2026-10-05T17:35:01.270Z"
+  },
+  {
+    "id": "seed-neuroweb",
+    "project": "neuroweb",
+    "title": "Capture the NeuroWeb idea",
+    "why": "Needs context: no repo or folder yet. Only the name is known.",
+    "steps": [
+      {
+        "id": "s1",
+        "title": "One or two lines: what NeuroWeb is",
+        "due": "2026-10-19",
+        "notes": "Needs context: owner.",
+        "done": false
+      },
+      {
+        "id": "s2",
+        "title": "Who it's for and the problem it solves",
+        "notes": "Needs context.",
+        "done": false
+      },
+      {
+        "id": "s3",
+        "title": "Where the code lives (if any)",
+        "notes": "Needs context.",
+        "done": false
+      },
+      {
+        "id": "s4",
+        "title": "First milestone",
+        "notes": "Needs context.",
+        "done": false
+      }
+    ],
+    "createdAt": "2026-10-05T17:35:01.271Z"
   }
 ]

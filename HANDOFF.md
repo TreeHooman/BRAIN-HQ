@@ -222,3 +222,217 @@ The owner asked for (1) a cleaner, modern, easier-on-the-eyes UI with better fin
 - **Small HUD text** (`web/nova.css`, `web/live.css`, commit `457ae6a`): brighter secondary labels; Command inbox previews use 12 px medium-weight Inter with stronger contrast. Installed and checked in the live dashboard.
 - **Voice pauses** (`web/app.js`, `web/live.js`, commit `f2b51ff`): tap-to-talk waits 3.2 seconds after the last recognised words before sending; if the browser ends recognition early, it restarts and keeps the transcript for the same turn. Tapping the mic again finishes immediately. Hands-free wake commands also wait 3.2 seconds and append later speech segments instead of sending on the first final result.
 - **Verification**: both JavaScript files passed syntax checks; a simulated recogniser test covered an early cutoff, resumed speech and one final send. The live updater reports `f2b51ff3dba17232d4d652c96b7375fa5049b7b7` installed with no error. A real microphone check on the owner's browser and iPhone is still needed; browser speech services control their own recognition limits and may beep on restarts.
+
+## 2026-10-06 handoff #20 (upgrade block 1)
+- Installed modeless work windows, shared task editing, Dailies routines, goal workstreams/dependencies, exact plan resolution, selected Google-file editing, conversation follow-up queue, voice volume and desktop follow-up listening.
+- Consolidated LUTHUR/Missions and Projects/Roadmap navigation, added repository scope picker and GitHub project links, War Room shortcut/mobile logo, panel borders and hideable HUD.
+- Details and remaining device/provider checks: docs/UPGRADE-BLOCK-1.md. Obsidian and broader guarded computer control remain in docs/BACKLOG.md.
+- Verified isolated API/browser fixtures, desktop/phone layouts, reopened completed steps, mocked Google saves and MCP selected-file capability boundaries. Test scripts and screenshots are in the parent workspace tests/ and artifacts/upgrade-block/; production brain/data/config were excluded from test copying.
+- Existing signed-in Claude/Codex routing, task scheduler budgets and hard limits remain authoritative. No commits, publishing or external messages were performed.
+- Install status: updated app files are copied and hash-verified in the local HQ installation. Automatic local-server restart was rejected as blocked by policy. The existing process remains running; backend activation requires an owner restart, followed by a browser refresh. Source backups are in the parent workspace artifacts/upgrade-block/installed-backup/ (code/docs only).
+
+## 2026-10-06 handoff #21 (chat memory and visible assistant work)
+- Added src/lib/chat-memory.ts: 30-day automatic idle cleanup (two attempts/day), no-tools signed-in CLI extraction into checked Markdown, safe failure retention, active/reopened protection, searchable memories and matching answer-history compaction.
+- Matching old dashboard-owned Claude transcripts can retire; outside sessions and historical backups remain protected. History has Memory & cleanup controls. MCP chat_memory_search retrieves durable context.
+- Operational assistant prompt now covers diagnosis, fix options, authorized verified fixes, review passes and reports. web/upgrade.js Work process popout shows real tool events, delegated tasks and latest report while keeping selected-item context. Voice/typed process and pronoun commands added.
+- Isolated memory/provider-boundary/browser tests and prior desktop/mobile/task/Google mock checks passed. See docs/ASSISTANT-MEMORY.md. Installed code only; production chats were not cleaned. Local server restart remains pending after the prior policy rejection.
+
+## 2026-10-06 handoff #22 (Command conversation/scroll fix)
+- Removed automatic long-panel folding from cmdReply and nvScreen. Conversation now has one bounded scroll area with naturally wrapping turns instead of clipping each response.
+- Fixed folded HUD panel fade placement: overrides the inherited gradient-border inset/mask so the shade sits at the bottom rather than drawing a black horizontal edge through text.
+- Isolated browser regression passed at 1600px, 1000px and 390px: chat wheel scrolling, no folding overlay, stable screen height/content, no accidental popouts/navigation, no horizontal overflow. Fixture screenshots: parent artifacts/command-fix/. Frontend-only; refresh loads this fix without a server restart.
+
+## 2026-10-06 handoff #23 (War Room header spacing)
+- Replaced the large greeting/title area with a compact War Room title and smaller status chips. Reduced top padding and aligned music/live widgets with the side cards; focus/calendar widgets retain their 12px spacing beneath them.
+- Installed upgrade.css with prior CSS saved at parent artifacts/command-fix/spacing-before.css. Checked wide desktop visually; desktop/tablet/phone scroll/layout checks passed. Refresh activates this frontend-only fix.
+
+## 2026-10-06 handoff #24 (transparent holographic HUD/search)
+- upgrade.css now gives the top HUD a transparent cyan/violet glass finish, light blur, fine corner marks and translucent controls. Search and message bars have angled-radius frames, luminous icons and keyboard focus treatment; search palette/results use matching holographic surfaces.
+- Installed CSS; prior version saved at parent artifacts/command-fix/hud-before.css. Checked desktop visuals, opening/filtering/closing search, and 390px mobile layout without sideways overflow. No behavior or backend changes; refresh activates it.
+
+## 2026-10-06 handoff #25 (HUD button order)
+- Swapped the first two top HUD controls: Menu is first, then the War Room logo shortcut. DOM order matches visual/keyboard order. Frontend-only; refresh activates it.
+
+## 2026-10-06 handoff #26 (useful HUD controls)
+- Streamlined the top bar: navigation, eye shortcut, search, briefing, Voice menu and project focus. Voice menu contains conversation toggle/volume; redundant wake button and clock are hidden. War Room hides duplicate top message box, music preview and status pills because composer/music/status are already on the page. Other views retain message/status/music access.
+- Slash shortcut focuses War Room composer when top message box is hidden. Mobile conversation button starts tap-to-talk. Installed JS/CSS; checked desktop visuals, composer focus, Voice controls and phone overflow. Refresh activates this change.
+- Recent small changes also installed: Dailies renamed Daily throughout navigation; eye shortcut uses transparent eye.svg and no framed button.
+
+## 2026-10-06 handoff #27 (Command screen-local opening)
+- Choices inside the Screen launcher now display in that same panel. Project/goal/file/mail selections use the existing editors inline; Needs you, History and Outbox stay local. Back/Home use Screen history without changing the main Command route. War Room clicks outside Screen retain modeless windows.
+- Selected inline content supplies chat/file context and live refresh; detached edit drafts are cached when navigating back. Slash and regular chat composer remain available.
+- Isolated browser checks passed: inline project-plan save, approvals/history/outbox, Back/Home, selected project/file identity, mocked Sheet preview, no navigation/popouts and mobile layout. Frontend-only installed; refresh activates it.
+
+## 2026-10-06 handoff #28 (continuous conversation and voice choices)
+- Desktop Command microphone now toggles continuous conversation. Settings offers device/browser voices, previews, rate/pitch, configurable turn pause (default 1.8s), and optional Fast routing for casual speech. Mobile retains tap-to-talk per turn.
+- Signed-in Claude/Codex chat output can provide redacted in-memory partial replies; Command polls every 500ms and shows them before completion. Final persistence and spoken summaries remain based on completed replies. Ordinary conversation prompt avoids unnecessary tools and preambles.
+- Isolated parser, simulated microphone/voice selection, end-to-end partial-chat and full upgrade regressions passed. Actual provider startup/device microphone latency remains unmeasured. See docs/VOICE-CONVERSATION.md.
+- Installed code/docs only with hash verification and backups. Refresh activates frontend; local-server restart is required for backend partial replies. Automatic restart was not retried after the prior policy rejection.
+
+## 2026-10-06 handoff #29 (Claude conversation usage)
+- Conversation now shows Claude context tokens used/capacity and percentage, last reported five-hour/weekly plan utilization and reset times beside model controls. Keeps last Claude context visible during Codex backup; Codex retains its status label without stats.
+- Uses existing /chat claudeUsage and /usage signals. Missing or expired signals show unavailable; tooltips identify last reported timestamps. Polls every 30s idle/10s busy alongside the existing War Room usage display.
+- Isolated browser checks passed for Codex backup with Claude numbers, missing/expired/rejected usage signals, no JavaScript errors and phone overflow. Frontend-only installed with code backup and hash verification; refresh activates it.
+
+## 2026-10-06 handoff #30 (quiet holographic notifications)
+- Moved HUD notification cards from upper right to lower left, above the activity tray when present. Translucent cyan glass, smaller typography and two-card stack reduce obstruction; hover/focus expands clipped text.
+- Click, Enter or Space dismiss notices. Existing timed dismissal and warning colors remain. Phone sizing stays inside viewport; reduced-motion styling added.
+- Isolated browser checks passed for desktop placement, two-card limit, keyboard/click dismissal, phone bounds and no JS errors. Frontend files installed and hash-verified with code-only backups; refresh activates them.
+
+## 2026-10-06 handoff #31 (PC wake-only listener and quick acknowledgment)
+- Opt-in Settings PC listener runs compiled Windows System.Speech helper while dashboard is minimized; idle wake grammar only, then Yes/capture one request. Attempts to restore existing LUTHUR window. No idle dictation is sent. Stop in Settings; server exit ends helper. Native listener and browser continuous mode are mutually exclusive.
+- Local spoken acknowledgment responds before model work. Casual voice stays Fast; new Deep work toggle defaults on for voiced work requests with high effort. Typed tier unchanged. No extra speculative model call.
+- Local /pc-voice bridge claims events once across windows. Helper build/grammar check passed without microphone; isolated native bridge and existing voice browser/parser checks passed. Owner microphone/background window checks remain; native listener waits through submitted chat and 8s playback grace before waking again.
+- Installed code/docs/helper with code-only backup and hash verification. Restart local HQ server and refresh to activate PC switch; no automatic restart performed. No Windows execution policy was changed. Details: docs/VOICE-CONVERSATION.md.
+
+## 2026-10-06 handoff #32 (quiet launch, one app window, endpoint readiness)
+- Removed startup hum/rising scan tone and boot blips from both opening animation paths. Regular interaction sounds remain configured separately.
+- Compiled app-window helper serializes launcher calls with a Windows mutex and restores the existing visible LUTHUR window. start-hq.vbs and LUTHUR.cmd route through it. Existing duplicate windows are not force-closed; browser tabs opened manually are outside launcher control.
+- Settings PC listener switch now stays disabled until /pc-voice responds; older running servers show clear restart instructions instead of No such endpoint.
+- Helper compiled and mutex check passed; isolated browser startup hum and endpoint-readiness checks passed. Actual launch/focus behavior requires owner check. Installed code/helper only with hash verification and backups. Server restart still requires owner action after previous policy rejection.
+
+## 2026-10-06 handoff #33 (inline confirmations)
+- Replaced native browser confirm prompts throughout dashboard with asynchronous uiConfirm messages beside the initiating action, using the existing holographic panel/button style. Delete and unsaved-edit prompts stay inside work windows; other confirmations attach to the containing form/card.
+- Explicit Confirm/Cancel, Escape cancellation, safe cancel focus, trigger disabled while pending and automatic cancellation if its panel is removed. Existing confirmation gates remain in place for external saves/sends and autonomy settings.
+- All modified scripts passed syntax checks. Isolated browser checks passed: cancel/Escape do not delete, confirm deletes once, dirty-window close requires confirmation, phone bounds, no native dialogs/JS errors. Frontend-only installed and hash-verified with code-only backups; refresh activates it.
+
+## 2026-10-06 handoff #34 (startup chime and varied welcomes)
+- New welcome.js plays a gentle three-note sine chime after opening animation, followed by one of six short welcome greetings without consecutive repetition. Uses selected voice/rate/pitch and volume, and respects global mute. No rising rev/hum returns.
+- Voice Settings offers independent startup chime/spoken welcome switches and preview. Once per window session, no replay on ordinary refresh. Browser autoplay restrictions defer until first interaction. Does not interrupt an active spoken reply.
+- Isolated mock-audio browser checks passed for chime, varied greeting, selected voice/volume, switches, refresh and no JS errors. Real device automatic playback remains browser-dependent. Frontend-only installed and hash-verified with code-only backups; refresh loads controls, reopening starts welcome.
+
+## 2026-10-06 handoff #35 (automatic full screen)
+- Desktop launcher now passes --start-fullscreen to Chrome/Edge. Reopening restores the existing LUTHUR window and requests F11 only if it is foreground and does not already match monitor bounds, avoiding accidental full-screen exit. Single-window mutex remains.
+- Compiled launcher and mutex/monitor-bounds checks passed. No live window was manipulated during verification; actual Chrome/Edge full-screen behavior remains an owner opening check. F11 exits full screen. Installed launcher/source with code-only backups and hash verification; next desktop launch applies, no backend restart needed.
+
+## 2026-10-06 handoff #36 (PIN access protection and scan/check audio)
+- Added salted-scrypt PIN lock, authenticated HttpOnly/SameSite sessions, five-attempt/minute throttling and 12h expiry. Owner-requested PIN initialized by updated backend; no plaintext PIN stored in runtime data. All dashboard APIs/private backgrounds require unlock; existing OAuth callbacks retain state/PKCE validation.
+- Holographic PIN screen on new window session; Settings Lock and Ctrl+Alt+L revoke sessions and stop PC listener. Browser speech/commands pause; existing authorized background missions continue. PC wake helper carries authenticated session and launcher treats locked 401 as already running.
+- Subtle scan pings and real operation-progress/completion/error tones; separate sound toggle, speech suppression, volume/mute and no replay of prior history. No revving oscillator.
+- Isolated API/browser checks passed for locked read/write rejection, wrong/right PIN, cookie flags, session revocation, phone bounds and sound controls. Authenticated wake helper compiled/grammar checked without microphone. Installed code/docs/helper with hash verification and code-only backup; backend restart REQUIRED to activate. Older server leaves screen locked with restart message. See docs/ACCESS-LOCK.md; disk files are not encrypted.
+
+## 2026-10-06 handoff #37 (wake switch reconnect and restart shortcut)
+- Verified live 8800 server still returns 404 for /api/access and /api/pc-voice; backend updates remain inactive. No automatic restart retried after policy block.
+- Wake status now distinguishes missing endpoint, locked session and disconnected server. Successful background status poll re-enables the checkbox automatically, fixing a disabled switch remaining stuck after recovery.
+- Added owner-run scripts/RESTART-LUTHUR.cmd combining existing STOP-HQ and start-hq.vbs. It was not executed by the agent.
+- Isolated browser check passed for missing endpoint message and automatic switch recovery. Installed frontend/restart script with code-only backup/hash verification; owner must run restart to activate backend and PIN.
+
+## 2026-10-06 handoff #38 (automatic four-digit PIN sign-in)
+- PIN field submits automatically at four numeric digits; Enter/button remain alternatives. Duplicate submissions prevented and failed PIN clears/focuses field.
+- Login waits for valid protection endpoint before accepting input. Missing old-server endpoint shows one-time restart guidance rather than raw No such endpoint. Periodic readiness check re-enables PIN automatically after restart without weakening server protection.
+- Confirmed live server still reports 404 for /api/access. Isolated browser test passed for old-server disabled form, readiness recovery, wrong PIN rejection and automatic correct-PIN sign-in without clicking Unlock. Frontend installed/hash verified; owner-run server restart remains necessary.
+
+## 2026-10-06 handoff #39 (wake to real conversation and selected voice)
+- Fixed native wake listener using separate Windows Yes/One moment voice and dictation path. Helper now detects wake (optionally trailing request), emits a versioned wake event and exits; browser takes over continuous recognition, chosen-voice acknowledgment and normal agent chat.
+- End conversation re-arms native wake listener; explicit PC switch off cancels re-arming. Protocol check explains restart if old backend lacks handoff. Native helper is silent.
+- Compiled and validated both wake grammars without microphone. Isolated mocked browser check passed for chosen voice, ongoing mic, follow-up delivered to chat once and end/re-arm. Live old helper stopped using authenticated local API before code replacement; server not automatically restarted. Restart/refresh and owner mic check required. See docs/VOICE-CONVERSATION.md.
+
+## 2026-10-06 handoff #40 (speech visibility and reliable turns)
+- Command now shows Listening/Hearing, recognized words, sending/sent/queued status and recoverable microphone/send errors. Send now, Edit text, Retry unsent turn and Retry mic keep owner control close to the message box.
+- SpeechRecognition snapshots replace interim words by result index, join final segments with spaces and preserve unfinished words across recognizer restarts. Wake names only match at the start of a sentence. Assistant speech pauses recognition without discarding a pending turn, then resumes with a fallback timer.
+- Isolated mocked browser checks passed for transcript replacement, multi-result spacing, failed-send retention/retry, pending words across playback/restart, mobile bounds, mic error controls and existing wake-to-agent handoff. Real microphone accuracy remains browser/device-dependent.
+- Frontend-only installation with code-only backups/hash verification; refresh activates this update. Earlier wake backend changes still require the previously described restart if not yet activated.
+
+## 2026-10-06 handoff #41 (War Room model consoles and restricted routing)
+- Twin holographic ChatGPT/Codex and Claude model consoles flank the core; engine switch above, shared manual controls on LUTHUR and Code. Device-local default is Codex/Auto/Low. Astra initializes Low on explicit selection, is authorized for one accepted/queued request, then returns to Auto; reload never restores authorization. This prioritizes explicit permission over the owner's conflicting default-Astra phrase; optional clarification was requested.
+- Auto chat uses Luna/Haiku for ordinary replies, Sol 6.1/Sonnet for heavy work. Dedicated coding uses Sol 6.1/Sonnet unless manually overridden. Background deep tiers no longer select Astra or Opus. Voice Deep overrides are bypassed for explicit model-policy requests. Queued follow-ups retain chosen models.
+- Backend validates model/provider/effort and Astra consent. Direct initial “use [model]” request can override for that turn. Provider switching preserves recent context with separate session types. Codex now receives explicit reasoning effort. Existing permission ceilings remain.
+- Isolated fake CLI/API and browser checks passed for routing/consent, switching, coding, history continuation, voice/model/effort, queued selections, desktop/mobile bounds, speech feedback and wake handoff. No real model calls made. Installed with code-only backups/hash verification. LOCAL SERVER RESTART + refresh required; old backend is blocked from silently ignoring routing. See docs/MODEL-CONTROLS.md.
+
+## 2026-10-06 handoff #42 (visible boot after PIN sign-in)
+- Root cause: DOMContentLoaded ran and marked the startup scan while PIN protection hid all dashboard surfaces. The scan had finished before the owner unlocked.
+- Startup now waits for protection to unlock and the dashboard to render, then runs the original eye/scan sequence and welcome. A visible-completion session marker replaces the previously consumed hidden-start marker; old windows receive the restored sequence once after refresh/sign-in. Ordinary refresh avoids replay; manual Replay boot remains available. Reduced-motion behavior is respected.
+- Isolated browser checks passed for locked/no scan, legacy marker recovery, visible/non-inert eye animation after PIN, skip/completion, no repeat on refresh and full manual replay. PIN auto-sign-in regression passed. Frontend-only install with code-only backups/hash verification; refresh activates this fix, no server restart needed for boot.
+
+## 2026-10-06 handoff #43 (clear voice state and matching core graphics)
+- Replaced mic-button-based core status with shared recognition/playback state. Mic is only Listening after onstart, Hearing/Captured follow transcript events, and speaking takes priority over busy/conversation mode. Reconnect, pause, blocked mic, idle, sending and thinking states have plain captions.
+- Core center has a mic/speaker/work icon, readable label and hint; green ready/cyan hearing/violet thinking/amber speaking colors and distinct calm pulse/wave/spin graphics retain the existing HUD. Input feedback matches the primary state and separates last-turn delivery. LUTHUR conversation gets a compact matching badge.
+- Calm ready state no longer invents a synthetic voice waveform. Reduced-motion states redraw once and retain static labels/colors; no extra always-on recording path added. Stale button live classes no longer imply microphone readiness. Speech display updates avoid repeatedly scrambling or announcing unchanged state.
+- Isolated speech/recognition mocks verified readiness, hearing/captured, thinking while mic remains on, speaking priority/classes/colors, resume, permission error, idle, LUTHUR badge and mobile bounds. Speech-feedback and boot-after-unlock regressions passed. Frontend-only installed with code-only backup/hash verification; refresh activates this update.
+
+## 2026-10-06 handoff #44 (useful speech without filler acknowledgments)
+- Removed automatic request-acceptance “One moment” / “I’ll look into that,” native-wake handoff “Yes? I’m listening,” and browser wake-only “Yes?”. Existing visual states confirm wake/listening/processing; useful result playback and chosen voice remain.
+- Saved explicit owner preference to start spoken replies with useful answers/results rather than filler acknowledgments. Runtime preference context applies to new turns without backend changes.
+- Isolated mocked wake/chat test verified silent wake and request acceptance, one follow-up chat submission, end/re-arm, silent browser wake and useful chosen-voice result playback. Frontend-only installed with code-only backups/hash verification; refresh activates.
+
+## 2026-10-06 handoff #45 (speaker echo no longer becomes owner speech)
+- Pause browser recognition before every speech playback path. Resume only after native playback/queue ends plus a one-second speaker cooldown; the recovery timer cannot reopen listening during a long reply. Guard stopped recognizer results/start/error/end callbacks by identity and retain pending owner words.
+- Stop an active one-shot recognizer during playback; ignore its late results. Temporarily pause/re-arm an active PC wake helper and discard claimed native events timestamped during playback/cooldown, including late delivery. The shared voice UI shows Mic paused during cooldown and only returns to Listening after recognition starts.
+- Isolated mocked speaker regression passed for early pause, long playback, cooldown, stale transcripts/callbacks, retained owner words, genuine follow-up and superseded playback. Voice-state, speech-feedback, native handoff and boot regressions passed (speech-feedback rerun alone after concurrent boot/auth interference). Actual room acoustics remain an owner check. Frontend-only installed with code-only backups/hash verification; refresh activates, no server restart needed for this fix.
+
+## 2026-10-06 handoff #46 (Operations stays out of the way)
+- Removed new-operation auto-expansion that overwrote the saved owner collapse choice. The down arrow now keeps the feed folded through new/replacement operations and refreshes until the owner uses the up arrow. Folded desktop feed is a compact translucent Operations tab, hiding details and stats instead of occupying the full screen width. Arrow labels/expanded state match visibility.
+- Isolated browser checks passed for replacement operations, empty/new feed, saved collapse after refresh, explicit reopening, compact desktop dimensions and mobile bounds. Existing mobile feed hiding remains. Frontend installed with code-only backup/hash checks; refresh activates.
+
+## 2026-10-06 handoff #47 (Sonnet/Sol default; explicit Astra and Opus permission)
+- Owner correction supersedes cheap Luna/Haiku routing and earlier Astra default. Replies, coding, background work and auth checks use Sonnet/latest CLI alias or Sol 6.1 (newest available signed-in catalog Sol). Removed older/light choices from UI and backend allowlist.
+- Astra and Opus both require per-request explicit approval, including server chat/code validation. Selecting alone does not approve; Allow once or an explicit leading use/you-can-use request grants one turn. Approval consumed before submission/at queueing, not restored by reload; queued requests preserve their approved selection. Auto never escalates to either. Low effort remains the default.
+- Isolated fake-CLI API checks passed for defaults, both restricted models, negation, text permission and provider switches; coding and browser controls/one-turn/reload/queue/mobile regressions passed. Saved owner preference in both brains. Code-only install/hash checks done; backend restart via desktop Restart LUTHUR and refresh required. No paid model calls made.
+
+## 2026-10-06 handoff #48 (clickable live Operations and multi-agent popouts)
+- Operations cards open a large modeless operation inspector; Multi-agent loop opens a large live loop window instead of the previous task list. Mouse and Enter/Space activation supported. Existing popout move/resize/close controls retained; duplicate operation clicks focus the same window and separate windows remain usable without changing War Room route.
+- Show published updates, full available action targets/results/diffs, model, worker, status, elapsed time and counts. Live feed refreshes existing windows every 1.5s and through Operations updates, preserving scroll position away from bottom. Last captured operation retained when removed from live feed; loop shows standby when empty. Window message footer gets activity context through scrMaterial. No new agents or paid calls added.
+- Isolated browser checks passed for card and loop click/keyboard opening, live updates/completion, data escaping, duplicate focus, conversation context, close, standby and mobile bounds; Operations saved-collapse regression passed. Frontend installed with code-only backups/hash verification; refresh activates.
+
+## 2026-10-06 handoff #49 (force stop button and named voice interruption)
+- Persistent Stop now/Resume LUTHUR button sits above popouts and is hidden by PIN lock. Stop silences browser speech, aborts microphones, clears queued follow-ups and stops/re-arms no native listener. Server cancels tracked chat/code/background child processes and queued runs, disables goal workstreams, and persists a scheduling hold until explicit Resume; reminders remain enabled. New chat/code submissions blocked while held. Spawn callbacks honour cancellation even if PID arrives late; cancelled chat cannot fall back to another model. Stopped operations show cancelled/Stopped.
+- During ordinary listening, exact stop requests act immediately without a model call. During playback, a separate stop-only browser recognizer accepts named LUTHUR/Luther stop/stop-now variants and discards ordinary speech; ignores stop phrases present in current synthesized text. Regular speech echo protection retained. Missed/denied/hidden-browser recognition remains possible; button is always the fallback. No promise to undo completed edits.
+- Isolated fake-CLI tests killed only test chat/code children, cancelled a queued task, verified protected stop, blocked new work, busy cleanup and explicit resume. Browser mock tests passed for voice interruption, ordinary echo/quoted phrase rejection, button/resume, late speech suppression, cleared queue/mics and mobile bounds. Speaker echo, voice-state and speech-feedback regressions passed after resetting isolated stop state. Installed with code-only backups/hash checks; local backend restart + refresh required. No real agent/paid model calls made.
+
+## 2026-10-07 handoff #50 (scrambling center labels and signal-driven orb)
+- Owner clarified during implementation: keep the newer center icon/label/hint and useful state colors; scramble the words in the middle. Center words now scramble only on transitions; input panel and accessible label remain plain. Top duplicate status remains hidden. Reduced motion skips scramble.
+- Replaced clock-driven synthetic speaking syllables and idle orb drift with native speech-boundary envelopes and measured microphone volume/frequency bars. Silence stops voice phase; no-boundary voices use steady glow. Recognized speech gives a small event cue only when no samples exist. Thinking motion remains explicitly a work indicator. Native TTS does not expose output PCM, so output is word timing rather than claimed measured loudness.
+- Isolated browser checks passed for center statuses/icons/colors, one transition scramble, measured input response, silence, word pulse decay, no-boundary fallback, end/reduced motion. Voice-state, speaker echo and force-stop UI regressions passed. Confirmed owner visual preference saved in both brains. Frontend installed with code-only backups/hash checks; refresh activates, no server restart needed for this visual change.
+
+## 2026-10-07 handoff #51 (Codex online badge beside Claude)
+- Added Codex vital beside Claude in War Room. Status distinguishes online, checking, sign-in needed, unavailable CLI and unknown status, with matching green/amber/red dot. Online means local CLI sign-in ready, not a paid network health probe; tooltip states local sign-in status.
+- Async bounded `codex login status` check caches for 60 seconds and returns only a normalized state through /state. No model requests, credential file reads or raw sign-in output exposed. The actual local probe returned online.
+- Browser smoke check verified every badge state and mobile bounds; scripts passed syntax checks. Installed code-only backups/hash verification. Backend restart via Restart LUTHUR and refresh required to activate live Codex status.
+
+## 2026-10-07 handoff #52 (persistent adaptive model selection)
+- Owner supersedes one-request authorization and strong defaults: Auto ChatGPT uses Luna 6 for chat / Sol 6.1 for heavier work and coding; Claude uses Haiku / Sonnet. Selected Astra/Opus remains authorized until switched, including reload, while easy turns use lighter models. Leading explicit use instructions force one turn and save subsequent adaptive selection. Background fast work restored to light models, premium never auto-escalates.
+- Removed Allow once and startup premium reset. Independent unique select labels, isolated menu events and selective value updates avoid cross-side interactions; browser verifies focus/selection isolation. Queued choices and manual effort preserved. Server policy version 3 prevents older backend silently ignoring routing.
+- Isolated fake-CLI API, coding and mocked browser tests passed; checked desktop/mobile screenshots and syntax. No paid model calls. Code-only installed backups/hash checks; desktop Restart LUTHUR + refresh required.
+
+## 2026-10-07 handoff #53 (desktop hologram wake companion)
+- PC wake events open/restore a distinct compact Chrome/Edge companion via app-window helper; old pc-wake foreground-full-dashboard calls removed. Companion is translucent, topmost and single-instance by distinct title/mutex; full app remains separate and reusable. Native title bar supports dragging. Dismiss or Full app returns wake listening without cancelling tasks; Stop now retains cancellation.
+- Reuses chosen voice, saved adaptive model controls, shared chat, protected cookie session, actual voice-status/orb, transcript/turn controls and latest published activity. Overlay initial load checks protection without relocking every window; unavailable/expired auth requires PIN. Main UI pauses ordinary recognition/playback and cannot claim overlay events. Event claim is authenticated; 30s heartbeat lease plus native-close release avoids permanent ownership after closing. Background listener still requires enabled settings/server/Windows speech + browser mic permission on first use.
+- Isolated protected API/browser mocks passed handoff, playback ownership, states, live activity, dismiss/reload/relock and compact bounds; model-controls, voice-state, echo and legacy wake handoff regressions passed. Native C# helpers compiled; actual desktop translucent/topmost behavior and physical-mic wake need an interactive check after restart. No paid model calls or real desktop listener started. Installed code backups/hash verified; desktop Restart LUTHUR, refresh/unlock, enable PC wake listener.
+
+## 2026-10-07 handoff #54 (separate accurate provider usage/context)
+- Adds protected live Codex account/rateLimits/read via bounded local app-server, cached 60s: no inference, API keys or credential reads. Prefers multi-bucket limits, five-hour means exactly 300 minutes, percent units explicit, reset seconds converted. Actual read-only local probe passed.
+- ChatGPT/Codex last-turn context from known-session token_count metadata, not accumulated turn input. Separate provider cards/conversation strips and four orb arcs; quota report age/reset/offline handling distinguishes stale/unavailable without guessing zero. Model-card clearance avoids overlap.
+- Claude context uses last assistant model's window and input+cache usage; missing metadata clears old context. CLI rate snapshots keep timestamps/units and stop graphing after five minutes/reset; Code removes invented 200k capacity and old cross-provider session context.
+- Isolated fake RPC, last-token fixture, fake Claude telemetry, browser accuracy/mobile/overlap and model-control/routing regression checks passed. Live quota probe was read-only, no paid generation. Installed backups/hash checks; owner Restart LUTHUR and refresh required. See docs/USAGE-ACCURACY.md for sources/limits.
+
+## 2026-10-07 handoff #55 (wake conversation inactivity)
+- Desktop conversations and browser wake turns return to wake-only after five seconds without owner speech. Playback plus echo cooldown, agent work, queued turns, ongoing speech and unsent/editable words defer the timeout. Recognition restarts do not reset it.
+- Native PC handoff uses existing conversation exit/rearm; browser keeps wake recognition but clears unnamed-speech arming. Lock/Force Stop cannot rearm through this timer. Mobile tap-to-talk is unchanged.
+- Deterministic inactivity tests and isolated browser playback/PC rearm, wake handoff and speaker-echo regressions passed. No paid calls or real microphone sessions. Installed frontend verified; refresh LUTHUR to activate.
+
+## 2026-10-07 handoff #56 (compact War Room conversation)
+- Conversation log and streaming reply limited to 26% viewport height / 240px maximum, retaining internal scrolling and header. Reduces previous 55% / 520px history area. Scroll stays inside the panel; standalone hologram reply unchanged.
+- Browser layout checked at 1920x1080, 1024x768 and 390x844 with long history and scroll access. Installed frontend hash verified; refresh to activate.
+
+## 2026-10-07 handoff #57 (usage-smart coding manager)
+- Code entry now Talk to LUTHUR with project/repository chooser and reuse of existing workroom. Existing sessions use manager flow; published Markdown brief/status/plan/report/handoff available in chat.
+- One model call for direct work; optionally max two sequential focused workers and one manager review, shared turn deadline, no retries or recursive fanout. CLI agent tools disabled; Code MCP followup queue hidden. Parent/worker activity uses existing operation view. Stop/failure halts chain.
+- Fresh CLI context with bounded Markdown handoff; casual chat preserves substantive handoff. No resumed growing transcript or extra brain-sync model call. Provider/model permissions inherited; worker-generated premium instructions cannot authorize Astra/Opus. Auto casual Luna/Haiku, code/continuation Sol/Sonnet.
+- Fake-provider integration, bounds/failure/cancel/premium and browser repo reuse/notes passed; model-policy/Code regressions passed. Installed code-only backups, syntax and hashes verified. Restart LUTHUR + refresh required. See docs/CODE-WORKROOM.md.
+
+## 2026-10-07 handoff #58 (create project and chat purpose on canvas)
+- Add to canvas now includes Reason / chat name and inline New project form with name, summary and optional repository folder. Registered-folder projects return to the menu selected for a named chat; folderless ideas add a project overview without leaving canvas. Existing project/chat paths retained. Start captures selection before closing modal. Partial creation retry reuses the created project.
+- Isolated browser test passed project creation, folderless overview, folder registration/selection, named chat, correct project/card and retained canvas route. No model calls. Installed frontend verified; refresh to activate.
+
+## 2026-10-07 handoff #59 (guided briefing and visible action targets)
+- Late command routing restores actual Brief tour for typed/spoken briefing aliases before Screen quest/search or chat. General tours visit Daily, relevant War Room sections and individual next-move project pages; approval route repaired. Current project/document brief stays scoped. Bogus Search: me is cleared on overview. Known external/document material can still use Screen briefing.
+- Tour waits for destination mount before highlighting. Next/back/pause/resume voice controls restored; lock/Force Stop ends tour. Opening work windows/screens adds a brief cyan highlight and scrolls into view. Named-project or existing-target action opens its work surface before chat, keeping correct target context; original action execution remains responsible for actual changes.
+- Isolated browser checks passed aliases without search/quest/model requests, voice controls, Daily route/spotlight, scoped project, target before chat context and Stop. Frontend syntax/backups/hashes checked; refresh to activate.
+
+## 2026-10-07 handoff #60 (independent War Room card hover)
+- Removes side-column transforms and grouped hover/focus lift. Each side panel keeps its own holographic angle and only the hovered card straightens/lifts. Keyboard focus lifts an individual card when no card is hovered; pointer hover takes priority over a previously focused card. Parent columns remain stationary; touch/reduced motion do not use hover movement.
+- Browser layout check with actual stylesheet cascade passed four independent cards, unchanged sibling matrices/bounds, focus priority, stationary columns and reduced motion. Installed CSS hash verified; refresh to activate.
+
+## 2026-10-07 handoff #61 (movable music player)
+- Adds labeled MUSIC drag handle, close button and keyboard arrow movement. Pointer capture moves the player within viewport bounds; saved device-local position restored on reopen. Once moved, outside clicks keep the floating player open; X/Escape close it. Resize clamps it into view, long contents scroll, playback/volume/seek controls do not initiate dragging.
+- Isolated browser mocked-Spotify check passed drag, no control calls on movement, outside-use persistence, restored position, playback control and smaller viewport containment. No real music/account action. Installed frontend syntax/hash verified; refresh to activate.

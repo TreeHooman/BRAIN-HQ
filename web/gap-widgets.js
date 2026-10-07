@@ -107,14 +107,14 @@ function gapCalendarPaint() {
   for (const r of S.reminders || []) {
     if (r.done || !r.due) continue;
     const when = new Date(String(r.due).length <= 10 ? `${r.due}T23:59:00` : r.due).getTime();
-    if (Number.isFinite(when) && when >= now) entries.push({ when, title: r.title, allDay: String(r.due).length <= 10, kind: "reminder" });
+    if (Number.isFinite(when) && when >= now) entries.push({ id: r.id, when, title: r.title, allDay: String(r.due).length <= 10, kind: "reminder" });
   }
   entries.sort((a, b) => a.when - b.when);
   const date = new Date();
   box.querySelector("#gapCalendarDate").textContent = `${MON[date.getMonth()].toUpperCase()} ${date.getDate()}`;
   box.querySelector("#gapCalendarList").innerHTML = entries.slice(0, 2).map(e => {
     const d = new Date(e.when), day = d.toDateString() === date.toDateString() ? "TODAY" : `${MON[d.getMonth()].slice(0, 3).toUpperCase()} ${d.getDate()}`;
-    return `<a class="gap-event" href="#calendar"><span class="gap-event-time">${day}<small>${e.allDay ? "ALL DAY" : `${pad(d.getHours())}:${pad(d.getMinutes())}`}</small></span><span class="gap-event-title">${esc(e.title || "Untitled")}</span><i class="${e.kind}"></i></a>`;
+    return `<a class="gap-event" data-upopen="${esc(JSON.stringify(e.kind === "reminder" ? {kind:"reminder",id:e.id} : {kind:"agenda"}))}" href="#calendar"><span class="gap-event-time">${day}<small>${e.allDay ? "ALL DAY" : `${pad(d.getHours())}:${pad(d.getMinutes())}`}</small></span><span class="gap-event-title">${esc(e.title || "Untitled")}</span><i class="${e.kind}"></i></a>`;
   }).join("") || `<div class="gap-quiet">No upcoming events.<br><a href="#calendar">Open calendar →</a></div>`;
 }
 function gapWidgetsMount() {

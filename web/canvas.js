@@ -85,7 +85,7 @@ function cvOpenModal() {
     if (c) { closeModal(); location.hash = "canvas/" + c.id; }
   };
   document.querySelectorAll("[data-cvdel]").forEach(b => b.onclick = async () => {
-    if (!confirm("Delete this canvas? Sessions, goals and notes elsewhere are kept; only this layout (and its notes) goes.")) return;
+    if (!(await uiConfirm("Delete this canvas? Sessions, goals and notes elsewhere are kept; only this layout (and its notes) goes."))) return;
     await api(`/canvas/${b.dataset.cvdel}`, "DELETE").catch(() => {}); CV.list = CV.list.filter(x => x.id !== b.dataset.cvdel); cvSetTabs(cvTabs());
     closeModal(); if (b.dataset.cvdel === CV.data.id) { hstore.set("hq-canvas", ""); location.hash = "canvas"; render(); } else cvTabsRender();
   });
@@ -231,7 +231,7 @@ function cvBindAsk(root) {
     const effSync = () => { const fast = f.querySelector("[data-tier]").value === "fast"; ef.disabled = fast; ef.title = fast ? "Haiku has no thinking levels. Pick Sonnet or Opus." : "Thinking level"; };
     effSync(); f.querySelector("[data-tier]").addEventListener("change", effSync);
     ef.onchange = () => hstore.set("hq-cv-eff-" + sid, ef.value);
-    md.onchange = () => { if (md.value === "bypass" && !confirm("Bypass mode lets this agent run any command and edit any file in the project folders without asking.\nPush, deploy, delete-repo and secrets stay blocked.\n\nTurn it on for this chat?")) { md.value = hstore.get("hq-cv-mode-" + sid, "safe"); return; } hstore.set("hq-cv-mode-" + sid, md.value); f.closest(".cv-card, .cv-fcol")?.classList.toggle("mode-bypass", md.value === "bypass"); };
+    md.onchange = async () => { if (md.value === "bypass" && !(await uiConfirm("Bypass mode lets this agent run any command and edit any file in the project folders without asking.\nPush, deploy, delete-repo and secrets stay blocked.\n\nTurn it on for this chat?"))) { md.value = hstore.get("hq-cv-mode-" + sid, "safe"); return; } hstore.set("hq-cv-mode-" + sid, md.value); f.closest(".cv-card, .cv-fcol")?.classList.toggle("mode-bypass", md.value === "bypass"); };
     f.closest(".cv-card, .cv-fcol")?.classList.toggle("mode-bypass", md.value === "bypass");
     const lk = f.querySelector("[data-lock]");
     lk.onclick = () => { const on = hstore.get("hq-cv-ro-" + sid, "0") !== "1"; hstore.set("hq-cv-ro-" + sid, on ? "1" : "0"); lk.classList.toggle("on", on); lk.setAttribute("aria-pressed", String(on)); lk.innerHTML = `${LOCK(on)}<span>${on ? "look only" : "can edit"}</span>`; lk.title = on ? "Look only: it can't change files (click to allow edits)" : "Can edit files (click to make it look only)"; };
@@ -341,24 +341,35 @@ function cvShowAgent(sid, near) {
   if (c) { const a = document.getElementById("cvArea"), v = CV.data.view; CV.data.view = { z: v.z, x: a.clientWidth / 2 - (c.x + c.w / 2) * v.z, y: a.clientHeight / 2 - (c.y + c.h / 2) * v.z }; cvApplyView(); cvSaveSoon(); const el = document.querySelector(`.cv-card[data-c="${c.id}"]`); el?.classList.remove("pop"); void el?.offsetWidth; el?.classList.add("pop"); return; }
   cvAddCard("agent", sid, near ? { x: near.x + near.w + 24, y: near.y } : null);
 }
-async function cvNewChat(slug, near) {
+async function cvNewChat(slug, near, name) {
   try {
-    const { id } = await api("/code", "POST", { project: slug });
+    const { id } = await api("/code", "POST", { project: slug, name });
     Live.code = await api("/code"); const c = cvAddCard("agent", id, near ? { x: near.x + near.w + 24 + CV.data.cards.filter(x => x.type === "agent").length * 16, y: near.y + 16 } : null);
     setTimeout(() => document.querySelector(`.cv-card[data-c="${c.id}"] textarea`)?.focus(), 400);
   } catch (e) { toast(e.message, 5000); }
 }
-function cvAddMenu() {
+function cvAddMenu(selected) {
   const projs = codeProjects(), on = new Set(CV.data.cards.filter(c => c.type === "agent").map(c => c.ref));
   const free = (Live.code?.sessions || []).filter(s => !on.has(s.id));
-  const def = CV.data.project && projs.some(p => p.slug === CV.data.project) ? CV.data.project : projs[0]?.slug;
+  const def = selected || (CV.data.project && projs.some(p => p.slug === CV.data.project) ? CV.data.project : projs[0]?.slug);
   modal(`<h2>Add to canvas</h2><div class="cv-addg">
-    <div><div class="cv-lbl">New agent chat</div>${projs.length ? `<div class="row"><select id="cvNp">${projs.map(p => `<option value="${p.slug}" ${p.slug === def ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select><button type="button" class="btn primary" id="cvNpGo">Start</button></div>` : `<div class="small muted">Give a project a folder first (project → Setup).</div>`}</div>
+    <div><div class="cv-lbl">New LUTHUR chat</div>${projs.length ? `<label class="f">Reason / chat name<input id="cvChatName" maxlength="40" placeholder="e.g. Fix login, build dashboard…"></label><div class="row"><select id="cvNp" aria-label="Chat project">${projs.map(p => `<option value="${esc(p.slug)}" ${p.slug === def ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select><button type="button" class="btn primary" id="cvNpGo">Start</button></div>` : `<div class="small muted">Create a project below and add its repository folder to start a coding chat.</div>`}</div>
+    <details id="cvNewProject"><summary class="btn">+ New project</summary><form class="form" id="cvProjectForm"><label class="f">Project name<input name="name" required maxlength="80" placeholder="Name your project"></label><label class="f">What is it for?<input name="summary" maxlength="300" placeholder="A short description or goal"></label><label class="f">Repository folder (optional)<input name="folder" placeholder="C:\\Projects\\MyProject"></label><p class="small muted">A folder enables coding chats. Without one, we'll add a project overview to your canvas.</p><p class="small" data-project-error role="alert" hidden></p><button class="btn primary">Create project</button></form></details>
     ${free.length ? `<div><div class="cv-lbl">Existing sessions</div>${free.slice(0, 12).map(s => `<button type="button" class="cv-agent" data-addag="${esc(s.id)}"><i style="background:${cvTint(s.id)}"></i><span><b>${esc(s.name)}</b><small>${esc(s.projectName)}${s.busy ? " · working" : ""}</small></span></button>`).join("")}</div>` : ""}
     <div><div class="cv-lbl">Other cards</div><div class="row" style="flex-wrap:wrap"><button type="button" class="btn" id="cvAddP">Project overview</button><button type="button" class="btn" id="cvAddG">Checklist</button><button type="button" class="btn" id="cvAddN">Note</button><button type="button" class="btn" id="cvAddI">Bring in a Claude Code session</button></div></div></div>`);
-  document.getElementById("cvNpGo")?.addEventListener("click", () => { closeModal(); cvNewChat(document.getElementById("cvNp")?.value || def); });
+  document.getElementById("cvNpGo")?.addEventListener("click", () => { const slug=document.getElementById('cvNp')?.value||def,name=document.getElementById('cvChatName')?.value.trim();closeModal();cvNewChat(slug,null,name); });
+  const form=document.getElementById('cvProjectForm');let created=null;
+  form.onsubmit=async event=>{event.preventDefault();const button=form.querySelector('button'),error=form.querySelector('[data-project-error]');button.disabled=true;error.hidden=true;
+    try{const values=Object.fromEntries(new FormData(form)),name=values.name.trim(),folder=values.folder.trim();if(!name)throw Error('Enter a project name.');
+      if(!created)created=await api('/projects','POST',{name,summary:values.summary.trim(),kind:'product',stage:'idea'});
+      if(folder)await api('/project/'+created.slug,'PUT',{paths:[folder]});
+      await refresh();closeModal();
+      if(folder){cvAddMenu(created.slug);toast('Project created · name your chat and press Start.');}
+      else{cvAddCard('project',created.slug);toast('Project created and added to canvas.');}
+    }catch(e){error.textContent=e.message;error.hidden=false;button.disabled=false;}
+  };
   document.querySelectorAll("[data-addag]").forEach(b => b.onclick = () => { closeModal(); cvAddCard("agent", b.dataset.addag); });
-  document.getElementById("cvAddP").onclick = () => { closeModal(); cvAddCard("project", CV.data.project || def || S.projects[0]?.slug); };
+  document.getElementById("cvAddP").onclick = () => { closeModal(); cvAddCard("project", selected || CV.data.project || def || S.projects[0]?.slug); };
   document.getElementById("cvAddG").onclick = () => { closeModal(); const g = (S.goals || []).find(x => x.project === CV.data.project); cvAddCard("checklist", g?.id || null); };
   document.getElementById("cvAddN").onclick = () => { closeModal(); const c = cvAddCard("note"); setTimeout(() => document.querySelector(`.cv-card[data-c="${c.id}"] textarea`)?.focus(), 300); };
   document.getElementById("cvAddI").onclick = () => { closeModal(); codeImportModal(CV.data.project); };
@@ -427,3 +438,4 @@ render = function () {
   if (render.background && route.view === "canvas") return; // the canvas updates itself; a full redraw would reset the board
   _renderCV(); if (route.view !== "canvas") clearTimeout(CV.poll);
 };
+

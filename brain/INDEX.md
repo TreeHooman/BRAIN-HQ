@@ -1,10 +1,10 @@
 # HQ index
 
-_Auto-generated 2026-10-05 11:10. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-07 02:21. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
-| loancentral | business | live | watch | Finish Phase 0 housekeeping (due 8 Oct), then Phase 1 dashboard v1. | 2026-10-05 |
+| loancentral | business | live | watch | Finish Phase 0 housekeeping (due 8 Oct), then Phase 1 dashboard v1. | 2026-10-06 |
 | loancentral-discord | product | building | good | Do the lender-claim test on test ticket REQ-0002 in the main server (preview). | 2026-10-05 |
 | reddit | workstream | building | risk | Draft the Data Access Request resubmission (deadline 31 Oct). | 2026-10-05 |
 | neuroweb | product | idea | unknown | Owner: tell the assistant what NeuroWeb is (one or two lines) so it can fill this in. | 2026-10-05 |
@@ -13,6 +13,7 @@ _Auto-generated 2026-10-05 11:10. Don't edit; change project.json files instead.
 | frontier-plan | strategy | planned | unknown | Collect scaling ideas here as they come up; review after the mid-Feb 2027 decision. | 2026-10-05 |
 | ai-hockey | product | live | good | Check HANDOFF.md in the repo for what's left; confirm the hosting PC auto-update is healthy. | 2026-10-05 |
 | blueprint-estimator | product | paused | unknown | Owner: is this still active? Last work was pre-calibration prep (4 Jul). | 2026-10-05 |
+| luthur | tool | building | unknown | Refresh LUTHUR, open Music and drag its MUSIC header. The player remembers the position and stays open while you use other screens. | 2026-10-07 |
 
 ## Due in the next 14 days
 - 2026-10-06 18:00 Discord bot: run the lender-claim test on REQ-0002 [loancentral-discord]
@@ -31,5 +32,13 @@ _Auto-generated 2026-10-05 11:10. Don't edit; change project.json files instead.
 
 ## Goals (Mission Planner)
 - Survive the Reddit API shutdown [loancentral]: 0/7 steps, due 2027-03-31
+- Keep LoanCentral allowed on Reddit [reddit]: 0/8 steps, due 2027-03-31
+- Launch LoanBot 3.0 on Discord [loancentral-discord]: 0/6 steps, due 2026-11-15
+- Keep AI Hockey bookings running smoothly [ai-hockey]: 0/5 steps
+- Shape Borrow Fast [borrow-fast]: 0/5 steps
+- Plan LoanCentral's growth after survival [frontier-plan]: 0/5 steps, due 2027-09-30
+- Decide Blueprint Estimator's future [blueprint-estimator]: 0/3 steps
+- Figure out GenBot [genbot]: 0/3 steps
+- Capture the NeuroWeb idea [neuroweb]: 0/4 steps
 
 Per project: brain/projects/<slug>/SUMMARY.md (short) → plan.md → log.md. Decisions: brain/decisions.md.

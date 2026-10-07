@@ -1,0 +1,123 @@
+{
+  "at": "2026-10-06T01:50:43.170Z",
+  "root": "C:\\Users\\antho\\AppData\\Local\\Temp\\luthur-qa-20261005-184822",
+  "provider": "fake",
+  "results": [
+    {
+      "name": "Cross-site write guard",
+      "status": "PASS"
+    },
+    {
+      "name": "Project memory saved through API",
+      "status": "PASS"
+    },
+    {
+      "name": "Background task completes without a frontend",
+      "status": "PASS",
+      "detail": {
+        "taskId": "runmuw0unk3zsug",
+        "provider": "fake",
+        "browserConnected": false
+      }
+    },
+    {
+      "name": "Reminder delivered to local notification sink",
+      "status": "PASS"
+    },
+    {
+      "name": "Email remains a draft without send approval",
+      "status": "PASS"
+    },
+    {
+      "name": "Restart retains memory and task result; reminder not duplicated",
+      "status": "PASS"
+    },
+    {
+      "name": "Interrupted run recovered from durable running state",
+      "status": "PASS",
+      "detail": "Injected interrupted record, not a power-loss durability test"
+    },
+    {
+      "name": "Proposed task waits for approval",
+      "status": "PASS"
+    },
+    {
+      "name": "Simulated quota pauses work",
+      "status": "PASS"
+    },
+    {
+      "name": "Provider outcome: auth",
+      "status": "PASS"
+    },
+    {
+      "name": "Provider outcome: error",
+      "status": "PASS"
+    },
+    {
+      "name": "Provider outcome: timeout",
+      "status": "PASS"
+    },
+    {
+      "name": "Hard-denied tool cannot be added to allowlist",
+      "status": "PASS",
+      "detail": "Argument enforcement checked; not a full sandbox penetration test"
+    },
+    {
+      "name": "Read-only brain rejects write tool",
+      "status": "PASS"
+    },
+    {
+      "name": "Interrupted outbound send is not silently retried",
+      "status": "PASS"
+    }
+  ],
+  "notifications": [
+    {
+      "at": 1791251431209,
+      "title": "✅ Task done: QA_DELAY complete synthetic task",
+      "body": "QA deterministic success"
+    },
+    {
+      "at": 1791251431779,
+      "title": "⏰ QA overdue reminder",
+      "body": "Reminder"
+    },
+    {
+      "at": 1791251431858,
+      "title": "✅ Task done: QA kick reminder processing",
+      "body": "QA deterministic success"
+    },
+    {
+      "at": 1791251438951,
+      "title": "✅ Task done: QA recovery",
+      "body": "QA deterministic success"
+    },
+    {
+      "at": 1791251439676,
+      "title": "LUTHUR wants to start a task",
+      "body": "QA awaiting approval"
+    },
+    {
+      "at": 1791251439746,
+      "title": "✅ Task done: QA kick approval processing",
+      "body": "QA deterministic success"
+    },
+    {
+      "at": 1791251440312,
+      "title": "✅ Task done: QA awaiting approval",
+      "body": "QA deterministic success"
+    },
+    {
+      "at": 1791251441116,
+      "title": "HQ paused: usage limit",
+      "body": "Resumes automatically around 2026-10-05, 7:50:41 p.m.."
+    }
+  ],
+  "limitations": [
+    "No live model quality assessment",
+    "No microphone or speech test",
+    "No live email/calendar or phone push delivery",
+    "Recovery tested with injected interrupted durable record",
+    "Background completion with zero frontend clients; no physical UI close/reopen test"
+  ]
+}

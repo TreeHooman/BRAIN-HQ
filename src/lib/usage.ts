@@ -22,7 +22,7 @@ onRunResult((r, o) => {
     if (fs.statSync(FILE).size > 3e6) { const lines = fs.readFileSync(FILE, "utf8").trim().split("\n"); fs.writeFileSync(FILE, lines.slice(-8000).join("\n") + "\n"); }
   } catch {}
   if (st?.rate) {
-    const rate = { ...st.rate, at: row.at };
+    const rate = { ...st.rate, at: st.rate.at || row.at };
     writeJson(RATE, rate);
     const rates = readJson<Record<string, any>>(RATES, {});
     rates[rateBucket(String(rate.type || ""))] = rate;

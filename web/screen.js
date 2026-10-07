@@ -218,7 +218,7 @@ function scrPaint() {
   };
   box.querySelectorAll("[data-scrv]").forEach(b => b.onclick = () => { const k = b.dataset.scrv; scrGo(k === "agenda1" ? { k: "agenda", days: 1 } : k === "agenda7" ? { k: "agenda", days: 7 } : { k, q: "" }); });
   box.querySelectorAll("[data-scrp]").forEach(b => b.onclick = () => scrGo({ k: "project", slug: b.dataset.scrp }));
-  box.querySelectorAll("[data-hash]").forEach(b => b.onclick = () => { location.hash = b.dataset.hash; });
+  box.querySelectorAll("[data-hash]").forEach(b => b.onclick = () => { if (route.view === "command" && typeof upScreenView === "function") upScreenView(b.dataset.hash); else location.hash = b.dataset.hash; });
   box.querySelectorAll("[data-scrx]").forEach(b => b.onclick = () => { const t = b.dataset.scrx; if (/^brief/.test(t)) return toast("Pull something up first, then press ⚔ Brief me"); if (!scrCommand(t)) cmdSend(t); });
   box.querySelectorAll("[data-scrurl]").forEach(b => b.onclick = () => { const u = b.dataset.scrurl; scrGo(scrYT(u) ? { k: "yt", id: scrYT(u), url: u } : { k: "page", url: u }); });
   box.querySelectorAll("[data-scrmail]").forEach(b => b.onclick = () => { const [acct, id] = b.dataset.scrmail.split("|"); scrGo({ k: "mailone", acct, id }); });
@@ -305,7 +305,7 @@ const _vCommandScr = vCommand;
 vCommand = async function (el) {
   await _vCommandScr(el);
   const mid = el.querySelector(".nv-mid"); if (!mid || document.getElementById("nvScreen")) return;
-  const s = document.createElement("section"); s.className = "card nv-screen"; s.id = "nvScreen";
+  const s = document.createElement("section"); s.className = "card nv-screen no-fold"; s.id = "nvScreen";
   (mid.querySelector("#cmdReply") || mid.lastElementChild).after(s);
   scrPaint();
 };

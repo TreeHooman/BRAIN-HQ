@@ -15,7 +15,7 @@ Function Up()
   x.setTimeouts 1000, 1000, 1000, 1000
   x.open "GET", "http://127.0.0.1:" & PORT & "/api/live", False
   x.send
-  Up = (Err.Number = 0 And x.status = 200)
+  Up = (Err.Number = 0 And (x.status = 200 Or x.status = 401))
 End Function
 
 If Not Up() Then
@@ -31,9 +31,15 @@ If WScript.Arguments.Count > 0 Then
   If WScript.Arguments(0) = "--silent" Then openWin = False
 End If
 If openWin Then
+  ' Serialize launches, restore the existing window and avoid duplicate app windows.
+  If fso.FileExists(hq & "\scripts\app-window.exe") Then
+    sh.Run """" & hq & "\scripts\app-window.exe""", 0, False
+    WScript.Quit
+  End If
+  If sh.AppActivate("LUTHUR") Then WScript.Quit
   ' Own browser profile: keeps extensions and other sites away from HQ, and gives it its own window.
   prof = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\LUTHUR\window"
-  args = " --app=" & url & " --start-maximized --no-first-run --no-default-browser-check --user-data-dir=""" & prof & """"
+  args = " --app=" & url & " --start-fullscreen --no-first-run --no-default-browser-check --user-data-dir=""" & prof & """"
   On Error Resume Next
   sh.Run "chrome" & args, 1, False
   If Err.Number <> 0 Then

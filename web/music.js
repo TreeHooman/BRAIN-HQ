@@ -122,14 +122,38 @@ function musicToggle(force) {
   if (!p) { p = document.createElement("div"); p.id = "musPop"; p.className = "mus-pop"; p.setAttribute("role", "dialog"); p.setAttribute("aria-label", "Music"); document.body.appendChild(p); p.addEventListener("click", e => e.stopPropagation()); }
   musicPopFill(true); musicPoll();
 }
-document.addEventListener("click", () => { if (Music.open) musicToggle(false); });
+document.addEventListener("click", () => { if (Music.open && !Music.detached) musicToggle(false); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && Music.open) musicToggle(false); });
+
+function musicPopPosition(p,position){
+  if(!position||!Number.isFinite(position.x)||!Number.isFinite(position.y))return;
+  p.style.right='auto';p.style.bottom='auto';p.style.width='min(340px, calc(100vw - 20px))';
+  const r=p.getBoundingClientRect();
+  const next={x:Math.max(8,Math.min(Math.max(8,innerWidth-r.width-8),position.x)),y:Math.max(8,Math.min(Math.max(8,innerHeight-r.height-8),position.y))};
+  p.style.left=next.x+'px';p.style.top=next.y+'px';Music.position=next;
+}
+function musicPopDrag(p){
+  try{const saved=JSON.parse(localStorage.getItem('hq-music-position')||'null');if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y)){Music.detached=true;musicPopPosition(p,saved);}}catch{}
+  const handle=p.querySelector('.mp-window-head');
+  handle.querySelector('button').onclick=()=>musicToggle(false);
+  const save=()=>{Music.detached=true;localStorage.setItem('hq-music-position',JSON.stringify(Music.position));};
+  handle.onpointerdown=e=>{
+    if(e.button!==0||e.target.closest('button'))return;e.preventDefault();e.stopPropagation();
+    const r=p.getBoundingClientRect(),start={x:e.clientX,y:e.clientY};let moved=false;
+    handle.setPointerCapture(e.pointerId);handle.classList.add('dragging');
+    handle.onpointermove=event=>{if(event.pointerId!==e.pointerId)return;if(Math.hypot(event.clientX-start.x,event.clientY-start.y)<3&&!moved)return;moved=true;musicPopPosition(p,{x:r.left+event.clientX-start.x,y:r.top+event.clientY-start.y});};
+    const end=()=>{handle.onpointermove=null;handle.onpointerup=null;handle.onpointercancel=null;handle.classList.remove('dragging');if(handle.hasPointerCapture(e.pointerId))handle.releasePointerCapture(e.pointerId);if(moved)save();};
+    handle.onpointerup=end;handle.onpointercancel=end;
+  };
+  handle.onkeydown=e=>{if(e.target!==handle||!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();const r=p.getBoundingClientRect(),step=e.shiftKey?40:10;musicPopPosition(p,{x:r.left+(e.key==='ArrowRight'?step:e.key==='ArrowLeft'?-step:0),y:r.top+(e.key==='ArrowDown'?step:e.key==='ArrowUp'?-step:0)});save();};
+}
+window.addEventListener('resize',()=>{const p=document.getElementById('musPop');if(p&&Music.position)musicPopPosition(p,Music.position);});
 
 async function musicPopFill(full) {
   const p = document.getElementById("musPop"); if (!p) return;
   const n = Music.now || {};
   if (full || !p.querySelector(".mp-ctl")) {
-    p.innerHTML = `<div class="mp-head"><div class="mp-art" id="mpArt"></div><div class="mp-txt"><b id="mpT"></b><small id="mpA"></small><small id="mpD" class="faint"></small></div></div>
+    p.innerHTML = `<div class="mp-window-head" tabindex="0" aria-label="Move music player. Drag or use arrow keys."><span>♫ MUSIC <small>drag to move</small></span><button type="button" aria-label="Close music player">×</button></div><div class="mp-head"><div class="mp-art" id="mpArt"></div><div class="mp-txt"><b id="mpT"></b><small id="mpA"></small><small id="mpD" class="faint"></small></div></div>
       <div class="mp-bar mus-seek" id="mpBar"><i id="mpP"></i><b class="ms-knob"></b></div><div class="ms-time"><span id="mpE"></span><span id="mpL"></span></div>
       <div class="mp-ctl"><button type="button" data-m="previous" aria-label="Previous">${MI.prev}</button><button type="button" class="mp-play" data-m="toggle" aria-label="Play or pause"></button><button type="button" data-m="next" aria-label="Next">${MI.next}</button></div>
       <label class="mp-vol"><span>Volume</span><input type="range" min="0" max="100" step="5" id="mpVol" aria-label="Volume"></label>
@@ -140,6 +164,7 @@ async function musicPopFill(full) {
     const vol = p.querySelector("#mpVol"); vol.onchange = () => musicDo("volume", Number(vol.value));
     p.querySelector("#mpAsk").onsubmit = e => { e.preventDefault(); const q = p.querySelector("#mpQ").value.trim(); if (q) { musicPlay(q); p.querySelector("#mpQ").value = ""; } };
     musicDevices();
+    musicPopDrag(p);
   }
   p.querySelector("#mpArt").innerHTML = n.art ? `<img src="${esc(n.art)}" alt="" referrerpolicy="no-referrer">` : NOTE_SVG;
   p.querySelector("#mpT").textContent = n.active ? n.track : "Nothing playing";
@@ -216,7 +241,7 @@ vSettings = function (el) {
     if ($m("musSave")) $m("musSave").onclick = async () => { try { await api("/spotify/client", "POST", { clientId: $m("musId").value }); toast("Saved. Now press Connect."); fill(); } catch (e) { toast(e.message, 5000); } };
     if ($m("musReset")) $m("musReset").onclick = () => { Music.st.configured = false; draw(); };
     if ($m("musGo")) $m("musGo").onclick = async () => { try { const { url } = await api("/spotify/login", "POST"); location.href = url; } catch (e) { toast(e.message, 5000); } };
-    if ($m("musOff")) $m("musOff").onclick = async () => { if (!confirm("Disconnect Spotify from LUTHUR?")) return; await api("/spotify/disconnect", "POST").catch(() => {}); Music.now = null; toast("Spotify disconnected"); fill(); musicChrome(); };
+    if ($m("musOff")) $m("musOff").onclick = async () => { if (!(await uiConfirm("Disconnect Spotify from LUTHUR?"))) return; await api("/spotify/disconnect", "POST").catch(() => {}); Music.now = null; toast("Spotify disconnected"); fill(); musicChrome(); };
   };
   const fill = async () => { await musicStatus(); if (document.getElementById("musWrap")) draw(); };
   fill();
@@ -233,3 +258,4 @@ const _renderM = render;
 render = function () { _renderM(); musicChrome(); };
 document.addEventListener("visibilitychange", () => { if (!document.hidden) musicPoll(); });
 window.addEventListener("DOMContentLoaded", async () => { await musicStatus(); musicChrome(); musicPoll(); });
+

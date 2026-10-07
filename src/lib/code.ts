@@ -1,24 +1,28 @@
-// Code screen: live coding sessions run by Claude Code at build level in a project's folders.
-// Several sessions can run at once (cap: code.maxParallel); each one resumes its own Claude session.
-import * as brainSync from "./brainsync.ts";
+// Code screen: signed-in Claude/Codex sessions within the project's permission ceiling.
+// LUTHUR coordinates bounded workers using concise Markdown handoffs and fresh CLI context.
+import { resolveModel, validateChoice, explicitModel, type ModelChoice } from "./model-policy.ts";
+import { runCodex } from "./codex.ts";
+import {sessionContext} from './codex-usage.ts';
+import {checkStopped} from './stop-control.ts';
+import {manageCode,workroom,codeWork} from './code-manager.ts';
 import path from "node:path";
 import fs from "node:fs";
 import os from "node:os";
 import { DATA, ROOT, readJson, uid, writeJson } from "./store.ts";
-import { loadConfig, minLevel, modelFor } from "./config.ts";
+import { loadConfig, minLevel } from "./config.ts";
 import { killTree, runClaude } from "./claude.ts";
 import { opStart, opEnd, activity } from "./orchestrator.ts";
 import type { Step } from "./narrate.ts";
 import * as brain from "./brain.ts";
 
 type Msg = { role: "you" | "hq"; text: string; at: string; error?: boolean; steps?: Step[]; added?: number; removed?: number; ms?: number; ctx?: number; win?: number | null; cost?: number | null; mode?: string };
-type Session = { id: string; project: string; name?: string; sessionId: string | null; createdAt?: string; updatedAt?: string; importedFrom?: string; usage?: { cost: number; turns: number; ctx: number; win: number | null; rate: any; at: string }; messages: Msg[] };
+type Session = { id: string; project: string; folder?: string; name?: string; sessionId: string | null; createdAt?: string; updatedAt?: string; importedFrom?: string; usage?: { cost: number; turns: number; ctx: number|null; win: number | null; rate: any; at: string }; messages: Msg[] };
 
 const DIR = path.join(DATA, "code");
 const ID = /^[a-z0-9-]{1,60}$/;
 // Live code that must never be edited from HQ (agent rules): sessions there are forced to read-only.
 const PROTECTED = /LoanCentral-Test/i;
-const busy = new Map<string, { pid?: number; cancelled?: boolean; opId: string }>();
+const busy = new Map<string, { pid?: number; cancelled?: boolean; opId: string; provider?: string }>();
 
 // The file name is the session key (older files are named after the project slug).
 const file = (key: string) => { if (!ID.test(key)) throw Object.assign(new Error("Bad session id"), { code: 404 }); return path.join(DIR, `${key}.json`); };
@@ -28,12 +32,13 @@ function load(key: string): Session {
   return s;
 }
 const save = (key: string, s: Session) => { s.updatedAt = new Date().toISOString(); writeJson(file(key), s); };
-const maxParallel = () => Math.max(1, Math.min(8, Number(loadConfig().code?.maxParallel) || 4));
+const maxParallel = () => Math.max(1, Math.min(2, Number(loadConfig().code?.maxParallel) || 1));
 
-function access(slug: string) {
+function access(slug: string, folder?: string) {
   const p = brain.getProject(slug);
   if (!p) throw Object.assign(new Error("Unknown project"), { code: 404 });
-  const dirs = (p.paths || []).filter(d => { try { return fs.statSync(d).isDirectory(); } catch { return false; } });
+  if (folder && !(p.paths || []).some(d => path.resolve(d).toLowerCase() === path.resolve(folder).toLowerCase())) throw new Error("Choose a repository folder registered on this project.");
+  const dirs = (p.paths || []).filter(d => !folder || path.resolve(d).toLowerCase() === path.resolve(folder).toLowerCase()).filter(d => { try { return fs.statSync(d).isDirectory(); } catch { return false; } });
   const ceiling = loadConfig().autonomy?.maxLevel || "build";
   let level = minLevel("build", p.maxPermission, ceiling);
   if ((p.paths || []).some(d => PROTECTED.test(d))) level = "read";
@@ -54,7 +59,7 @@ export function list() {
     const last = s.messages.at(-1), lastHq = [...s.messages].reverse().find(m => m.role === "hq");
     const lastYou = [...s.messages].reverse().find(m => m.role === "you");
     out.push({
-      id: k, project: s.project, projectName: p?.name || s.project, name: s.name || p?.name || s.project,
+      id: k, project: s.project, folder:s.folder||null, manager:true, projectName: p?.name || s.project, name: s.name || p?.name || s.project,
       busy: busy.has(k), opId: busy.get(k)?.opId || null, messages: s.messages.length,
       task: lastYou?.text.slice(0, 140) || "", reply: (lastHq?.text || "").replace(/[#*_`>]/g, "").trim().slice(0, 220),
       error: !!lastHq?.error, added: lastHq?.added || 0, removed: lastHq?.removed || 0, ms: lastHq?.ms || 0,
@@ -65,21 +70,28 @@ export function list() {
   return { max: maxParallel(), running: busy.size, sessions: out.sort((a, b) => Number(b.busy) - Number(a.busy) || b.updatedAt.localeCompare(a.updatedAt)) };
 }
 
-export function create(slug: string, name?: string) {
-  const { p } = access(slug);
+export function create(slug: string, name?: string, folder?: string) {
+  const { p } = access(slug, folder);
   if (keys().length >= 40) throw new Error("Too many open sessions. Close a few first.");
   const n = keys().filter(k => readJson<Session | null>(path.join(DIR, `${k}.json`), null)?.project === slug).length;
   const id = uid("cs-").toLowerCase().replace(/[^a-z0-9-]/g, "");
   const s: Session = { id, project: slug, name: String(name || "").trim().slice(0, 40) || (n ? `${p.name} ${n + 1}` : p.name), sessionId: null, createdAt: new Date().toISOString(), messages: [] };
-  save(id, s);
+  s.folder = folder || undefined; save(id, s);
   return { id };
+}
+
+export function manager(slug:string,folder?:string){
+  access(slug,folder);
+  const normalized=(value:string|null|undefined)=>value?path.resolve(value).toLowerCase():null;
+  const found=list().sessions.find(s=>s.project===slug&&normalized(s.folder)===normalized(folder));
+  return found?{id:found.id}:create(slug,'LUTHUR · '+(brain.getProject(slug)?.name||slug),folder);
 }
 
 export function get(key: string) {
   const s = load(key);
-  const { p, dirs, level } = access(s.project);
+  const { p, dirs, level } = access(s.project, s.folder);
   const sameProject = [...busy.keys()].filter(k => k !== key && readJson<Session | null>(path.join(DIR, `${k}.json`), null)?.project === s.project).length;
-  return { id: key, project: s.project, name: s.name || p.name, folders: p.paths || [], found: dirs, level, busy: busy.has(key), opId: busy.get(key)?.opId || null, sameProject, usage: s.usage || null, messages: s.messages.slice(-60) };
+  return { id: key, project: s.project, name: s.name || p.name, folders: p.paths || [], found: dirs, level, busy: busy.has(key), opId: busy.get(key)?.opId || null, sameProject, usage: s.usage || null, messages: s.messages.slice(-60),manager:true,workroom:workroom(key) };
 }
 
 export function rename(key: string, name: string) {
@@ -95,62 +107,76 @@ export function close(key: string) {
 }
 
 export function stop(key: string) { const b = busy.get(key); if (b) { b.cancelled = true; killTree(b.pid); } }
+export function stopAll(){for(const key of busy.keys())stop(key);}
+export function hasActiveWork(){return busy.size>0;}
 
 /** Throws the reasons a message can't start, so the API can answer right away. */
 export function check(key: string, text: string) {
+  checkStopped();
   if (busy.has(key)) throw new Error("Still working on the last message.");
   if (!String(text || "").trim()) throw new Error("Type what you want done.");
   if (busy.size >= maxParallel()) throw new Error(`${busy.size} sessions are already running (limit ${maxParallel()}). Wait for one to finish.`);
-  const { p, dirs } = access(load(key).project);
+  const { p, dirs } = access(load(key).project, load(key).folder);
   if (!dirs.length) throw new Error(`No folder found for ${p.name}. Add its folder under the project's Setup tab.`);
 }
 
-export async function send(key: string, text: string, tier = "balanced", effort: string | null = null, readOnly = false, mode: string | null = null): Promise<void> {
+export async function send(key: string, text: string, tier = "balanced", effort: string | null = null, readOnly = false, mode: string | null = null, choice: ModelChoice = {}): Promise<void> {
+  choice={...choice,...explicitModel(text)};
+  validateChoice(choice);
   check(key, text);
   text = String(text || "").trim().slice(0, 20000);
   const s = load(key);
-  const { p, dirs, level: max } = access(s.project);
+  const { p, dirs, level: max } = access(s.project, s.folder);
   const level = readOnly ? "read" : max; // the lock in the chat box: look only, no edits
   s.messages.push({ role: "you", text, at: new Date().toISOString() });
   save(key, s);
   const cfg = loadConfig();
-  const { model, fallback } = modelFor(["fast", "balanced", "deep"].includes(tier) ? tier : "balanced");
+  const provider = choice.provider === "codex" ? "codex" : "claude";
+  const selected = resolveModel(provider, text, choice, codeWork(text));
+  const model = selected.model, fallback = undefined; effort = selected.effort;
+  s.sessionId = null;
   const opId = `code-${key}-${s.messages.length}`;
   const steps: Step[] = [];
   const name = s.name || p.name;
-  const onOp = opStart({ id: opId, kind: "code", title: `${name}: ${text.length > 60 ? text.slice(0, 59) + "…" : text}`, project: s.project, model, level, agent: name });
+  const onOp = opStart({ id: opId, kind: "code", title: `${name}: ${text.length > 60 ? text.slice(0, 59) + "…" : text}`, project: s.project, model, level, agent: 'LUTHUR' });
   const onStep = (st: Step) => { onOp(st); const i = steps.findIndex(x => x.id === st.id); if (i >= 0) steps[i] = { ...st }; else steps.push({ ...st }); if (steps.length > 120) steps.shift(); };
-  busy.set(key, { opId });
+  busy.set(key, { opId, provider });
   let ok = false;
   try {
-    const res = await runClaude({
-      prompt: text, model, fallbackModel: fallback, effort, level, mode: level === "build" && (mode === "auto" || mode === "bypass") ? mode : "safe", resume: s.sessionId, runId: `code-${key}`, addDirs: dirs,
-      history: { title: `${name}: ${text.slice(0, 100)}`, ask: text, project: s.project, kind: "Code" },
-      timeoutMs: (cfg.code?.maxMinutes || 20) * 60e3, onStep, onSpawn: pid => { const b = busy.get(key); if (b) b.pid = pid; },
+    const base = {
+      prompt: text, model, fallbackModel: fallback, effort, level, mode: level === "build" && (mode === "auto" || mode === "bypass") ? mode : "safe", resume:null, runId: `code-${key}`, addDirs: dirs,
+      timeoutMs: (cfg.code?.maxMinutes || 20) * 60e3, onStep, onSpawn: pid => { const b = busy.get(key); if (b) {b.pid = pid;if(b.cancelled)killTree(pid);} },
       system: [
-        `You're pair-programming with the owner live in HQ's Code screen on project "${p.name}" (session "${name}").`,
+        `You're LUTHUR, managing work with the owner live in HQ's Code screen on project "${p.name}" (workroom "${name}").`,
         `Project folders: ${dirs.join("; ")}. Work only there; for shell commands, cd into the folder first.`,
         "Other sessions may be editing the same folders at the same time: re-read a file right before you edit it.",
         level === "build" ? "You may edit files and run tests/builds. Never commit, push, deploy or touch live services (those are blocked)." : "This project is READ-ONLY here: explain and propose diffs, don't edit.",
         "Before each group of actions, say in one short line what you're about to do and why (the owner watches it live).",
         "Keep the final reply short: what you changed (files), how to try it, anything risky. Use code blocks for snippets.",
       ].join("\n"),
-    });
+    };
+    const res=await manageCode({key,project:p.name,text,history:s.messages.slice(-7,-1).map(m=>`${m.role}: ${m.text.slice(0,400)}`).join('\n'),provider,choice,system:base.system,timeoutMs:base.timeoutMs,cancelled:()=>!!busy.get(key)?.cancelled,run:async spec=>{
+      const childId=`${opId}-worker-${spec.index}`;
+      const child=spec.index===1||spec.index===2?opStart({id:childId,kind:'code',title:spec.role,project:s.project,model:spec.model,level,agent:spec.role,parent:opId}):null;
+      let result;
+      try{result=await (provider==='codex'?runCodex:runClaude)({...base,prompt:spec.prompt,system:spec.system,model:spec.model,effort:spec.effort,timeoutMs:spec.timeoutMs,resume:null,runId:`code-${key}-${spec.index}`,noAgents:true,onStep:st=>{onStep(st);child?.(st);}});return result;}
+      finally{if(child)opEnd(childId,!!result?.ok,!!busy.get(key)?.cancelled);}
+    }});
     const b = busy.get(key);
     ok = res.ok && !b?.cancelled;
     let latest: Session;
     try { latest = load(key); } catch { return; } // closed meanwhile
     if (latest.id !== s.id) return;
-    latest.sessionId = res.sessionId || latest.sessionId;
+    latest.sessionId = null; // Markdown workroom is durable context; avoid growing CLI memory.
     let reply = res.text || "";
     if (b?.cancelled) reply = (reply ? reply + "\n\n" : "") + "_Stopped._";
-    else if (res.kind === "auth" || res.kind === "missing") reply = "I can't reach Claude. Run **scripts\\SIGN-IN-CLAUDE.cmd** once, then try again.";
-    else if (res.kind === "limit") reply = `Claude's usage limit is reached${res.resetAt ? ` until about ${new Date(res.resetAt).toLocaleString()}` : ""}.`;
+    else if (res.kind === "auth" || res.kind === "missing") reply = `I can't reach ${provider === 'codex' ? 'Codex' : 'Claude'}. Check its CLI sign-in, then try again.`;
+    else if (res.kind === "limit") reply = `${provider === 'codex' ? 'Codex' : 'Claude'}'s usage limit is reached${res.resetAt ? ` until about ${new Date(res.resetAt).toLocaleString()}` : ""}.`;
     else if (res.kind === "timeout") reply = (reply ? reply + "\n\n" : "") + "_Stopped at the time limit. Say “continue” to pick up where I left off._";
     const kept = steps.filter(x => x.kind === "tool" || x.kind === "text");
     const tools = steps.filter(x => x.kind === "tool");
     const st = res.stats;
-    if (st) { const u = latest.usage || { cost: 0, turns: 0, ctx: 0, win: null, rate: null, at: "" }; latest.usage = { cost: u.cost + (st.cost || 0), turns: u.turns + 1, ctx: st.context || u.ctx, win: st.window || u.win, rate: st.rate || u.rate, at: new Date().toISOString() }; }
+    {const u=latest.usage||{cost:0,turns:0};const context=provider==='codex'?sessionContext(res.sessionId||undefined):st?.contextKnown?{context:st.context,window:st.window}:null;latest.usage={cost:u.cost+(st?.cost||0),turns:u.turns+1,ctx:context?.context??null,win:context?.window||null,rate:provider==='claude'?st?.rate||null:null,at:new Date().toISOString()};}
     latest.messages.push({ role: "hq", text: reply, at: new Date().toISOString(), error: !res.ok && !b?.cancelled, ms: res.durationMs, ctx: st?.context, win: st?.window, cost: st?.cost, mode: level === "build" ? (mode || "safe") : "read",
       steps: kept.slice(-50).map(x => ({ ...x, diff: x.diff?.slice(0, 12) })), added: tools.reduce((a, x) => a + (x.added || 0), 0), removed: tools.reduce((a, x) => a + (x.removed || 0), 0) });
     if (latest.messages.length > 200) latest.messages.splice(0, latest.messages.length - 200);
@@ -158,9 +184,13 @@ export async function send(key: string, text: string, tier = "balanced", effort:
     activity("code", { session: key, project: s.project, ok: res.ok, kind: res.kind });
     if (res.ok && !b?.cancelled) {
       const files = [...new Set(tools.filter(x => /write|edit/i.test(x.tool)).map(x => x.target).filter(Boolean))];
-      brainSync.afterTurn(key, s.project, { ask: text, reply, files, added: tools.reduce((a, x) => a + (x.added || 0), 0), removed: tools.reduce((a, x) => a + (x.removed || 0), 0), at: new Date().toISOString() });
+      if(files.length)brain.addLog(s.project,`Code workroom ${name}: ${reply.replace(/\s+/g,' ').slice(0,500)} Files: ${files.slice(0,12).join(', ')}. See workroom REPORT.md for verification.`, 'LUTHUR');
     }
-  } finally { busy.delete(key); opEnd(opId, ok); }
+  } catch(error){
+    const latest=load(key),cancelled=!!busy.get(key)?.cancelled;
+    latest.messages.push({role:'hq',text:cancelled?'_Stopped._':`Workroom needs attention: ${(error as Error).message}`,at:new Date().toISOString(),error:!cancelled});
+    save(key,latest);
+  } finally { const cancelled=busy.get(key)?.cancelled;busy.delete(key); opEnd(opId, ok,!!cancelled); }
 }
 
 // ---------------- existing Claude Code sessions (from the terminal / VS Code) ----------------
@@ -238,7 +268,7 @@ export function importSession(slug: string, sid: string, name?: string) {
   const { id } = create(slug, name || meta?.title || meta?.ask.slice(0, 40));
   const s = load(id);
   s.sessionId = sid; s.importedFrom = sid;
-  s.messages = [...hist.slice(-8), { role: "hq", text: "_Brought in from Claude Code. Keep going: I remember this whole conversation. (Your original session is untouched.)_", at: new Date().toISOString() }];
+  s.messages = [...hist.slice(-8), { role: "hq", text: "_Brought in recent Claude Code conversation. LUTHUR will continue using compact Markdown workroom notes. Your original session is untouched._", at: new Date().toISOString() }];
   save(id, s);
   return { id };
 }
@@ -309,3 +339,4 @@ function watchScan() {
   const ids = Object.keys(st.off); if (ids.length > 500) for (const k of ids.slice(0, ids.length - 500)) delete st.off[k];
   writeJson(WATCH, st);
 }
+

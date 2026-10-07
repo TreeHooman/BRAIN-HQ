@@ -38,10 +38,10 @@ function cmpVer(a: string, b: string): number {
 }
 
 /** Writes the MCP config for one permission level: hq-brain (always) + extras allowed at that level. */
-export function mcpConfigFor(level: Level, runId = "adhoc"): string {
+export function mcpConfigFor(level: Level, runId = "adhoc", activeFile?: { acct: string; id: string }): string {
   const extras = loadMcpExtras().mcpServers || {};
   const servers: Record<string, any> = {
-    "hq-brain": { command: process.execPath, args: ["--no-warnings", path.join(ROOT, "src", "mcp", "hq-brain.ts")], env: { HQ_LEVEL: level, HQ_RUN_ID: runId } },
+    "hq-brain": { command: process.execPath, args: ["--no-warnings", path.join(ROOT, "src", "mcp", "hq-brain.ts")], env: { HQ_LEVEL: level, HQ_RUN_ID: runId, HQ_ACTIVE_FILE: activeFile ? JSON.stringify(activeFile) : "" } },
   };
   for (const [name, def] of Object.entries<any>(extras)) {
     if (levelRank(def.minLevel || "read") <= levelRank(level)) { const { minLevel, ...rest } = def; servers[name] = rest; }
@@ -52,9 +52,12 @@ export function mcpConfigFor(level: Level, runId = "adhoc"): string {
 }
 
 export type RunOptions = {
+  noAgents?: boolean;
   prompt: string; model: string; fallbackModel?: string; level: Level;
   addDirs?: string[]; extraAllow?: string[]; resume?: string | null; timeoutMs: number;
   system?: string; runId?: string; onSpawn?: (pid: number) => void; onStep?: (s: Step) => void;
+  activeFile?: { acct: string; id: string };
+  onText?: (text: string) => void;
   /** Outbox executor: no built-in tools, no hq-brain, no agent rules; only these MCP tool prefixes (account connectors). */
   act?: { allow: string[] };
   /** Thinking effort (Claude Code --effort). Omitted = the model default. */
@@ -65,7 +68,7 @@ export type RunOptions = {
   /** Saved to the History page (and brain/history/) after the run. Omit to keep the run out of history. */
   history?: { title: string; ask?: string; project?: string | null; kind?: string; format?: (text: string) => string };
 };
-export type RunStats = { context: number; window: number | null; output: number; cost: number | null; rate: { status?: string; type?: string; resetsAt?: number | null; utilization?: number | null } | null };
+export type RunStats = { context: number; contextKnown?:boolean; window: number | null; output: number; cost: number | null; rate: { status?: string; type?: string; resetsAt?: number | null; utilization?: number | null; utilizationUnit?:string; at?:string } | null };
 export type RunResult = {
   ok: boolean; text: string; sessionId: string | null; durationMs: number;
   kind: "ok" | "error" | "limit" | "auth" | "timeout" | "missing";
@@ -89,17 +92,19 @@ export function buildArgs(o: RunOptions): string[] {
   const hard: string[] = perms.hardDeny || [];
   const extra = (o.extraAllow || []).filter(t => !hard.includes(t));
   const deny = [...(perms.alwaysDeny || []).filter((t: string) => !extra.includes(t)), ...hard];
+  if(o.noAgents)deny.push('Agent','Task','mcp__hq-brain__queue_followup','mcp__hq-brain__task_create');
   const allow = [...(lv.allow || []), ...extra, "mcp__hq-brain"];
   const args = [
     "-p", "--output-format", "stream-json", "--verbose", // one JSON event per line: feeds the live operations view
     "--model", o.model,
     "--setting-sources", "project",          // skip user-level plugins/hooks: fewer tokens, predictable
-    "--strict-mcp-config", "--mcp-config", mcpConfigFor(o.level, o.runId), // only HQ's MCP servers, not every connector
+    "--strict-mcp-config", "--mcp-config", mcpConfigFor(o.level, o.runId, o.activeFile), // only HQ's MCP servers, not every connector
     "--disable-slash-commands",
     "--tools", (lv.tools || ["Read"]).join(","),
     "--append-system-prompt", [agentRules(), o.system || ""].join("\n\n"),
   ];
   if (o.fallbackModel && o.fallbackModel !== o.model) args.push("--fallback-model", o.fallbackModel);
+  if (o.onText) args.push("--include-partial-messages");
   const eff = effortArg(o.effort, o.model); if (eff) args.push("--effort", eff);
   if (o.level === "build" && (o.mode === "auto" || o.mode === "bypass")) {
     for (const t of ["Bash", "Edit", "Write", "MultiEdit", "NotebookEdit", "TodoWrite"]) if (!allow.includes(t)) allow.push(t);
@@ -134,7 +139,21 @@ function runClaudeInner(o: RunOptions): Promise<RunResult> {
     if (child.pid && o.onSpawn) o.onSpawn(child.pid);
     let out = "", err = "", timedOut = false;
     const narrator = o.onStep ? createNarrator(o.onStep) : null;
-    child.stdout.on("data", d => { out += d; if (narrator) try { narrator.feed(String(d)); } catch {} });
+    let streamBuffer = "", draft = "";
+    child.stdout.on("data", d => {
+      out += d; if (narrator) try { narrator.feed(String(d)); } catch {}
+      if (!o.onText) return;
+      streamBuffer += String(d); let newline;
+      while ((newline = streamBuffer.indexOf("\n")) >= 0) {
+        const line = streamBuffer.slice(0, newline); streamBuffer = streamBuffer.slice(newline + 1);
+        try {
+          const j = JSON.parse(line), e = j.type === "stream_event" ? j.event : null;
+          if (e?.type === "message_start") draft = "";
+          if (e?.type === "content_block_delta" && e.delta?.type === "text_delta") { draft = (draft + e.delta.text).slice(-60000); o.onText(draft); }
+          if (j.type === "assistant") { const text = (j.message?.content || []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n"); if (text) { draft = text; o.onText(text); } }
+        } catch {}
+      }
+    });
     child.stderr.on("data", d => { err += d; });
     child.stdin.end(o.prompt);
     const timer = setTimeout(() => { timedOut = true; killTree(child.pid); }, o.timeoutMs);
@@ -212,17 +231,17 @@ function interpret(out: string, err: string, timedOut: boolean, durationMs: numb
 
 /** Context size (tokens the model saw on its last call), context window, cost and plan-limit info from stream-json. */
 function runStats(linesNewestFirst: string[], result: any): RunStats | null {
-  let ctx = 0, outT = 0, rate: RunStats["rate"] = null;
+  let ctx = 0, outT = 0, known=false,model='',rate: RunStats["rate"] = null;
   for (const l of linesNewestFirst) {
     if (!l.startsWith("{")) continue;
     let x: any; try { x = JSON.parse(l); } catch { continue; }
-    if (!ctx && x?.type === "assistant" && x.message?.usage) { const u = x.message.usage; ctx = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0); outT = u.output_tokens || 0; }
-    if (!rate && x?.type === "rate_limit_event") { const r = x.rate_limit_info || x; rate = { status: r.status, type: r.rateLimitType || r.type, resetsAt: r.resetsAt ? Number(r.resetsAt) * (Number(r.resetsAt) < 1e12 ? 1000 : 1) : null, utilization: typeof r.utilization === "number" ? r.utilization : null }; }
-    if (ctx && rate) break;
+    if (!known && x?.type === "assistant" && x.message?.usage && Number.isFinite(x.message.usage.input_tokens)) { const u = x.message.usage; ctx = u.input_tokens + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0); outT = u.output_tokens || 0;known=true;model=x.message.model||''; }
+    if (!rate && x?.type === "rate_limit_event") { const r = x.rate_limit_info || x; rate = { status: r.status, type: r.rateLimitType || r.type, resetsAt: r.resetsAt ? Number(r.resetsAt) * (Number(r.resetsAt) < 1e12 ? 1000 : 1) : null, utilization: typeof r.utilization === "number" ? r.utilization : null,utilizationUnit:'fraction',at:x.timestamp||new Date().toISOString() }; }
+    if (known && rate) break;
   }
-  const mu: any = result?.modelUsage ? Object.values(result.modelUsage)[0] : null;
-  if (!ctx && !result) return null;
-  return { context: ctx, window: mu?.contextWindow || null, output: outT || result?.usage?.output_tokens || 0, cost: typeof result?.total_cost_usd === "number" ? result.total_cost_usd : null, rate };
+  const models=Object.entries(result?.modelUsage||{}),mu:any=models.find(([key])=>key===model)?.[1]||(models.length===1?models[0][1]:null);
+  if (!known && !result && !rate) return null;
+  return { context: ctx,contextKnown:known, window: mu?.contextWindow || null, output: outT || result?.usage?.output_tokens || 0, cost: typeof result?.total_cost_usd === "number" ? result.total_cost_usd : null, rate };
 }
 
 /** Reads a reset time out of a usage-limit message. Returns epoch ms or null. */

@@ -184,6 +184,7 @@ function foldPanels() {
   const base = Math.max(320, Math.round(innerHeight * (matchMedia("(max-width: 760px)").matches ? .62 : .55)));
   const desk = route.view === "command" && !matchMedia("(max-width: 1099px)").matches; // Command desktop: everything fits on one screen
   view.querySelectorAll(".card, .nv-panel").forEach(c => {
+    if (c.matches("#cmdReply, #nvScreen")) return; // conversation and screen manage their own scrolling
     const top = c.getBoundingClientRect().top + (document.scrollingElement?.scrollTop || 0);
     const max = desk ? Math.max(200, Math.round(innerHeight - top - 28)) : base;
     if (c.closest(".fold-in") !== c && c.parentElement?.closest(".card.fold-on, .nv-panel.fold-on")) return; // nested

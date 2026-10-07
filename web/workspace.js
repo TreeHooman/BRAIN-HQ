@@ -89,7 +89,7 @@ function wsManage() {
     r.querySelectorAll("[data-c]").forEach(b => b.onclick = async () => { await api(`/google/acct/${id}`, "PUT", { color: b.dataset.c }).catch(e => toast(e.message)); await wsStatus(); wsShell(); wsLoad(); });
     r.querySelector("[data-re]").onclick = () => wsLogin(id, a => a.write);
     r.querySelector("[data-wr]")?.addEventListener("click", () => wsLogin(id, () => true));
-    r.querySelector("[data-rm]").onclick = async () => { const a = wsAcc(id); if (!confirm(`Remove ${a.label} (${a.email}) from LUTHUR?`)) return; await api(`/google/acct/${id}`, "DELETE").catch(e => toast(e.message)); if (WS.acct === id) WS.acct = "all"; await wsStatus(); wsShell(); wsLoad(); };
+    r.querySelector("[data-rm]").onclick = async () => { const a = wsAcc(id); if (!(await uiConfirm(`Remove ${a.label} (${a.email}) from LUTHUR?`))) return; await api(`/google/acct/${id}`, "DELETE").catch(e => toast(e.message)); if (WS.acct === id) WS.acct = "all"; await wsStatus(); wsShell(); wsLoad(); };
   });
 }
 async function wsLogin(reconnect, write) { try { const a = reconnect && wsAcc(reconnect); const { url } = await api("/google/login", "POST", { ...(reconnect ? { reconnect } : {}), write: !!(a && write?.(a)) }); location.href = url; } catch (e) { toast(e.message, 5000); } }
@@ -220,7 +220,7 @@ function wsPaintPrev() {
   else inner = `<div class="ws-empty">${f.mime === "application/vnd.google-apps.form" ? "Forms open in Google. Responses are on the form's <b>Responses</b> tab (and in its linked Sheet, which you can preview here)." : "LUTHUR can preview Sheets, Docs, Slides, PDFs, images and CSV/TXT files. This one (" + esc(wsType(f.mime)[0]) + ") opens in Google."}${f.link ? `<br><br><a class="btn primary" href="${esc(f.link)}" target="_blank" rel="noopener noreferrer">Open in Google ${WS_EXT}</a>` : ""}</div>`;
   el.innerHTML = head + inner;
   el.querySelector(".ws-back").onclick = () => { WS.prev = null; WS.edit = false; wsSplit(false); el.innerHTML = `<div class="ws-empty">Pick a file to preview it here.</div>`; document.querySelectorAll(".ws-frow.on").forEach(r => r.classList.remove("on")); };
-  el.querySelectorAll("[data-st]").forEach(b => b.onclick = () => { if (WS.edit && Object.keys(WS.edits || {}).length && !confirm("Drop your unsaved cell changes?")) return; WS.edit = false; wsOpenFile(f, b.dataset.st); });
+  el.querySelectorAll("[data-st]").forEach(b => b.onclick = async () => { if (WS.edit && Object.keys(WS.edits || {}).length && !(await uiConfirm("Drop your unsaved cell changes?"))) return; WS.edit = false; wsOpenFile(f, b.dataset.st); });
   if (p.kind === "sheet") wsSheetEdit(el, p);
   el.querySelector("#wsDocAdd")?.addEventListener("click", () => wsDocAdd(f));
   el.querySelector("#wsDocRep")?.addEventListener("click", () => wsDocRep(f));
@@ -303,7 +303,7 @@ function wsCompose(d, outboxItem) {
   form.onsubmit = async e => {
     e.preventDefault();
     const p = payload(), a = wsAcc(p.from);
-    if (!confirm(`Send from ${a.label} (${a.email}) to ${p.to}?`)) return;
+    if (!(await uiConfirm(`Send from ${a.label} (${a.email}) to ${p.to}?`))) return;
     const btn = form.querySelector("button.primary"); btn.disabled = true; btn.textContent = "Sending…";
     try {
       const it = await save(); await api(`/outbox/${it.id}/send`, "POST");
@@ -361,12 +361,12 @@ function wsSheetEdit(el, p) {
     td.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); const next = el.querySelector(`td[data-rc="${r + 1},${c}"]`); (next || td).focus(); } if (e.key === "Escape") td.blur(); });
   });
   upd();
-  el.querySelector("#wsEdX").onclick = () => { if (Object.keys(WS.edits).length && !confirm("Drop your changes?")) return; WS.edit = false; WS.edits = {}; wsPaintPrev(); };
+  el.querySelector("#wsEdX").onclick = async () => { if (Object.keys(WS.edits).length && !(await uiConfirm("Drop your changes?"))) return; WS.edit = false; WS.edits = {}; wsPaintPrev(); };
   save.onclick = async () => {
     const col = i => { let s = ""; i++; while (i) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
     const cells = Object.entries(WS.edits).map(([k, v]) => { const [r, c] = k.split(",").map(Number); return { r, c, v }; });
     const list = cells.slice(0, 12).map(x => `${col(x.c)}${x.r + 1}: "${orig(x.r, x.c).slice(0, 30)}" → "${String(x.v).slice(0, 30)}"`).join("\n");
-    if (!confirm(`Save ${cells.length} change${cells.length > 1 ? "s" : ""} to “${f.name}” › ${p.tab || "first tab"} (${wsAcc(f.acct)?.label})?\n\n${list}${cells.length > 12 ? "\n…" : ""}`)) return;
+    if (!(await uiConfirm(`Save ${cells.length} change${cells.length > 1 ? "s" : ""} to “${f.name}” › ${p.tab || "first tab"} (${wsAcc(f.acct)?.label})?\n\n${list}${cells.length > 12 ? "\n…" : ""}`))) return;
     save.disabled = true; save.textContent = "Saving…";
     try {
       let tab = p.tab;
@@ -382,7 +382,7 @@ function wsDocAdd(f) {
     <div class="row end"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary">Add to doc</button></div></form>`);
   document.getElementById("wsDA").onsubmit = async e => {
     e.preventDefault(); const text = e.target.text.value;
-    if (!confirm(`Add this text to the end of “${f.name}” (${wsAcc(f.acct)?.label})?`)) return;
+    if (!(await uiConfirm(`Add this text to the end of “${f.name}” (${wsAcc(f.acct)?.label})?`))) return;
     try { await api(`/google/doc/${f.acct}/${f.id}/append`, "POST", { text }); closeModal(); toast("Added to the doc"); wsOpenFile(f); } catch (err) { toast(err.message, 6000); }
   };
 }
@@ -393,8 +393,9 @@ function wsDocRep(f) {
     <div class="row end"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary">Replace all</button></div></form>`);
   document.getElementById("wsDR").onsubmit = async e => {
     e.preventDefault(); const d = Object.fromEntries(new FormData(e.target));
-    if (!confirm(`Replace every “${d.find.slice(0, 60)}” with “${d.replace.slice(0, 60)}” in “${f.name}”?`)) return;
+    if (!(await uiConfirm(`Replace every “${d.find.slice(0, 60)}” with “${d.replace.slice(0, 60)}” in “${f.name}”?`))) return;
     try { const r = await api(`/google/doc/${f.acct}/${f.id}/replace`, "POST", { find: d.find, replace: d.replace, matchCase: !!d.matchCase }); closeModal(); toast(r.changed ? `Replaced ${r.changed}` : "Not found in the doc"); wsOpenFile(f); } catch (err) { toast(err.message, 6000); }
   };
 }
 window.addEventListener("DOMContentLoaded", () => { wsStatus(); });
+

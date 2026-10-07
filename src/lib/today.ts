@@ -58,7 +58,10 @@ export function add(i: Partial<Item> & { title: string }, by: Item["src"] = "you
 export function remove(id: string) { const p = get(); p.items = p.items.filter(i => i.id !== id); save(p); return p; }
 export function edit(id: string, patch: Partial<Item>) {
   const p = get(), it = p.items.find(i => i.id === id); if (!it) throw Object.assign(new Error("Not found"), { code: 404 });
-  if (patch.title !== undefined) it.title = clip(patch.title, 200) || it.title;
+  if (patch.title !== undefined) {
+    it.title = clip(patch.title, 200) || it.title;
+    if (it.goalId && it.stepId) { const goal = brain.listGoals().find(g => g.id === it.goalId); const step = goal?.steps.find(s => s.id === it.stepId); if (goal && step) { step.title = it.title; brain.saveGoal(goal); } }
+  }
   if (patch.mins !== undefined) it.mins = Math.max(5, Math.min(480, Math.round(Number(patch.mins) || 30)));
   save(p); return it;
 }
@@ -79,7 +82,7 @@ export function setDone(id: string, done: boolean, by = "you"): { item: Item; ch
     if (proj && next && (!proj.nextStep || sameish(proj.nextStep, it.title) || (g && g.steps.some(s => s.id === it.stepId && sameish(proj.nextStep, s.title))))) {
       try { brain.updateProject(proj.slug, { nextStep: next.title }); changed.push("next step updated"); } catch {}
     }
-    if (g && next && !p.items.some(x => x.stepId === next.id)) {
+    if (g && next && !p.items.some(x => x.goalId === g.id && x.stepId === next.id)) {
       p.items.push({ id: uid("t"), title: next.title, project: it.project || g.project || null, goalId: g.id, stepId: next.id, mins: 30, src: "next", why: `Next in “${clip(g.title, 60)}”` });
       changed.push("next added");
     } else if (!g && proj && proj.nextStep && !sameish(proj.nextStep, it.title) && !p.items.some(x => !x.done && sameish(x.title, proj.nextStep))) {

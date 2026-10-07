@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-06 18:00 · assistant
+Revised the scaling sequence: preserve service through Reddit API changes first, then strengthen Discord and explore other suitable reach channels, improve the website funnel, and consider monetization only after growth.
+
 ## 2026-10-05 12:00 · HQ
 Moved into HQ from the old LoanCentral HQ status page (kept at /legacy/loancentral-hq.html).
 

@@ -20,3 +20,7 @@ backgrounds/
 
 # Saved answers (local only)
 brain/history/
+
+# Local install backups and test artifacts
+backup/
+artifacts/

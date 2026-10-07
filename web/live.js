@@ -143,8 +143,8 @@ function stepLine(s, live) {
 async function vCode(el) {
   const filt = hstore.get("hq-code-filter", "all"), net = hstore.get("hq-code-net", phone() ? "0" : "1") === "1";
   el.innerHTML = `<div class="tui">
-    <div class="tui-head"><div><h1>Code</h1><p class="sub">Several Claude Code sessions at once. Click a box to talk to it. Commits, pushes and deploys stay blocked.</p></div>
-      <div class="tui-acts"><span class="tui-cap" id="lvCap"></span><button class="btn" id="lvImport" type="button">Bring in session</button><button class="btn primary" id="lvNew" type="button">+ New session</button></div></div>
+    <div class="tui-head"><div><h1>Code · LUTHUR</h1><p class="sub">Talk to LUTHUR, your coding manager. Focused workers share Markdown handoffs; simple requests stay with him.</p></div>
+      <div class="tui-acts"><span class="tui-cap" id="lvCap"></span><button class="btn primary" id="lvManager" type="button">Talk to LUTHUR</button><button class="btn" id="lvImport" type="button">Bring in session</button><button class="btn" id="lvNew" type="button">+ Workroom</button></div></div>
     <div class="tui-bar"><div class="tui-chips" role="group" aria-label="Show">${[["all", "All"], ["run", "Working"], ["bad", "Needs a look"]].map(([k, l]) => `<button type="button" data-cf="${k}" class="${filt === k ? "on" : ""}">${l}</button>`).join("")}</div>
       <div class="tui-chips" role="group" aria-label="Layout"><button type="button" data-lay="grid" class="${codeLayout() === "grid" ? "on" : ""}">Grid</button><button type="button" data-lay="split" class="${codeLayout() === "split" ? "on" : ""}">Side by side</button></div>
       <button type="button" class="tui-tog" id="lvNetTog" aria-pressed="${net}">${net ? "Hide" : "Show"} agent map</button></div>
@@ -152,6 +152,7 @@ async function vCode(el) {
     <div class="lv-grid" id="lvGrid"></div><div class="sp-wrap" id="lvSplit" hidden></div></div>
     <div class="lv-drawer" id="lvDrawer" hidden><div class="lv-dscrim" data-close></div><div class="card lv-dpanel tui-d"><div class="cd-main" id="cdMain"></div></div></div>`;
   document.getElementById("lvNew").onclick = codeNewModal;
+  document.getElementById('lvManager').onclick=codeManagerModal;
   document.getElementById("lvImport").onclick = () => codeImportModal();
   el.querySelectorAll("[data-cf]").forEach(b => b.onclick = () => { hstore.set("hq-code-filter", b.dataset.cf); el.querySelectorAll("[data-cf]").forEach(x => x.classList.toggle("on", x === b)); codeGrid(); });
   document.getElementById("lvNetTog").onclick = e => { const on = hstore.get("hq-code-net", phone() ? "0" : "1") !== "1"; hstore.set("hq-code-net", on ? "1" : "0"); document.getElementById("lvTop").hidden = !on; e.target.textContent = `${on ? "Hide" : "Show"} agent map`; e.target.setAttribute("aria-pressed", String(on)); if (on) netUpdate(document.getElementById("lvNet"), "code"); };
@@ -189,7 +190,7 @@ function codeGrid() {
     g.innerHTML = html;
     g.querySelectorAll("[data-open-s]").forEach(t => { t.onclick = e => { if (!e.target.closest("button")) codeOpen(t.dataset.openS); }; t.onkeydown = e => { if (e.key === "Enter") codeOpen(t.dataset.openS); }; });
     g.querySelectorAll("[data-stop]").forEach(b => b.onclick = () => api(`/code/${b.dataset.stop}/stop`, "POST").then(liveKick).catch(x => toast(x.message)));
-    g.querySelectorAll("[data-closes]").forEach(b => b.onclick = async () => { if (!confirm("Close this session? Its history is archived.")) return; await api(`/code/${b.dataset.closes}`, "DELETE").catch(x => toast(x.message)); Live.code = await api("/code").catch(() => Live.code); codeGrid(); });
+    g.querySelectorAll("[data-closes]").forEach(b => b.onclick = async () => { if (!(await uiConfirm("Close this session? Its history is archived."))) return; await api(`/code/${b.dataset.closes}`, "DELETE").catch(x => toast(x.message)); Live.code = await api("/code").catch(() => Live.code); codeGrid(); });
     g.querySelectorAll("[data-side]").forEach(b => b.onclick = () => splitAdd(b.dataset.side));
     g.querySelector("[data-cf-all]")?.addEventListener("click", () => document.querySelector('[data-cf="all"]')?.click());
     document.getElementById("lvAdd").onclick = codeNewModal;
@@ -329,12 +330,13 @@ async function codeLoad(full) {
   if (d.error) { main.innerHTML = `<div class="cd-empty"><b>Can't open</b>${esc(d.error)}<button class="btn" type="button" onclick="codeClose()">Close</button></div>`; return; }
   if (full || !main.querySelector(".cd-log")) {
     const ro = d.level !== "build";
-    main.innerHTML = `<div class="cd-bar"><button class="btn sm ghost" type="button" id="cdBack" aria-label="Back">←</button><b>✱ ${esc(d.name)}</b><span class="pill ${ro ? "amber" : "green"}">${ro ? "read-only" : "can edit"}</span><span class="path" title="${esc(d.folders.join("; "))}">${esc(d.found.join(" · ") || "folder not found on this PC")}</span>
+    main.innerHTML = `<div class="cd-bar"><button class="btn sm ghost" type="button" id="cdBack" aria-label="Back">←</button><b>LUTHUR · ${esc(d.name)}</b><span class="pill ${ro ? "amber" : "green"}">${ro ? "read-only" : "can edit"}</span><span class="path" title="${esc(d.folders.join("; "))}">${esc(d.found.join(" · ") || "folder not found on this PC")}</span>
         ${tierSwitch()}${ro ? "" : `<select class="cd-mode" id="cdMode" aria-label="Permissions" title="Safe: allow-listed commands only. Auto: edits + any command except the blocked list. Bypass: Claude Code bypass mode. Push, deploy and secrets stay blocked in every mode.">${[["safe", "Perms: safe"], ["auto", "Perms: auto"], ["bypass", "Perms: bypass"]].map(([k, l]) => `<option value="${k}" ${k === hstore.get("hq-cv-mode-" + id, "safe") ? "selected" : ""}>${l}</option>`).join("")}</select>`}${phone() ? "" : `<button class="btn sm" id="cdSide" type="button" title="Show next to other sessions">Open side by side</button>`}<button class="btn sm" id="cdStop" type="button" ${d.busy ? "" : "hidden"}>■ Stop</button></div>
       ${d.sameProject ? `<div class="cd-warn">${d.sameProject} other session${d.sameProject > 1 ? "s are" : " is"} working in this project right now. Keep their jobs on different files.</div>` : ""}
+      <details class="code-workroom"><summary>LUTHUR · workroom notes</summary><div id="cdWorkroom"></div></details>
       <div class="cv-use cd-use" id="cdUse"></div>
       <div class="cd-log" id="cdLog"></div>
-      <form class="cd-in" id="cdForm"><textarea id="cdText" rows="2" placeholder="${ro ? "Ask about the code (read-only here)…" : "What should we build or fix? (Ctrl+Enter)"}"></textarea><button class="btn primary" id="cdSend">Run</button></form>`;
+      <form class="cd-in" id="cdForm"><textarea id="cdText" rows="2" placeholder="${ro ? "Talk to LUTHUR about the code (read-only here)…" : "Tell LUTHUR what to build or fix… (Ctrl+Enter)"}"></textarea><button class="btn primary" id="cdSend">Send to LUTHUR</button></form>`;
     bindTierSwitch(main);
     const ta = document.getElementById("cdText");
     ta.oninput = () => { ta.style.height = "auto"; ta.style.height = Math.min(220, ta.scrollHeight) + "px"; };
@@ -342,10 +344,11 @@ async function codeLoad(full) {
     document.getElementById("cdForm").onsubmit = e => { e.preventDefault(); codeSend(); };
     document.getElementById("cdStop").onclick = () => api(`/code/${id}/stop`, "POST").catch(x => toast(x.message));
     document.getElementById("cdBack").onclick = codeClose;
-    document.getElementById("cdMode")?.addEventListener("change", e => { if (e.target.value === "bypass" && !confirm("Bypass mode lets this session run any command and edit any file in the project folders without asking.\nPush, deploy, delete-repo and secrets stay blocked.\n\nTurn it on?")) { e.target.value = hstore.get("hq-cv-mode-" + id, "safe"); return; } hstore.set("hq-cv-mode-" + id, e.target.value); });
+    document.getElementById("cdMode")?.addEventListener("change", async e => { if (e.target.value === "bypass" && !(await uiConfirm("Bypass mode lets this session run any command and edit any file in the project folders without asking.\nPush, deploy, delete-repo and secrets stay blocked.\n\nTurn it on?"))) { e.target.value = hstore.get("hq-cv-mode-" + id, "safe"); return; } hstore.set("hq-cv-mode-" + id, e.target.value); });
     document.getElementById("cdSide")?.addEventListener("click", () => { codeClose(); splitAdd(id); });
   }
   const cu = document.getElementById("cdUse"); if (cu && typeof usageHTML === "function") cu.innerHTML = usageHTML(d.usage);
+  const notes=document.getElementById('cdWorkroom');if(notes)notes.innerHTML=Object.entries(d.workroom||{}).filter(([,text])=>text).map(([kind,text])=>`<section><b>${esc(kind.toUpperCase())}.md</b><div class="md">${md(text)}</div></section>`).join('')||'Markdown notes appear after your first request.';
   const log = document.getElementById("cdLog");
   const stick = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
   if (full || prevLen !== d.messages.length) {
@@ -474,10 +477,11 @@ function speakAlways(text, onEnd) {
   const plain = String(text).replace(/```[\s\S]*?```/g, " ").replace(/[#*_`>|]/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").replace(/\n+/g, ". ").slice(0, 600);
   const u = new SpeechSynthesisUtterance(plain), vs = speechSynthesis.getVoices();
   u.voice = vs.find(v => /en-GB/i.test(v.lang) && /(Ryan|George|Thomas|Male|Daniel|Arthur)/i.test(v.name)) || vs.find(v => /en-GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null;
-  u.rate = 1.04; u.pitch = .95;
+  u.rate = 1.04; u.pitch = .95; if(typeof configureVoice==="function")configureVoice(u);
+  u.volume = Math.max(0, Math.min(1, Number(hstore.get("hq-voice-volume", "1"))));
   let done = false; const fin = () => { if (!done) { done = true; onEnd?.(); } };
   u.onend = fin; u.onerror = fin; setTimeout(fin, 1500 + plain.length * 85); // Safari sometimes never fires onend
-  speechSynthesis.cancel(); speechSynthesis.speak(u);
+  speechSynthesis.cancel(); if(typeof speechPlaybackStart==='function')speechPlaybackStart(u);if(typeof ForceStop==='undefined'||!ForceStop.stopped)speechSynthesis.speak(u);
 }
 function voiceOnce(onInterim, onFinal, btn) {
   Wake.pause();
@@ -487,7 +491,7 @@ function voiceOnce(onInterim, onFinal, btn) {
 // seconds, so always-on listening would beep forever. On phones the hands-free button listens once per tap instead.
 const WAKE_PHONE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (matchMedia("(pointer: coarse)").matches && !matchMedia("(pointer: fine)").matches);
 const Wake = {
-  rec: null, on: false, paused: false, armed: 0, buf: "", committed: "", t: 0, fails: 0,
+  rec: null, ready:false, on: false, paused: false, armed: 0, buf: "", committed: "", t: 0, fails: 0, turnId:0,
   supported: () => !!SR,
   init() { this.on = !WAKE_PHONE && hstore.get("hq-wake", "0") === "1" && !!SR; this.btn(); if (this.on) this.start(); document.addEventListener("visibilitychange", () => { if (document.hidden) this.stop(true); else if (this.on) this.start(); }); },
   toggle() {
@@ -504,36 +508,43 @@ const Wake = {
   pause() { this.paused = true; this.stop(true); },
   resume() { this.paused = false; if (this.on) setTimeout(() => this.start(), 400); },
   start() {
-    if (!SR || WAKE_PHONE || this.rec || this.paused || !this.on || document.hidden) return;
+    if (!SR || WAKE_PHONE || this.rec || this.paused || !this.on || document.hidden || (typeof speechPlaybackBlocked==='function'&&speechPlaybackBlocked())) return;
     const r = new SR(); this.rec = r;
+    const segments=new Map();let epoch=this.turnId,carry=this.buf.trim();
     r.lang = "en-US"; r.continuous = true; r.interimResults = true;
     r.onresult = e => {
-      if (window.speechSynthesis?.speaking) return; // don't hear ourselves
-      let txt = ""; for (let i = e.resultIndex; i < e.results.length; i++) txt += e.results[i][0].transcript;
+      if (this.rec!==r||this.paused||!this.on||(typeof speechPlaybackBlocked==='function'&&speechPlaybackBlocked())) return;
+      if(epoch!==this.turnId){segments.clear();carry="";epoch=this.turnId;}
+      for (let i = e.resultIndex; i < e.results.length; i++) segments.set(i,e.results[i][0].transcript.trim());
+      const txt=[carry,...[...segments].sort((a,b)=>a[0]-b[0]).map(x=>x[1])].filter(Boolean).join(" ");
       const final = e.results[e.results.length - 1].isFinal;
-      this.heard(txt.trim(), final);
+      this.heard(txt.trim(), final, true);
     };
-    r.onerror = e => { if (e.error === "not-allowed" || e.error === "service-not-allowed") { this.on = false; hstore.set("hq-wake", "0"); this.btn(); toast("Mic blocked. Allow the microphone for this site, then turn hands-free on again.", 6000); } else this.fails++; };
-    r.onend = () => { this.rec = null; if (this.on && !this.paused && !document.hidden) setTimeout(() => this.start(), Math.min(4000, 250 + this.fails * 600)); };
-    try { r.start(); this.fails = 0; } catch { this.rec = null; }
+    r.onstart=()=>{if(this.rec!==r||this.paused)return;this.ready=true;if(typeof speechStatus==='function')speechStatus('listening');};
+    r.onspeechstart=()=>{if(this.rec!==r||this.paused)return;if(typeof speechStatus==='function')speechStatus('hearing');};
+    r.onerror = e => { if(this.rec!==r)return;if(!['no-speech','aborted'].includes(e.error))this.ready=false;if(typeof speechStatus==='function'&&!['no-speech','aborted'].includes(e.error))speechStatus('mic-error',e.error);if (e.error === "not-allowed" || e.error === "service-not-allowed") { this.on = false; hstore.set("hq-wake", "0"); this.btn(); toast("Mic blocked. Allow the microphone for this site, then turn hands-free on again.", 6000); } else if(!['no-speech','aborted'].includes(e.error))this.fails++; };
+    r.onend = () => { if(this.rec!==r)return;this.ready=false;this.rec = null; if (this.on && !this.paused && !document.hidden) setTimeout(() => this.start(), Math.min(4000, 250 + this.fails * 600)); };
+    try { r.start(); this.fails = 0; } catch { this.ready=false;this.rec = null;if(typeof speechStatus==='function')speechStatus('mic-error','Microphone could not start. Press Retry mic.'); }
   },
-  stop(hard) { const r = this.rec; this.rec = null; if (r) { r.onend = null; try { hard ? r.abort() : r.stop(); } catch {} } },
-  heard(txt, final) {
-    const m = txt.match(/\b(?:hey|hi|ok|okay|yo)?\s*(?:jarvis|jervis|travis|luthur|luther|luthor|lutha|lothar)\b[\s,.!?]*(.*)$/i);
+  stop(hard) { this.ready=false;const r = this.rec; this.rec = null; if (r) { r.onend = null; try { hard ? r.abort() : r.stop(); } catch {} } },
+  heard(txt, final, snapshot=false) {
+    if(typeof speechPlaybackBlocked==='function'&&speechPlaybackBlocked())return;
+    if(!txt.trim())return;
+    const m = txt.match(/^\s*(?:hey|hi|ok|okay|yo)?\s*(?:jarvis|jervis|travis|luthur|luther|luthor|lutha|lothar)\b[\s,.!?]*(.*)$/i);
     const name = (S.settings.assistantName || "LUTHUR").toLowerCase();
-    const m2 = name !== "jarvis" ? txt.toLowerCase().match(new RegExp(`\\b${name.replace(/[^a-z0-9 ]/g, "")}\\b[\\s,.!?]*(.*)$`)) : null;
+    const m2 = name !== "jarvis" ? txt.toLowerCase().match(new RegExp(`^\\s*${name.replace(/[^a-z0-9 ]/g, "")}\\b[\\s,.!?]*(.*)$`)) : null;
     const hit = m || m2;
     if (Brief.on && !hit) { if (final) Brief.voice(txt); return; }
     if (hit) { this.armed = Date.now(); this.buf = (hit[1] || "").trim(); this.committed = final ? this.buf : ""; document.body.classList.add("wake-heard"); try { coreState(); corePing(); } catch {} }
     else if (this.armed && Date.now() - this.armed < 8000) {
-      this.buf = [this.committed, txt].filter(Boolean).join(" ").trim();
+      this.buf = snapshot ? txt : [this.committed, txt].filter(Boolean).join(" ").trim();
       if (final) this.committed = this.buf;
       this.armed = Date.now();
     }
     else return;
     clearTimeout(this.t);
-    const go = () => { const cmd = this.buf.trim(); this.armed = 0; this.buf = ""; this.committed = ""; document.body.classList.remove("wake-heard"); if (cmd) voiceCommand(cmd); };
-    this.t = setTimeout(() => { if (this.buf) go(); else { this.armed = Date.now(); speakAlways("Yes?"); } }, this.buf ? 3200 : 1600);
+    const go = () => { const cmd = this.buf.trim(); this.turnId++;this.armed = 0; this.buf = ""; this.committed = ""; document.body.classList.remove("wake-heard"); if (cmd) voiceCommand(cmd); };
+    this.t = setTimeout(() => { if (this.buf) go(); else { this.armed = Date.now(); } }, this.buf ? (window.hqConversation ? Math.max(1200,Math.min(3200,Number(localStorage.getItem("hq-turn-pause")||1800))) : 3200) : 1600);
   },
 };
 /** What a hands-free sentence does: navigation, briefing, or a message to JARVIS (big jobs it delegates as Tasks). */
@@ -843,7 +854,7 @@ hudBoot = function (short) {
     const ph = (t, [a, z]) => ease((t - a) / (z - a));
     const dots = Array.from({ length: 48 }, (_, i) => i / 48 * Math.PI * 2);
     let t0 = performance.now(), raf = 0, done = false;
-    Snd.hum(short ? 1 : 2.6, 40, 120);
+    // Opening scan stays silent: the rising oscillator sounded like an engine rev.
     const C = (a = 1) => `rgba(111,242,255,${a})`, Wt = (a = 1) => `rgba(220,252,255,${a})`;
     const poly = (n, r, rot) => { x.beginPath(); for (let i = 0; i <= n; i++) { const a = rot + i / n * Math.PI * 2; i ? x.lineTo(Math.cos(a) * r, Math.sin(a) * r) : x.moveTo(Math.cos(a) * r, Math.sin(a) * r); } x.closePath(); };
     const draw = now => {
@@ -916,7 +927,7 @@ hudBoot = function (short) {
         const s = R * (2.2 - lock * .7), k = R * .35; x.strokeStyle = `rgba(111,242,255,${lock})`; x.lineWidth = 2 * dpr;
         for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { x.beginPath(); x.moveTo(cx + sx * s, cy + sy * (s - k)); x.lineTo(cx + sx * s, cy + sy * s); x.lineTo(cx + sx * (s - k), cy + sy * s); x.stroke(); }
       }
-      if (lock >= 1 && !b.dataset.locked) { b.dataset.locked = "1"; const f = document.getElementById("bootFinal"); if (f) { f.style.opacity = 1; scrambleTo(f, short ? "WELCOME BACK" : "ALL SYSTEMS ONLINE", 420); } Snd.blip(1760, .1); }
+      if (lock >= 1 && !b.dataset.locked) { b.dataset.locked = "1"; const f = document.getElementById("bootFinal"); if (f) { f.style.opacity = 1; scrambleTo(f, short ? "WELCOME BACK" : "ALL SYSTEMS ONLINE", 420); } }
       if (t < T.dive[1] + 60) raf = requestAnimationFrame(draw); else finish();
     };
     raf = requestAnimationFrame(draw);
@@ -933,3 +944,9 @@ hudBoot = function (short) {
     document.addEventListener("keydown", finish, true);
   });
 };
+
+
+
+
+
+

@@ -99,14 +99,16 @@ function hudNotify(msg, ms) {
   const head = { ok: "CONFIRMED", info: "ACKNOWLEDGED", err: "WARNING" }[kind];
   const n = document.createElement("div");
   n.className = `hn ${kind}`;
+  n.setAttribute("role", "button"); n.tabIndex = 0; n.setAttribute("aria-label", `${text}. Dismiss notification`);
   n.innerHTML = `<i class="hn-ico" aria-hidden="true">${kind === "err" ? "!" : kind === "info" ? "»" : "✓"}</i><div class="hn-tx"><b>${head}</b><span></span></div><i class="hn-bar" style="animation-duration:${ms || (kind === "err" ? 5200 : 3200)}ms"></i>`;
   box.prepend(n);
   scrambleTo(n.querySelector("span"), text, 360);
-  while (box.children.length > 4) box.lastChild.remove();
+  while (box.children.length > 2) box.lastChild.remove();
   kind === "err" ? (Snd.blip(220, .14, "square"), Snd.blip(180, .18, "square")) : (Snd.blip(1320, .05), setTimeout(() => Snd.blip(1760, .07), 70));
   const life = ms || (kind === "err" ? 5200 : 3200);
   setTimeout(() => { n.classList.add("out"); setTimeout(() => n.remove(), 400); }, life);
   n.onclick = () => n.remove();
+  n.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); n.remove(); } };
 }
 
 // ---------------- clock + countdowns ----------------
@@ -403,8 +405,7 @@ function hudBoot(short) {
     b.innerHTML = `<div class="boot-inner">${CORE_MINI}<div class="boot-lines">${lines.map((l, i) => `<div style="animation-delay:${200 + i * per}ms" class="ok">&gt; ${esc(l)}</div>`).join("")}</div>
       <div class="boot-bar"><i style="animation-duration:${200 + lines.length * per}ms"></i></div><div class="boot-final" id="bootFinal"></div></div><div class="boot-skip">CLICK OR PRESS ANY KEY TO SKIP</div>`;
     b.hidden = false;
-    Snd.hum(short ? 1 : 2.4);
-    lines.forEach((_, i) => setTimeout(() => Snd.blip(700 + i * 90, .04, "square", .02), 200 + i * per));
+    // Keep the opening animation quiet, including when sound effects are enabled.
     let done = false;
     const finish = () => {
       if (done) return; done = true;
@@ -413,7 +414,7 @@ function hudBoot(short) {
       setTimeout(() => { b.hidden = true; b.className = "boot"; b.innerHTML = ""; const v = document.getElementById("view"); v.classList.remove("view-in"); void v.offsetWidth; v.classList.add("view-in"); navGlide(); resolve(); }, 480);
     };
     const total = 200 + lines.length * per;
-    setTimeout(() => { if (done) return; const f = document.getElementById("bootFinal"); if (f) { f.style.opacity = 1; scrambleTo(f, short ? "WELCOME BACK, SIR" : "ALL SYSTEMS ONLINE", 500); } Snd.blip(1760, .12); }, total);
+    setTimeout(() => { if (done) return; const f = document.getElementById("bootFinal"); if (f) { f.style.opacity = 1; scrambleTo(f, short ? "WELCOME BACK, SIR" : "ALL SYSTEMS ONLINE", 500); } }, total);
     setTimeout(finish, total + (short ? 700 : 1100));
     b.onclick = finish;
     document.addEventListener("keydown", finish, true);
@@ -458,11 +459,13 @@ function opsEl() {
       const folded = d.classList.contains("min");
       Ops.min = !folded; Ops.open = folded; hstore.set("hq-ops-min", Ops.min ? "1" : "0");
       d.classList.toggle("min", !folded);
+      opsFoldLabel(d);
     };
     d.querySelector(".ops-head").ondblclick = () => d.querySelector(".ops-min").click();
   }
   return d;
 }
+function opsFoldLabel(box){const button=box.querySelector('.ops-min'),folded=box.classList.contains('min');button.setAttribute('aria-expanded',String(!folded));button.setAttribute('aria-label',folded?'Expand operations feed':'Collapse operations feed');button.title=folded?'Show operations':'Hide operations';}
 function stepHTML(s) {
   if (s.kind === "text") return `<div class="ol say"><span class="ob">✦</span><span class="otx"></span></div>`;
   const brainish = s.tool === "brain";
@@ -481,6 +484,7 @@ function opsRender(d) {
   if (!list.length) { Ops.tiles.clear(); box.querySelector(".ops-grid").innerHTML = ""; coreState(); return; }
   // finished work folds down to the status bar so it doesn't cover the page
   box.classList.toggle("min", running.length ? Ops.min : !Ops.open);
+  opsFoldLabel(box);
   box.classList.toggle("busy", running.length > 0);
   const grid = box.querySelector(".ops-grid");
   const ids = new Set(list.map(o => o.id));
@@ -495,7 +499,7 @@ function opsRender(d) {
       scrambleTo(el.querySelector(".op-t"), o.title, 500);
       t = { el, steps: new Map(), status: null };
       Ops.tiles.set(o.id, t);
-      if (Ops.seen.get(o.id) !== "running" && o.status === "running") { Snd.blip(520, .1, "triangle"); setTimeout(() => Snd.blip(780, .1, "triangle"), 110); if (Ops.min && list.length === 1) { Ops.min = false; box.classList.remove("min"); } }
+      if (Ops.seen.get(o.id) !== "running" && o.status === "running") { Snd.blip(520, .1, "triangle"); setTimeout(() => Snd.blip(780, .1, "triangle"), 110); }
     }
     const body = t.el.querySelector(".op-body");
     let added = false;
@@ -527,7 +531,7 @@ function opsRender(d) {
     if (t.status !== o.status) {
       t.el.classList.toggle("done", o.status === "done"); t.el.classList.toggle("failed", o.status === "failed");
       if (t.status === "running" && o.status !== "running") {
-        hudNotify(o.status === "done" ? `Operation complete: ${o.title}` : `⚠ Operation failed: ${o.title}`);
+        hudNotify(o.status === "done" ? `Operation complete: ${o.title}` : o.status === "cancelled" ? `Operation stopped: ${o.title}` : `⚠ Operation failed: ${o.title}`);
         if (o.kind === "chat") onChatOpDone();
         refresh().then(() => { if (!["assistant", "command", "planner"].includes(route.view)) { render.background = true; render(); render.background = false; } });
       }
@@ -549,8 +553,8 @@ function opsAnimate() {
   for (const t of Ops.tiles.values()) {
     const run = t.status === "running";
     const sp = t.el.querySelector(".op-spin"), vb = t.el.querySelector(".op-verb"), el = t.el.querySelector(".op-el");
-    sp.textContent = run ? SPIN[Ops.spin % SPIN.length] : t.status === "done" ? "✓" : "✗";
-    const want = run ? verb + "…" : t.status === "done" ? "Complete" : "Failed";
+    sp.textContent = run ? SPIN[Ops.spin % SPIN.length] : t.status === "done" ? "✓" : t.status === "cancelled" ? "■" : "✗";
+    const want = run ? verb + "…" : t.status === "done" ? "Complete" : t.status === "cancelled" ? "Stopped" : "Failed";
     if (vb.dataset.v !== want) { vb.dataset.v = want; scrambleTo(vb, want, 300); }
     const st = Number(t.el.dataset.started), en = Number(t.el.dataset.ended) || Date.now();
     el.textContent = `(${fmtDur(en - st)})`;
@@ -665,7 +669,7 @@ function cmdPollStart() {
   Cmd.poll = setTimeout(async () => {
     const c = await api("/chat").catch(() => null);
     if (!c) return cmdPollStart();
-    if (c.busy) return cmdPollStart();
+    if (c.busy) { if(c.partial)cmdShowReply(c,false); return cmdPollStart(); }
     const was = Cmd.waiting; Cmd.waiting = false; coreState();
     if (route.view === "command") cmdShowReply(c, was);
     if (was && typeof scrFromChat === "function") scrFromChat(c.screen);
@@ -673,7 +677,7 @@ function cmdPollStart() {
     // spoken question → spoken answer (even with voice replies off); typed → the normal setting
     if (was && last?.role === "hq") speakChatReply(c, Date.now() - (window.hqVoiceTurn || 0) < 10 * 60e3);
     refresh();
-  }, 1300);
+  }, 500);
 }
 function onChatOpDone() { if (Cmd.waiting) cmdPollStart(); }
 function cmdFill(quiet) {
@@ -799,7 +803,7 @@ function bindGoal(sec, g) {
       <div class="row end"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary">Add step</button></div></form>`);
     document.getElementById("stepForm").onsubmit = async e => { e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); closeModal(); await saveGoalSteps(g, [...g.steps, { title: f.title, due: f.due || undefined, done: false }], "Step added"); };
   };
-  sec.querySelector("[data-delgoal]").onclick = () => confirm(`Delete the goal "${g.title}"?`) && act(() => api(`/goals/${g.id}`, "DELETE"), "Goal deleted");
+  sec.querySelector("[data-delgoal]").onclick = async () => (await uiConfirm(`Delete the goal "${g.title}"?`)) && act(() => api(`/goals/${g.id}`, "DELETE"), "Goal deleted");
   sec.querySelectorAll(".node").forEach(n => {
     const sid = n.dataset.step;
     n.onclick = e => { if (e.target.closest("[data-tick]")) return; Plan.open = Plan.open === g.id + "/" + sid ? null : g.id + "/" + sid; sec.querySelectorAll(".node").forEach(x => x.classList.toggle("open", Plan.open === g.id + "/" + x.dataset.step)); showStep(sec, g, Plan.open ? sid : null); Snd.blip(1240, .04); };
@@ -831,7 +835,7 @@ function showStep(sec, g, sid) {
   const f = box.querySelector("#stepEdit");
   f.onsubmit = async e => { e.preventDefault(); const v = Object.fromEntries(new FormData(f)); await saveGoalSteps(g, g.steps.map(x => x.id === sid ? { ...x, title: v.title, due: v.due || undefined, notes: v.notes || undefined } : x), "Step saved"); };
   box.querySelector("#stepDone").onclick = () => act(() => api(`/goals/${g.id}/steps/${sid}`, "PATCH", { done: !s.done }), s.done ? "Step reopened" : "Step complete");
-  box.querySelector("#stepDel").onclick = async () => { if (!confirm("Delete this step?")) return; Plan.open = null; await saveGoalSteps(g, g.steps.filter(x => x.id !== sid), "Step deleted"); };
+  box.querySelector("#stepDel").onclick = async () => { if (!(await uiConfirm("Delete this step?"))) return; Plan.open = null; await saveGoalSteps(g, g.steps.filter(x => x.id !== sid), "Step deleted"); };
 }
 function goalModal() {
   modal(`<h3>New goal</h3><form class="form" id="goalForm">
@@ -861,7 +865,20 @@ function hudChrome() {
   bgStart(); hudClock(); navGlide();
   opsTick();
   RM.addEventListener?.("change", () => { bgStart(); });
-  let booted = false; try { booted = sessionStorage.getItem("hq-booted") === "1"; sessionStorage.setItem("hq-booted", "1"); } catch {}
-  // wait for every script (live.js replaces hudBoot with the eye sequence)
-  if (isHud() && !booted && !reduced()) window.addEventListener("DOMContentLoaded", () => hudBoot(false));
+  // Wait for protection to unlock; otherwise the lock CSS hides the whole scan.
+  window.addEventListener("DOMContentLoaded", () => hudStartupBoot());
 })();
+
+let startupBootPromise = null;
+function hudStartupBoot() {
+  if (typeof Access !== "undefined" && Access.locked) return Promise.resolve();
+  if (startupBootPromise) return startupBootPromise;
+  if (!isHud() || reduced()) return Promise.resolve();
+  try { if (sessionStorage.getItem("hq-visible-boot") === "1") return Promise.resolve(); } catch {}
+  startupBootPromise = hudBoot(false).then(() => {
+    try { sessionStorage.setItem("hq-visible-boot", "1"); sessionStorage.setItem("hq-booted", "1"); } catch {}
+  });
+  return startupBootPromise;
+}
+
+

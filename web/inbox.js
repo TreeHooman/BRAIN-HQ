@@ -61,7 +61,7 @@ function cmdExtras() {
   const quick = [...R.children].find(c => /Quick actions/i.test(c.querySelector(".ttl")?.textContent || ""));
   if (quick) quick.before(ml); else R.append(ml);
   ml.querySelector("#mailOn")?.addEventListener("click", async () => { Mail.st = await api("/mail/enable", "POST", { on: true }).catch(e => { toast(e.message); return Mail.st; }); cmdExtras(); mailPoll(); });
-  ml.querySelector("#mailOff")?.addEventListener("click", async () => { if (!confirm("Stop showing your inbox here?")) return; Mail.st = await api("/mail/enable", "POST", { on: false }).catch(() => Mail.st); cmdExtras(); });
+  ml.querySelector("#mailOff")?.addEventListener("click", async () => { if (!(await uiConfirm("Stop showing your inbox here?"))) return; Mail.st = await api("/mail/enable", "POST", { on: false }).catch(() => Mail.st); cmdExtras(); });
   ml.querySelector("#mailRef")?.addEventListener("click", async () => { Mail.st = await api("/mail/refresh", "POST").catch(e => { toast(e.message); return Mail.st; }); cmdExtras(); mailPoll(); });
 }
 async function mailPoll() {
@@ -82,3 +82,4 @@ function cmdTiersFold() {
 }
 cmdFill = function (q) { _cmdFillX(q); try { cmdTiersFold(); } catch {} try { cmdExtras(); } catch (e) { console.warn(e); } if (!Mail.st) mailGet().then(cmdExtras); clearTimeout(Mail.t); Mail.t = setTimeout(mailPoll, Mail.st?.busy ? 4000 : 60000); };
 document.addEventListener("visibilitychange", () => { if (!document.hidden && route.view === "command") mailPoll(); });
+

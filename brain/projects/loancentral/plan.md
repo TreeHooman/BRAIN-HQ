@@ -1,6 +1,6 @@
 # LoanCentral: plan (2026-2027)
 
-Source: LoanBot/loancentral-plan-2026-2027.md. Goal order: survive → grow → monetize.
+Source: LoanBot/loancentral-plan-2026-2027.md. Priority: survive Reddit's API changes → strengthen Discord and find other suitable reach channels → bring people to the website → consider monetization later.
 
 ## Phase 0: Housekeeping (by 8 Oct)
 - Deploy merged changes on the host (USD/CAD, privacy policy, anonymization tools)
@@ -28,7 +28,15 @@ Source: LoanBot/loancentral-plan-2026-2027.md. Goal order: survive → grow → 
 
 ## Phase 4: The decision (Feb-Mar 2027)
 - Mid-Feb: decide (no answer = switch). If switching: announce ~4 weeks ahead, flip to manual, retire the bot
+- Protect continuity first; keep the website and moderation workflow usable without Reddit API access
 
-## Phase 5: Grow, then money (from Q2 2027)
-- Lender onboarding, request pages, monthly stats post; lawyer review before any paid feature
-- See the Frontier Plan project for scaling ideas
+## Phase 5: Grow reach and strengthen the funnel (after survival is stable)
+- Upgrade LoanBot 3.0 and the LoanCentral Discord experience; finish the dev-server test and launch only with owner approval
+- Identify other appropriate communities or channels for outreach; prepare drafts and obtain owner approval before any public posting or messaging
+- Improve the path from discovery to the website: clear explanation, safe onboarding, and useful request and lender tools
+- Track whether outreach brings relevant visitors and repeat use; prioritize channels based on evidence
+- See the Frontier Plan project for detailed scaling options
+
+## Phase 6: Consider monetization (only after growth)
+- Revisit revenue options after the service has stable reach and repeat website use
+- Lawyer review before any paid feature; never sell borrower data (FCRA risk)

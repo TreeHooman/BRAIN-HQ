@@ -8,12 +8,34 @@ import { redact, type Step } from "./narrate.ts";
 import type { RunResult } from "./claude.ts";
 
 export type CodexOptions = {
-  prompt: string; model: string; level: Level; timeoutMs: number;
+  noAgents?: boolean;
+  prompt: string; model: string; level: Level; timeoutMs: number; effort?: string | null;
   resume?: string | null; runId?: string; system?: string;
+  activeFile?: { acct: string; id: string };
   addDirs?: string[]; onSpawn?: (pid: number) => void; onStep?: (step: Step) => void;
+  onText?: (text: string) => void;
 };
 
 let cachedBin: { value: string | null; at: number } | null = null;
+let availability={state:'checking',at:0},availabilityBusy=false;
+export function codexAvailability(){
+  if(!availabilityBusy&&Date.now()-availability.at>60_000){
+    availabilityBusy=true;
+    const bin=findCodex();
+    if(!bin){availability={state:'unavailable',at:Date.now()};availabilityBusy=false;}
+    else{
+      // Read CLI sign-in status only. No model request, credentials output, or API billing.
+      let output='',done=false;
+      const finish=(state:string)=>{if(done)return;done=true;availability={state,at:Date.now()};availabilityBusy=false;};
+      try{
+        const child=spawn(bin,['login','status'],{windowsHide:true,stdio:['ignore','pipe','pipe'],timeout:5000});
+        child.stdout.on('data',data=>{output=(output+String(data)).slice(-2000);});child.stderr.on('data',data=>{output=(output+String(data)).slice(-2000);});
+        child.on('error',()=>finish('unknown'));child.on('close',code=>finish(code===0&&/logged in/i.test(output)?'online':/not logged in|login required|not authenticated/i.test(output)?'needs-login':'unknown'));
+      }catch{finish('unknown');}
+    }
+  }
+  return availability.state;
+}
 export function findCodex(force = false): string | null {
   if (!force && cachedBin && Date.now() - cachedBin.at < 600_000) return cachedBin.value;
   const candidates = [loadConfig().codex?.bin, process.env.CODEX_BIN].filter(Boolean) as string[];
@@ -45,6 +67,8 @@ export function codexArgs(o: CodexOptions): string[] {
   const args = ["exec", "--json", "--ignore-user-config", "--skip-git-repo-check"];
   if (o.resume) args.push("resume", o.resume);
   args.push("-m", o.model);
+  if(o.noAgents)args.push('-c','features.multi_agent=false','-c','features.multi_agent_v2=false');
+  args.push("-c", `model_reasoning_effort=${tomlString(o.effort && ["low","medium","high","xhigh","max"].includes(o.effort) ? o.effort : "low")}`);
   // Config overrides apply on resume too. Explicitly suppress inherited approvals and MCP servers.
   args.push("-c", "approval_policy=never", "-c", `sandbox_mode=${tomlString(o.level === "build" ? "workspace-write" : "read-only")}`);
   args.push("-c", "mcp_servers={}");
@@ -52,6 +76,7 @@ export function codexArgs(o: CodexOptions): string[] {
   args.push("-c", `mcp_servers.hq-brain.args=${JSON.stringify(["--no-warnings", path.join(ROOT, "src", "mcp", "hq-brain.ts")])}`);
   args.push("-c", `mcp_servers.hq-brain.env.HQ_LEVEL=${tomlString(o.level)}`);
   args.push("-c", `mcp_servers.hq-brain.env.HQ_RUN_ID=${tomlString(runId)}`);
+  args.push("-c", `mcp_servers.hq-brain.env.HQ_ACTIVE_FILE=${tomlString(o.activeFile ? JSON.stringify(o.activeFile) : "")}`);
   args.push("-c", "mcp_servers.hq-brain.default_tools_approval_mode=\"approve\"");
   if (!o.resume) args.push("-C", ROOT);
   // resume currently lacks -C, but the child is spawned with cwd: ROOT.
@@ -84,7 +109,7 @@ export function runCodex(o: CodexOptions): Promise<RunResult> {
     for (const key of Object.keys(env)) if (/^(OPENAI_API_KEY|CODEX_API_KEY|ANTHROPIC_API_KEY)$/i.test(key)) delete env[key];
     const child = spawn(bin, fake ? [fake, ...args] : args, { cwd: ROOT, env, windowsHide: true, detached: process.platform !== "win32", stdio: ["pipe", "pipe", "pipe"] });
     if (child.pid) { children.add(child.pid); child.on("close", () => children.delete(child.pid!)); o.onSpawn?.(child.pid); }
-    const parser = new JsonlParser(o.onStep);
+    const parser = new JsonlParser(o.onStep, o.onText);
     let stderr = "", timedOut = false;
     child.stdout.on("data", data => parser.feed(String(data)));
     child.stderr.on("data", data => { stderr = (stderr + String(data)).slice(-16_000); });
@@ -101,7 +126,8 @@ export class JsonlParser {
   private buffer = ""; private answer = ""; private error = ""; private completed = false;
   private failed = false; private n = 0; sessionId: string | null = null;
   private onStep?: (step: Step) => void;
-  constructor(onStep?: (step: Step) => void) { this.onStep = onStep; }
+  private onText?: (text: string) => void;
+  constructor(onStep?: (step: Step) => void, onText?: (text: string) => void) { this.onStep = onStep; this.onText = onText; }
   feed(chunk: string) {
     this.buffer += chunk;
     // Avoid unbounded memory if an unexpected CLI writes a non-JSON stream.
@@ -120,6 +146,7 @@ export class JsonlParser {
     const item = e?.item;
     if (!item || !/^(item.started|item.updated|item.completed)$/.test(String(e.type))) return;
     if (item.type === "agent_message" && typeof item.text === "string") {
+      this.onText?.(clean(item.text, 60000));
       if (e.type === "item.completed") this.answer = clean(item.text, 100_000);
       if (this.onStep && e.type === "item.completed") this.onStep({ id: String(item.id || `say-${++this.n}`), at: Date.now(), kind: "text", tool: "say", verb: "Says", target: clean(item.text.split(/\n|(?<=[.!?])\s/)[0], 140), done: true, ok: true });
     } else if (this.onStep && ["command_execution", "mcp_tool_call", "file_change", "web_search"].includes(item.type)) {

@@ -73,3 +73,14 @@ export function getTranscript(sessionId: string): Transcript | null {
   if (!validSessionId(sessionId)) return null;
   const dir = sessionDir(); return dir ? parse(path.join(dir, `${sessionId}.jsonl`)) : null;
 }
+/** Only retire SDK transcripts belonging to an already distilled HQ archive; external or later turns stay. */
+export function retireDashboardTranscript(sessionId: string, through: number) {
+  if (!validSessionId(sessionId)) return false;
+  const dir = sessionDir(); if (!dir) return false;
+  const file = path.join(dir, `${sessionId}.jsonl`), t = parse(file);
+  if (t?.source !== "dashboard" || !Number.isFinite(Date.parse(t.at)) || Date.parse(t.at) > through) return false;
+  const before = fs.statSync(file);
+  if (fs.lstatSync(file).isSymbolicLink()) return false;
+  const after = fs.statSync(file); if (before.size !== after.size || before.mtimeMs !== after.mtimeMs) return false;
+  fs.unlinkSync(file); cache.delete(file); return true;
+}

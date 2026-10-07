@@ -1,0 +1,17 @@
+.hologram-mode body{background:radial-gradient(ellipse at 50% 25%,#124a5966,transparent 60%),#040b13e6!important;min-width:280px;overflow:auto}
+.hologram-mode #sidebar,.hologram-mode .side,.hologram-mode .top,.hologram-mode #ops,.hologram-mode #ticker,.hologram-mode .up-hud-toggle,.hologram-mode #nova-stars,.hologram-mode #nova-sweep,.hologram-mode #nova-veil,.hologram-mode .cursor-halo{display:none!important}
+.hologram-mode .app{display:block!important;grid-template-columns:1fr!important}
+.hologram-mode #tabbar,.hologram-mode #hudNotes{display:none!important}.hologram-mode .main{padding-bottom:0!important}
+.holo-notice{font-size:11px;line-height:1.4;color:#c8eef7;border-left:2px solid #7ceaff;padding:6px 8px;margin:8px 0;overflow-wrap:anywhere}
+.hologram-mode #shell,.hologram-mode #main,.hologram-mode .shell,.hologram-mode .main{display:block!important;width:100%;margin:0;padding:0;min-height:0}
+.hologram-mode #view{padding:10px!important;width:100%;overflow:visible;box-sizing:border-box}
+.holo-surface{border:1px solid #7cecff66;border-radius:20px;padding:12px;background:linear-gradient(145deg,#17425445,#080d2030);box-shadow:inset 0 0 32px #4be8ff0a,0 0 25px #41d3ff12}
+.holo-header{display:flex;align-items:center;gap:8px;font:12px 'JetBrains Mono',monospace;letter-spacing:2px;color:#8cf2ff}.holo-header b{margin-right:auto}.holo-header button{letter-spacing:0}
+.hologram-mode .nv-stage.has-model-console{display:flex;align-items:center;justify-content:center;height:260px!important;min-height:260px!important;width:100%;padding:0;position:relative}
+.hologram-mode .nv-core{position:relative!important;inset:auto!important;transform:none!important;width:240px!important;height:240px!important;margin:0!important;flex:none}
+.hologram-mode .nv-core-label{top:10px!important}.hologram-mode .voice-core-status>span{max-width:160px;font-size:10px}
+.holo-work{display:grid;gap:5px;padding:12px;border:1px solid #7cddff30;border-radius:12px;background:#08172855;overflow-wrap:anywhere}.holo-work small{color:#7ceaff;font:9px 'JetBrains Mono',monospace;letter-spacing:1px}.holo-work b{font-size:12px}.holo-work span{font-size:11px;color:#b2ced9;max-height:66px;overflow:auto;white-space:pre-wrap}
+.hologram-mode .speech-feedback{margin:10px 0;padding:10px;border-radius:12px}.hologram-mode .speech-state{font-size:11px}.hologram-mode .speech-text{font-size:12px;max-height:56px;overflow:auto}.hologram-mode .speech-feedback .row{flex-wrap:wrap}.hologram-mode .voice-delivery{font-size:9px}
+.hologram-mode .nv-ask{margin:10px 0;padding:5px;gap:5px;width:100%}.hologram-mode .nv-ask input{min-width:0;font-size:12px}.hologram-mode .nv-ask .btn{padding:8px}
+.hologram-mode .nv-reply{font-size:12px;margin:8px 0 42px;padding:10px;max-height:180px;overflow:auto;line-height:1.5}.hologram-mode .force-stop-button{bottom:12px;right:24px;font-size:11px}.hologram-mode #toast{max-width:calc(100vw - 32px);left:16px;bottom:55px}
+.hologram-mode .access-card{width:100%;max-width:340px;padding:20px}.hologram-mode #accessLock{padding:16px}
