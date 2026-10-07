@@ -70,5 +70,12 @@
     "maxParallel": 4,
     "maxMinutes": 20,
     "comment": "Code screen: how many sessions may run at once, and the time limit per message."
+  },
+
+  "watch": {
+    "enabled": true,
+    "phoneMail": true,
+    "clashes": true,
+    "comment": "Email/calendar watcher (src/lib/watch.ts): Needs-you cards for important or action-looking unread email (needs the Inbox turned on) and new/moved/cancelled/clashing events in the next 7 days. Code only, no model calls. phoneMail=false keeps email cards off your phone."
   }
 }

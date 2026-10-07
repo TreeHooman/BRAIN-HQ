@@ -19,4 +19,5 @@ export function unlock(req:IncomingMessage,res:ServerResponse,value:unknown){
  failures=0;const token=randomBytes(32).toString('hex');sessions.set(token,Date.now()+12*3600000);while(sessions.size>20)sessions.delete(sessions.keys().next().value!);
  res.setHeader('Set-Cookie',`hq_access=${token}; HttpOnly; SameSite=Strict; Path=/`);return {locked:false};
 }
-export function lock(res:ServerResponse){sessions.clear();res.setHeader('Set-Cookie','hq_access=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');return {locked:true};}
+// Locks only this device: the phone and PC each keep their own session.
+export function lock(req:IncomingMessage,res:ServerResponse){sessions.delete(cookie(req));res.setHeader('Set-Cookie','hq_access=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');return {locked:true};}

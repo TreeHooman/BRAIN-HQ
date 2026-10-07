@@ -705,6 +705,7 @@ function cmdFill(quiet) {
   if (st.auth === "needs-login" || !st.claudeBin) alerts.push(["red", "Claude isn't signed in", "MISSIONS + CHAT WAITING", "#settings"]);
   if (st.pausedUntil && new Date(st.pausedUntil) > now) alerts.push(["amber", `Paused until ${fmtWhen(st.pausedUntil)}`, "USAGE LIMIT", "#missions"]);
   pend.forEach(a => alerts.push(["amber", a.title, "NEEDS YOUR OK", "#missions"]));
+  (S.watch || []).forEach(c => alerts.push([c.sev, c.title, esc(c.sub), c.kind === "mail" ? "#command" : c.href]));
   overdue.slice(0, 4).forEach(r => alerts.push(["red", r.title, `OVERDUE · ${fmtWhen(r.due)}`, r.project ? "#project/" + r.project : "#home"]));
   today.slice(0, 3).forEach(r => alerts.push(["", r.title, `TODAY · ${fmtWhen(r.due)}`, r.project ? "#project/" + r.project : "#home"]));
   S.projects.filter(p => p.health === "risk" && p.stage !== "done").forEach(p => alerts.push(["red", `${p.name} at risk`, esc(p.nextStep || "").slice(0, 60).toUpperCase(), "#project/" + p.slug]));

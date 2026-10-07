@@ -1,7 +1,7 @@
 "use strict";
 const Access={locked:true,checking:false,ready:false,submitting:false};
 const accessPanel=document.createElement('section');accessPanel.id='accessLock';accessPanel.setAttribute('role','dialog');accessPanel.setAttribute('aria-modal','true');accessPanel.setAttribute('aria-label','Unlock LUTHUR');
-accessPanel.innerHTML='<form class="access-card"><img src="eye.svg" alt=""><h1>LUTHUR</h1><p>Enter your four-digit PIN to continue.</p><input id="accessPin" type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" aria-label="PIN" required disabled><button class="btn primary" disabled>Unlock</button><p id="accessMessage" role="status">Checking protection…</p><p id="accessRestartHelp" hidden>Run RESTART-LUTHUR.cmd in your LUTHUR scripts folder once. Then enter your PIN here.</p></form>';
+accessPanel.innerHTML='<form class="access-card" autocomplete="off"><img src="eye.svg" alt=""><h1>LUTHUR</h1><p>Enter your four-digit PIN to continue.</p><input id="accessPin" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" data-lpignore="true" data-1p-ignore spellcheck="false" style="-webkit-text-security:disc;text-security:disc" aria-label="PIN" required disabled><button class="btn primary" disabled>Unlock</button><p id="accessMessage" role="status">Checking protection…</p><p id="accessRestartHelp" hidden>Run RESTART-LUTHUR.cmd in your LUTHUR scripts folder once. Then enter your PIN here.</p></form>';
 document.body.append(accessPanel);
 function accessShow(locked){
   Access.locked=locked;document.documentElement.classList.toggle('access-locked',locked);accessPanel.hidden=!locked;
@@ -38,7 +38,7 @@ async function accessCheck(){
 accessUnavailable(error);}
   finally{Access.checking=false;}
 }
-if(!window.hqOverlay&&sessionStorage.getItem('hq-access-open')!=='1'){sessionStorage.setItem('hq-access-open','1');accessFetch('/lock',{}).catch(()=>{}).finally(accessCheck);}else accessCheck();
+if(!window.hqOverlay&&sessionStorage.getItem('hq-access-open')!=='1'){sessionStorage.setItem('hq-access-open','1');accessFetch('/lock',{open:true}).catch(()=>{}).finally(accessCheck);}else accessCheck();
 setInterval(accessCheck,5000);
 const accessApi=api;
 api=async function(path,method,body){if(Access.locked&&!path.startsWith('/access'))throw new Error('Unlock LUTHUR first.');try{return await accessApi(path,method,body);}catch(error){if(/Unlock LUTHUR/.test(error.message))accessShow(true);

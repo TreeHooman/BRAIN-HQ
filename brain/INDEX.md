@@ -1,6 +1,6 @@
 # HQ index
 
-_Auto-generated 2026-10-07 03:02. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-07 15:25. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
@@ -13,12 +13,13 @@ _Auto-generated 2026-10-07 03:02. Don't edit; change project.json files instead.
 | frontier-plan | strategy | planned | unknown | Collect scaling ideas here as they come up; review after the mid-Feb 2027 decision. | 2026-10-05 |
 | ai-hockey | product | live | good | Check HANDOFF.md in the repo for what's left; confirm the hosting PC auto-update is healthy. | 2026-10-05 |
 | blueprint-estimator | product | paused | unknown | Owner: is this still active? Last work was pre-calibration prep (4 Jul). | 2026-10-05 |
-| luthur | tool | building | good | Restart LUTHUR and refresh, then try voice: earlier speech, longer wait on "and…/um…", interrupt with "Luther, <request>", screens opening mid-answer. | 2026-10-07 |
+| luthur | tool | building | good | Restart LUTHUR so autonomy phases 0-4 go live. In Missions & approvals, add your first rule (it starts a 7-day trial) and check Brain changes + Undo. Next build: watch email/calendar streams into Needs-you cards, then memory search. | 2026-10-07 |
 
 ## Due in the next 14 days
-- 2026-10-06 18:00 Discord bot: run the lender-claim test on REQ-0002 [loancentral-discord]
-- 2026-10-07 10:00 Post the dated mod recusal rule in the r/LoanCentral wiki [reddit]
 - 2026-10-07 18:00 Phase 0 housekeeping is due tomorrow: check what's left [loancentral]
+- 2026-10-08 08:00 Morning brief + plan: 1) LoanCentral Phase 0 (due 6 PM, assess first) 2) Discord lender-claim test REQ-0002 (Dev server, overdue) 3) Reddit mod recusal rule in wiki (overdue) 4) Missed: Discord interest-rate/ID policy decision (Oct 10). Also: update HQ, Restart LUTHUR, test War Room code view + wake word. Ask Luther for the brief. [loancentral]
+- 2026-10-08 12:00 12:00 discord 0002 req
+- 2026-10-08 12:00 Post the dated mod recusal rule in the r/LoanCentral wiki [reddit]
 - 2026-10-10 12:00 Decide the Discord interest-rate + ID/paystub policy [loancentral-discord]
 - 2026-10-11 19:00 Weekly 10-minute HQ review (projects, inbox, approvals)
 

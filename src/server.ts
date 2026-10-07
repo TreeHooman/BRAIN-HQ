@@ -18,6 +18,7 @@ import * as spotify from "./lib/spotify.ts";
 import * as tts from "./lib/tts.ts";
 import * as canvas from "./lib/canvas.ts";
 import * as mail from "./lib/mail.ts";
+import * as watch from "./lib/watch.ts";
 import * as google from "./lib/google.ts";
 import * as compose from "./lib/compose.ts";
 import * as explainer from "./lib/explain.ts";
@@ -86,6 +87,7 @@ function writeCheck() {
       google: g.accounts.map(a => ({ email: a.email, signedIn: a.ok, calendar: a.cal })),
       calendars: cal.feedStatus().map((f: any) => ({ name: f.name, ok: f.ok, error: f.error ? String(f.error).slice(0, 160) : null })),
       outboxWaiting: outbox.list().filter(x => x.status === "draft").length,
+      watch: watch.cards().slice(0, 8).map(c => `${c.title} (${c.sub.toLowerCase()})`),
       screenBrowser: browser.state().running,
     });
   } catch {}
@@ -123,6 +125,7 @@ function snapshot() {
     goalWork: orch.goalWork(),
     outbox: outbox.list().filter(x => x.status !== "discarded").slice(0, 60), outboxBusy: outbox.busy(),
     calendar: { feeds: cal.feedStatus(), upcoming: cal.events(today, new Date(today.getTime() + 15 * 864e5)).slice(0, 80) },
+    watch: watch.cards(),
     decisions: brain.recentDecisions(30),
     brief: brain.latestBrief(),
     missions: orch.missions().map(m => ({ ...m, scheduleText: describe(m.schedule) })),
@@ -228,6 +231,10 @@ const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/mail$/, () => mail.status()],
   ["POST", /^\/api\/mail\/refresh$/, () => { void mail.refresh().catch(() => {}); return mail.status(); }],
   ["POST", /^\/api\/mail\/enable$/, (_, b) => mail.setEnabled(b.on !== false)],
+  ["GET", /^\/api\/watch$/, () => watch.cards()],
+  ["POST", /^\/api\/watch\/check$/, () => watch.check()],
+  ["POST", /^\/api\/watch\/clear$/, () => watch.clear()],
+  ["POST", /^\/api\/watch\/(w-[\w-]+)\/dismiss$/, m => watch.dismiss(m[1])],
   ["GET", /^\/api\/canvas$/, () => canvas.list()],
   ["POST", /^\/api\/canvas$/, (_, b) => canvas.create(b)],
   ["GET", /^\/api\/canvas\/(cv-[a-z0-9]+)$/, m => canvas.get(m[1])],
@@ -372,7 +379,7 @@ const server = http.createServer(async (req, res) => {
       if (req.method !== "GET" && req.headers["x-hq"] !== "1") return send(res, 403, { error: "Missing X-HQ header" });
       if(url.pathname==='/api/access'&&req.method==='GET')return send(res,200,{locked:!accessLock.allowed(req),setup:accessLock.needsSetup()});
       if(url.pathname==='/api/access/unlock'&&req.method==='POST')return send(res,200,accessLock.unlock(req,res,(await body(req)).pin));
-      if(url.pathname==='/api/access/lock'&&req.method==='POST'){pcVoice.setEnabled(false,PORT);return send(res,200,accessLock.lock(res));}
+      if(url.pathname==='/api/access/lock'&&req.method==='POST'){if((await body(req)).open!==true)pcVoice.setEnabled(false,PORT);return send(res,200,accessLock.lock(req,res));}
       const oauthCallback=req.method==='GET'&&['/api/google/callback','/api/spotify/callback'].includes(url.pathname);
       if(!oauthCallback&&!accessLock.allowed(req))return send(res,401,{error:'Unlock LUTHUR with your PIN.',locked:true});
       if (url.pathname === "/api/tts/speak" && req.method === "POST") {
@@ -454,6 +461,7 @@ server.listen(PORT, HOST, () => {
   cal.kick();
   outbox.recover();
   if (!process.env.HQ_NO_ORCHESTRATOR) mail.startAuto();
+  if (!process.env.HQ_NO_ORCHESTRATOR) watch.start();
   if (!process.env.HQ_NO_ORCHESTRATOR) code.watchStart();
   seedGoals();
 });

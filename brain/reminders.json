@@ -41,9 +41,18 @@
     "due": "2026-10-06T18:00",
     "project": "loancentral-discord",
     "repeat": null,
-    "done": false,
+    "done": true,
     "notifiedAt": "2026-10-07T01:00:28.362Z",
     "createdAt": "2026-10-05T12:00:00Z"
+  },
+  {
+    "id": "rmuy1ebwx65dm",
+    "title": "12:00 discord 0002 req",
+    "due": "2026-10-07T09:00",
+    "repeat": null,
+    "done": true,
+    "notifiedAt": "2026-10-07T16:00:28.754Z",
+    "createdAt": "2026-10-07T11:41:18.417Z"
   },
   {
     "id": "r-seed-2",
@@ -51,8 +60,8 @@
     "due": "2026-10-07T10:00",
     "project": "reddit",
     "repeat": null,
-    "done": false,
-    "notifiedAt": null,
+    "done": true,
+    "notifiedAt": "2026-10-07T17:00:28.866Z",
     "createdAt": "2026-10-05T12:00:00Z"
   },
   {
@@ -64,6 +73,25 @@
     "done": false,
     "notifiedAt": null,
     "createdAt": "2026-10-05T12:00:00Z"
+  },
+  {
+    "id": "rmuxzmfnlmwsb",
+    "title": "Morning brief + plan: 1) LoanCentral Phase 0 (due 6 PM, assess first) 2) Discord lender-claim test REQ-0002 (Dev server, overdue) 3) Reddit mod recusal rule in wiki (overdue) 4) Missed: Discord interest-rate/ID policy decision (Oct 10). Also: update HQ, Restart LUTHUR, test War Room code view + wake word. Ask Luther for the brief.",
+    "due": "2026-10-08T08:00",
+    "project": "loancentral",
+    "repeat": null,
+    "done": false,
+    "notifiedAt": null,
+    "createdAt": "2026-10-07T10:51:37.281Z"
+  },
+  {
+    "id": "rmuynlehyn8jy",
+    "title": "12:00 discord 0002 req",
+    "due": "2026-10-08T12:00",
+    "repeat": null,
+    "done": false,
+    "notifiedAt": null,
+    "createdAt": "2026-10-07T22:02:39.910Z"
   },
   {
     "id": "r-seed-4",
@@ -104,5 +132,15 @@
     "done": false,
     "notifiedAt": null,
     "createdAt": "2026-10-05T12:00:00Z"
+  },
+  {
+    "id": "rmuynleyfocxy",
+    "title": "Post the dated mod recusal rule in the r/LoanCentral wiki",
+    "due": "2026-10-08T12:00",
+    "project": "reddit",
+    "repeat": null,
+    "done": false,
+    "notifiedAt": null,
+    "createdAt": "2026-10-07T22:02:40.503Z"
   }
 ]

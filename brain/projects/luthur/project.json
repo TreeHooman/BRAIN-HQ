@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Restart LUTHUR so autonomy phases 0-4 go live. In Missions & approvals, add your first rule (it starts a 7-day trial) and check Brain changes + Undo. Next build: watch email/calendar streams into Needs-you cards, then memory search.",
+  "nextStep": "Restart LUTHUR so autonomy phases 0-4 and the email/calendar watcher go live (turn the Inbox on for email cards). Next build: memory search.",
   "updated": "2026-10-07",
   "paths": [],
   "repos": [],

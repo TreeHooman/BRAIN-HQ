@@ -519,6 +519,13 @@ function orbitLoop(now) {
   if (!reduced() || Orb.drag) Orb.raf = requestAnimationFrame(orbitLoop);
 }
 
+// Needs you: dismiss an email/calendar watch card (delegated: later layers re-render the panel)
+document.addEventListener("click", async e => {
+  const b = e.target.closest?.("[data-wx]"); if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  b.closest(".nv-row")?.remove();
+  S.watch = await api(`/watch/${encodeURIComponent(b.dataset.wx)}/dismiss`, "POST").catch(() => S.watch);
+}, true);
 function cmdFill(quiet) {
   const L = document.getElementById("cmdLeft"), R = document.getElementById("cmdRight"), V = document.getElementById("nvVitals");
   if (!L || !R) return;
@@ -564,12 +571,13 @@ function cmdFill(quiet) {
   evs.filter(e => !e.all && e.s > now && e.s - now <= 45 * 60e3).forEach(e => A.push(["amber", e.t, `STARTS IN ${Math.max(1, Math.round((e.s - now) / 6e4))} MIN`, "#calendar"]));
   drafts.forEach(d => A.push([d.status === "failed" ? "red" : "amber", d.kind === "email" ? `Email: ${d.payload.subject}` : `Calendar: ${d.payload.title}`, d.status === "failed" ? "NOT SENT · REVIEW" : "WAITING FOR YOUR OK", "#outbox"]));
   pend.forEach(a => A.push(["amber", a.title, "NEEDS YOUR OK", "#missions"]));
+  (S.watch || []).forEach(c => A.push([c.sev, c.title, esc(c.sub), c.href, c.id]));
   over.slice(0, 4).forEach(r => A.push(["red", r.t, `OVERDUE · ${fmtWhen(ymd(r.s))}`, r.p ? "#project/" + r.p : "#home"]));
   if (paused) A.push(["amber", `Paused until ${fmtWhen(st.pausedUntil)}`, "USAGE LIMIT", "#missions"]);
   S.projects.filter(p => p.health === "risk" && p.stage !== "done").forEach(p => A.push(["red", `${p.name} at risk`, esc(p.nextStep || "").slice(0, 50).toUpperCase(), "#project/" + p.slug]));
   if (dl) { const days = Math.ceil((toDate(dl.date + "T23:59") - now) / 864e5); A.push([days <= 3 ? "red" : "", dl.title, `DEADLINE IN ${days} DAY${days === 1 ? "" : "S"}${dl.project ? " · " + esc(projName(dl.project)).toUpperCase() : ""}`, dl.project ? "#project/" + dl.project : "#roadmap"]); }
   const groups = [["red", "Urgent"], ["amber", "Waiting on you"], ["", "Coming up"]].map(([k, label]) => [k, label, A.filter(a => a[0] === k)]).filter(g => g[2].length);
-  const rowA = a => `<a class="nv-row sev-${a[0] || "blue"}" href="${a[3]}"><span class="led ${a[0]}"></span><div style="min-width:0"><div class="t">${esc(a[1])}</div><small>${a[2]}</small></div></a>`;
+  const rowA = a => `<a class="nv-row sev-${a[0] || "blue"}" href="${esc(a[3])}"${/^https:/.test(a[3]) ? ' target="_blank" rel="noopener noreferrer"' : ""}><span class="led ${a[0]}"></span><div style="min-width:0;flex:1"><div class="t">${esc(a[1])}</div><small>${a[2]}</small></div>${a[4] ? `<button type="button" class="btn sm ghost nv-wx" data-wx="${esc(a[4])}" title="Dismiss" aria-label="Dismiss">×</button>` : ""}</a>`;
   R.innerHTML = `<div class="card nv-panel"><div class="ttl">Needs you <b>${A.length || "clear"}</b></div>${groups.map(([k, label, items]) => `<div class="nv-grp g-${k || "blue"}">${label}<b>${items.length}</b></div>${items.slice(0, matchMedia("(max-width: 760px)").matches ? 2 : 5).map(rowA).join("")}${matchMedia("(max-width: 760px)").matches && items.length > 2 ? `<div class="nv-more">+${items.length - 2} more</div>` : ""}`).join("") || `<div class="nv-row sev-green"><span class="led green"></span><div><div class="t">All clear</div><small>NOTHING WAITING ON YOU</small></div></div>`}</div>
     <div class="card nv-panel nv-quick"><div class="ttl">Quick actions</div><div class="row" style="flex-wrap:wrap;gap:8px">
       <a class="btn sm" href="#code">Code</a><button class="btn sm" type="button" data-nv="email">Email</button><button class="btn sm" type="button" data-nv="event">＋ Event</button><a class="btn sm" href="#planner">⬡ Planner</a><button class="btn sm" type="button" data-nv="pal">⌕ Search</button></div></div>`;

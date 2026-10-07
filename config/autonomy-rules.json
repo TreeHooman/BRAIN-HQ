@@ -1,0 +1,19 @@
+{
+  "rules": [
+    {
+      "id": "rulemuyoc45mbluy",
+      "title": "Plan-level tasks on any project (research, planning, brain updates; no code)",
+      "project": null,
+      "maxPermission": "plan",
+      "engine": null,
+      "titleMatch": null,
+      "source": "owner",
+      "createdAt": "2026-10-07T22:23:26.218Z",
+      "trialUntil": "2026-10-14T22:23:26.219Z",
+      "state": "trial",
+      "matches": 0
+    }
+  ],
+  "buildProjects": [],
+  "dismissed": {}
+}
