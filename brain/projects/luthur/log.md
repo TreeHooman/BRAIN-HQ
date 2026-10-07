@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-07 03:20 · claude
+Wake word + hologram: "Hey LUTHUR" now goes to the main window when it is on screen (the page reports visibility to /desktop-overlay main-visible; pc-voice routes the event to target main) and only opens the hologram otherwise. Hologram is a 330x440 corner mini (small orb, one-line activity, chat box, reply); app-window.exe leaves inherited full screen first. Orb wake label reads SAY "HEY LUTHUR". Layout checked on a test copy; routing unit-checked; real mic untested.
+
 ## 2026-10-07 03:06 · claude
 PC control (owner asked for computer control; guardrailed instead of full control). chrome_open opens pages/searches in the owner's Chrome; app_open opens allowlisted apps (chrome, spotify, discord, vs code, file explorer, notepad, calculator, steam; pc.apps adds); browser_open/read/click/type/scroll/back drive LUTHUR's own browser shown live on the War Room. Refuses passwords/payment/ID numbers; send/post/buy/delete/accept clicks and non-search submits need the owner's yes in chat. Chat only (missions don't see the tools). Scratch-copy test with a real headless page passed all guards; real Chrome/app launch not exercised. Restart LUTHUR to activate.
 
