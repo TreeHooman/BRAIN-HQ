@@ -49,6 +49,8 @@ Test orchestrator/engine changes on a COPY of HQ with `HQ_FAKE_CLAUDE=<fake cli 
 
 ## Updates
 The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/relaxed-turing-tnsbre` (Settings → Updates, `src/lib/updater.ts`). Push only when the owner asks.
+- The working folder IS the live install. Code changes go live with a restart (`scripts/RESTART-LUTHUR.cmd`); Update is only for pulling GitHub, and it overwrites unpushed `src/`/`web/`/`config/`/`scripts/` edits.
+- Local branch `luthur-work` tracks that remote branch under a different name, so a plain `git push` refuses: use `git push origin HEAD:claude/relaxed-turing-tnsbre`.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
 ## Current state (auto, 2026-10-07 22:31 UTC)
