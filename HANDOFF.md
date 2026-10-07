@@ -44,11 +44,12 @@ Test orchestrator/engine changes on a COPY of HQ with `HQ_FAKE_CLAUDE=<fake cli 
 The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/relaxed-turing-tnsbre` (Settings → Updates, `src/lib/updater.ts`). Push only when the owner asks.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-07 09:41 UTC)
+## Current state (auto, 2026-10-07 09:46 UTC)
 - Stage: building · health: good
-- Next step: Owner: Settings → Updates → install, then Restart LUTHUR. Check the phone War Room and Code's Talk to LUTHUR box.
+- Next step: Restart LUTHUR and refresh, then talk to it: it should start speaking sooner and wait when you trail off on "and…"/"um…". Learned preferences show in Settings. Next candidates: canvas updates on tool use; barge-in.
 
 ### Waiting on the owner
+- Voice: LUTHUR starts speaking before the full answer is done, and waits when you trail off on "and…" or "um…".
 - Restart LUTHUR (scripts/RESTART-LUTHUR.cmd) and refresh so the 2026-10-07 token fixes and auto handoff go live.
 - Say "Hey LUTHUR" with the app minimized: the hologram opens, listens and answers in your voice choice.
 - Hologram stays on top and see-through; drag it by the title bar.
@@ -56,13 +57,13 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-07 02:46 · claude**: Faster voice turns. Early speech (web/voice-stream.js): the <spoken> sentence is spoken as soon as it appears in the 500ms partial poll, while the rest generates; the final reply is not repeated. Mid-thought pauses: turnPauseFor() waits longer (2x, +2s min, 6s max) when speech ends on a comma or words like and/so/um/b…
+- **2026-10-07 02:42 · claude**: Self-learning preferences (owner ask: learn constantly, improve on its own, anticipate). preference_suggest now saves inferred preferences active at once (id p-l-, shown "(learned)" in Settings), dedupes, accepts replaces=<id>, and when memory is full drops the oldest learned items, never explicit ones. Context budget…
 - **2026-10-07 03:05 · claude**: Token + speed pass: text-only runs (Explain, briefings, brain-sync, Write with LUTHUR, memory cleanup, sign-in check) now run bare: no tools/MCP, own system prompt. They had been loading every account connector (~542k tokens) and failing; now ~2k. Settings sources off (drops duplicate CLAUDE.md/agent rules, ~1.5k/call…
 - **2026-10-07 02:36 · claude**: Codex equal-permission backup (owner rule): Claude leads, Codex may take any run with the same permission. Removed the Codex plan cap in chat and the build-mission Claude-only gate; queue_followup gains optional engine claude|codex, carried through approvals and enqueue. Runs with extraAllow or a Claude session stay o…
 - **2026-10-07 02:05 · claude**: Made music player movable with MUSIC drag header, X close, keyboard arrows, stored position and viewport bounds. Detached player stays open across outside clicks, with playback/volume/seek kept separate from dragging. Mocked browser verified movement, no music action from dragging, restored position, control click and…
 - **2026-10-07 02:00 · claude**: Detached War Room hover movement from side columns. Each card keeps its holographic angle and only hovered card lifts/straightens. Keyboard focus works independently when nothing is hovered; hover takes priority over an old focused card. Browser measured sibling transforms/bounds unchanged, columns stationary and redu…
 - **2026-10-07 01:56 · claude**: Restored typed/voice briefing to guided Brief tour ahead of conflicting Screen quest/search routing; general briefing uses local state, zero model calls. Added Daily and separate project next moves, correct approvals route, navigation readiness, voice tour controls, lock/Stop guards. Work windows/screens briefly highl…
 - **2026-10-07 01:49 · claude**: Added project creation directly in Add to canvas, optional repository folder and chat reason/name. New folder-backed project returns selected; idea-only project gets an overview card. Stays on canvas; avoids duplicate creation on partial retry. Isolated browser flow and syntax passed, no model calls; installed fronten…
-- **2026-10-07 01:46 · claude**: Added LUTHUR coding manager: repository workroom reuse, Markdown brief/status/plan/report/durable handoff, fresh bounded CLI context. One direct call or up to two sequential workers plus final review, shared time limit, no recursive/native fanout or auto retries, failure/stop halts chain. Worker model/permission ceili…
-- **2026-10-07 01:29 · claude**: Shrank War Room conversation history and streaming reply to 26% viewport height, capped at 240px, with internal scrolling and header retained. Checked long history at desktop, laptop and mobile dimensions. Installed frontend verified; refresh to activate.
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.

@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Owner: Settings \u2192 Updates \u2192 install, then Restart LUTHUR. Check the phone War Room and Code's Talk to LUTHUR box.",
+  "nextStep": "Restart LUTHUR and refresh, then talk to it: it should start speaking sooner and wait when you trail off on \"and…\"/\"um…\". Learned preferences show in Settings. Next candidates: canvas updates on tool use; barge-in.",
   "updated": "2026-10-07",
   "paths": [],
   "repos": [],

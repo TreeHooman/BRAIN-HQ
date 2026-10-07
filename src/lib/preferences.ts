@@ -90,7 +90,8 @@ export function review(id: string, accept: boolean): Preference | null {
 /** Bounded text for an agent prompt; global + relevant project + optional Challenger. */
 export function context(project?: string, challenger = false): string {
   const chosen = list().filter(p => p.scope === "global" || (p.scope === "project" && p.project === project) || (challenger && p.scope === "challenger"))
-    .sort((a, b) => Number(isLearned(a)) - Number(isLearned(b)));
+    .map((p, i) => ({ p, i })).sort((a, b) => Number(isLearned(a.p)) - Number(isLearned(b.p)) || (isLearned(a.p) ? b.i - a.i : a.i - b.i)).map(x => x.p);
+  // Explicit first in saved order, then learned newest first, so a full budget drops the stalest learned items.
   const lines = ["Owner preferences (direct instructions for this task take precedence):"];
   let used = lines[0].length + 1;
   for (const p of chosen) {

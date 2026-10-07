@@ -544,9 +544,12 @@ const Wake = {
     else return;
     clearTimeout(this.t);
     const go = () => { const cmd = this.buf.trim(); this.turnId++;this.armed = 0; this.buf = ""; this.committed = ""; document.body.classList.remove("wake-heard"); if (cmd) voiceCommand(cmd); };
-    this.t = setTimeout(() => { if (this.buf) go(); else { this.armed = Date.now(); } }, this.buf ? (window.hqConversation ? Math.max(1200,Math.min(3200,Number(localStorage.getItem("hq-turn-pause")||1800))) : 3200) : 1600);
+    this.t = setTimeout(() => { if (this.buf) go(); else { this.armed = Date.now(); } }, this.buf ? turnPauseFor(this.buf, window.hqConversation ? Math.max(1200,Math.min(3200,Number(localStorage.getItem("hq-turn-pause")||1800))) : 3200) : 1600);
   },
 };
+/** Silence before a voice turn is sent. Trailing off on "and", "so", "um", a comma… means the owner is mid-thought: wait longer. */
+const TRAILING=/(?:,|\b(?:and|but|or|so|because|cause|like|um+|uh+|er+|hmm+|the|a|an|to|of|with|for|if|then|which|that|my|your|is|are|was|i|we|maybe|also|plus|just|actually))\s*$/i;
+function turnPauseFor(buf,base){return TRAILING.test(String(buf||'').trim())?Math.min(6000,Math.max(base*2,base+2000)):base;}
 /** What a hands-free sentence does: navigation, briefing, or a message to JARVIS (big jobs it delegates as Tasks). */
 function voiceCommand(cmd) {
   const c = cmd.toLowerCase().replace(/[.!?]+$/, "").trim();

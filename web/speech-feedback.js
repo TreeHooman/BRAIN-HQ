@@ -65,7 +65,7 @@ configureVoice=function(u){speechConfigure(u);{let ended=false,watchdog;
     const generation=SpeechPlayback.generation;
     SpeechPlayback.timer=setTimeout(()=>{
       if(generation!==SpeechPlayback.generation||speechPlaybackBlocked()||Access.locked)return;
-      if(!SpeechUI.editing&&Wake.on){if(Wake.buf?.trim())Wake.armed=Date.now();Wake.resume();if(Wake.buf?.trim())Wake.t=setTimeout(()=>speechSend(Wake.buf),Math.max(1200,Number(localStorage.getItem('hq-turn-pause')||1800)));}
+      if(!SpeechUI.editing&&Wake.on){if(Wake.buf?.trim())Wake.armed=Date.now();Wake.resume();if(Wake.buf?.trim())Wake.t=setTimeout(()=>speechSend(Wake.buf),turnPauseFor(Wake.buf,Math.max(1200,Number(localStorage.getItem('hq-turn-pause')||1800))));}
       if(SpeechPlayback.rearmPc&&!UPG.conversation){SpeechPlayback.rearmPc=false;api('/pc-voice','PUT',{enabled:true}).then(state=>{pcVoiceWasOn=state.running;pcVoicePaint(state);}).catch(()=>{});}
       speechPaint();
     },1050);speechPaint();
