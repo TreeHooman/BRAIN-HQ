@@ -75,11 +75,11 @@
   "l4": {
     "fastpath": true,
     "intake": true,
-    "plans": false,
-    "retries": false,
+    "plans": true,
+    "retries": true,
     "review": true,
     "signals": false,
-    "projectState": false,
+    "projectState": true,
     "stallMinutes": 10,
     "maxRetries": 3,
     "comment": "Level 4 (docs/L4-PROGRESS.md). fastpath: simple app questions answered without a model. intake: complex chat requests become a reviewable brief. plans: 'go' runs a brief as a plan of checked steps (off = one ordinary Task). retries: bounded retries with backoff for temporary failures of tasks/missions (plan steps always retry). review: independent review pass for code/research steps. signals: link mail/calendar to projects and propose prep tasks. projectState: generated brain/projects/<slug>/STATE.md. stallMinutes: stop a run that prints nothing this long (with plans or retries on)."

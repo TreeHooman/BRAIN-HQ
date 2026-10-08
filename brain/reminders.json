@@ -131,6 +131,16 @@
     "createdAt": "2026-10-08T03:27:04.139Z"
   },
   {
+    "id": "rmuza2aogwezb",
+    "title": "LUTHUR trial: give it 1 real job, read the debrief, score it (brain/projects/luthur/l4-trial.md)",
+    "due": "2026-10-08T19:00",
+    "project": "luthur",
+    "repeat": "daily",
+    "done": false,
+    "notifiedAt": null,
+    "createdAt": "2026-10-08T08:31:39.664Z"
+  },
+  {
     "id": "r-seed-4",
     "title": "Decide the Discord interest-rate + ID/paystub policy",
     "due": "2026-10-10T12:00",
@@ -169,5 +179,15 @@
     "done": false,
     "notifiedAt": null,
     "createdAt": "2026-10-05T12:00:00Z"
+  },
+  {
+    "id": "rmuza2ap1re1b",
+    "title": "LUTHUR Level 4 review: check the trial scorecard, decide signals + web research, mark the daily trial reminder done",
+    "due": "2026-10-15T19:00",
+    "project": "luthur",
+    "repeat": null,
+    "done": false,
+    "notifiedAt": null,
+    "createdAt": "2026-10-08T08:31:39.685Z"
   }
 ]

@@ -1,6 +1,6 @@
 # HQ index
 
-_Auto-generated 2026-10-08 01:25. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-08 01:31. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
@@ -20,8 +20,10 @@ _Auto-generated 2026-10-08 01:25. Don't edit; change project.json files instead.
 - 2026-10-08 08:00 Morning brief + plan: 1) LoanCentral Phase 0 (due 6 PM, assess first) 2) Discord lender-claim test REQ-0002 (Dev server, overdue) 3) Reddit mod recusal rule in wiki (overdue) 4) Missed: Discord interest-rate/ID policy decision (Oct 10). Also: update HQ, Restart LUTHUR, test War Room code view + wake word. Ask Luther for the brief. [loancentral]
 - 2026-10-08 12:00 12:00 discord 0002 req
 - 2026-10-08 12:00 Post the dated mod recusal rule in the r/LoanCentral wiki [reddit]
+- 2026-10-08 19:00 LUTHUR trial: give it 1 real job, read the debrief, score it (brain/projects/luthur/l4-trial.md) [luthur]
 - 2026-10-10 12:00 Decide the Discord interest-rate + ID/paystub policy [loancentral-discord]
 - 2026-10-11 19:00 Weekly 10-minute HQ review (projects, inbox, approvals)
+- 2026-10-15 19:00 LUTHUR Level 4 review: check the trial scorecard, decide signals + web research, mark the daily trial reminder done [luthur]
 
 ## Next milestones
 - 2026-10-08 Phase 0 housekeeping done [loancentral]

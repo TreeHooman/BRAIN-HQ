@@ -13,7 +13,7 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 - Level 4 speed: after a restart ask "what time is it", "what's next on LUTHUR" and "is anything waiting for me": answers should be instant (no thinking pause). Open /api/timing to see the numbers.
 - Level 4 intake: tell LUTHUR a multi-step job by voice (e.g. "work out what it would take to move my project notes into a database and plan it"). A Task brief appears bottom-right (Work panel) with at most 2 questions; correct it by voice, then say "go" (or "go anyway").
 - Level 4 interrupt: ask something long, talk over the answer: the answer stops AND the model stops generating (no late reply).
-- Level 4 decision: switch on l4.plans, l4.retries and l4.projectState in config/hq.json (then restart) when you are happy with the brief flow; decide whether research may use WebSearch/WebFetch (config/permissions.json read/plan allow lists).
+- Level 4 trial week (to 15 Oct): one real job a day, score it in brain/projects/luthur/l4-trial.md; review on 15 Oct (Level 4 if no false "done").
 - Calendar: click a day, press Cancel on a reminder (it disappears) and on a Google event (a delete draft appears in the Outbox; Send removes it). Voice: after a restart "Hey LUTHUR" is on by itself, no Settings trip.
 - Voice stop: ask LUTHUR something long, then say "Luther stop" (or "stop listening"): he goes quiet, doesn't finish the answer out loud, and ignores normal talk until you say "Hey LUTHUR" again.
 - Side panel: after a restart, click into another app (LUTHUR behind it or minimized) and say "Hey LUTHUR": the small side panel should pop up and answer.

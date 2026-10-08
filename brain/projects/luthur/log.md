@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-08 08:32 · claude
+Owner said go: switched on l4.plans, l4.retries, l4.projectState in config/hq.json (signals, web research, chat.persistent stay off). Trial week 8-15 Oct: checklist + scorecard in brain/projects/luthur/l4-trial.md; daily 19:00 reminder "LUTHUR trial" and a 15 Oct 19:00 review reminder. Restarted LUTHUR so it is live.
+
 ## 2026-10-08 01:25 · claude
 Level 4 build (docs/L4-PROGRESS.md). Outcome → brief → plan of checked steps → verified result, or one question only the owner can answer.
 Built: speed (timing.ts stage timings, fastpath.ts no-model answers, memo.ts cache, per-turn brain facts, SSE /api/chat/stream, TTS prefetch, /api/chat/cancel, background runs below normal priority, chat goes first), intake.ts briefs (chat tools brief_update/brief_start, Work panel web/l4.js), plans.ts durable plans (deps, scope locks, budgets, journal, restart-safe), evidence.ts (checks + independent review + bounded repair), failures.ts (transient/quota/auth/permanent/uncertain, retries with backoff, stall watchdog), questions.ts (ask_owner; answer resumes the step; silence never approves), project-state.ts (STATE.md), signals.ts (mail/calendar → projects). Alfred patterns: docs/ALFRED-PATTERNS.md (MIT, ideas only).

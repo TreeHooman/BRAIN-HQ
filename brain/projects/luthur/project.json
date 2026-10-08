@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Owner: restart LUTHUR, try the Level 4 checks in plan.md, then decide: switch on l4.plans/retries/projectState in config/hq.json, and whether research may use WebSearch/WebFetch (config/permissions.json).",
+  "nextStep": "Owner: Level 4 trial week (8-15 Oct): give LUTHUR one real job a day and score it in l4-trial.md; review 15 Oct, then decide signals and web research.",
   "updated": "2026-10-08",
   "paths": [],
   "repos": [],
