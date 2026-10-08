@@ -10,6 +10,7 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 4. Later: Obsidian notes (see docs/BACKLOG.md). Guarded computer control: first version done 2026-10-07.
 
 ## Owner checks
+- Voice stop: ask LUTHUR something long, then say "Luther stop" (or "stop listening"): he goes quiet, doesn't finish the answer out loud, and ignores normal talk until you say "Hey LUTHUR" again.
 - Side panel: after a restart, click into another app (LUTHUR behind it or minimized) and say "Hey LUTHUR": the small side panel should pop up and answer.
 - Voice: after a restart, say "Hey LUTHUR, what time is it". After he answers, talk normally: he should NOT respond. Say "Hey LUTHUR" again: he should. Say "Luther, stop listening": he goes back to waiting for his name. Replies should start about 1-2 s sooner.
 - Evening debrief: after a restart, open Today and press "So far today" on the Evening debrief card. At 21:00 one 🌙 alert should arrive (only if LUTHUR did something today) and the card shows it.

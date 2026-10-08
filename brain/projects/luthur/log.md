@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-08 06:55 · claude
+Stop means stop (owner ask): "Luther stop", "stop", "shut up", "stop listening", "go to sleep", "that's all", "never mind", "goodbye" now all go quiet at once, mute the answer still on its way (and any other speech), close the conversation and listen only for "Hey LUTHUR"; the next accepted request lifts the mute (web/wake-idle.js stopTalking, wrapping force-stop.js hushSpeech + speak/speakAlways). Plain "stop" always gets through, even without the name. "Force stop" unchanged.
+
 ## 2026-10-08 06:40 · claude
 Side panel fix (owner: "doesn't pop up when I don't have LUTHUR open"). The main window told the server it was on screen whenever document.visibilityState was "visible", which stays true when the window is just behind other windows, so the wake word went to the hidden main window and the hologram never opened. It now also requires document.hasFocus() (web/voice.js), so unless LUTHUR is the window in use, "Hey LUTHUR" opens the side panel.
 

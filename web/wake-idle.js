@@ -1,6 +1,6 @@
 "use strict";
 // Give the owner a follow-up window, measured after playback and echo cooldown.
-const WakeIdle={active:false,last:0,speaking:false,delay:5000,sent:false,named:0};
+const WakeIdle={active:false,last:0,speaking:false,delay:5000,sent:false,named:0,muted:false};
 function wakeIdleTouch(){WakeIdle.last=Date.now();}
 const followUpsOn=()=>localStorage.getItem('hq-followup')==='1';
 const idleConversation=upConversation;
@@ -15,16 +15,29 @@ upConversation=function(on){
 // - "Stop listening", "go to sleep", "that's all", "never mind", "goodbye" end the conversation and go back to the name.
 const SHORT_REPLY=/^(yes|yeah|yep|yup|no|nope|nah|sure|okay|ok|thanks|thank you|stop|continue|go|done|cancel|repeat|again|next|why|what|how|when|where|who|both|neither|later|now)$/;
 const END_TALK=/\b(stop listening|go to sleep|that'?s all|that is all|never ?mind|good ?bye|bye bye|you can go|i'?m done|we'?re done)\b/;
+// "Stop" in any form (owner ask, 2026-10-08): "Luther stop", "stop", "shut up" (force-stop.js hushSpeech) and the
+// END_TALK phrases all do the same: go quiet now, don't speak the answer still on its way, close the conversation,
+// and listen only for "Hey LUTHUR". Saying the name again lifts the mute. "Force stop" keeps its own behaviour.
+function stopTalking(){
+  WakeIdle.muted=true;window.speechSynthesis?.cancel();
+  speechClearTurn();if(UPG.conversation)upConversation(false);speechStatus('wake');
+}
+const idleHush=hushSpeech;
+hushSpeech=function(){const r=idleHush();stopTalking();return r;};
+const idleSpeak=speak;speak=function(...a){if(!WakeIdle.muted)return idleSpeak(...a);};
+const idleSpeakAlways=speakAlways;speakAlways=function(text,onEnd){if(WakeIdle.muted){onEnd?.();return;}return idleSpeakAlways(text,onEnd);};
 const idleVoiceCommand=voiceCommand;
 voiceCommand=function(text){
   const t=String(text||'').toLowerCase().replace(/[.,!?]+/g,' ').replace(/\s+/g,' ').trim(), words=t.match(/[a-z0-9']+/g)||[];
-  if(END_TALK.test(t)&&words.length<=8){speechClearTurn();if(UPG.conversation)upConversation(false);speechStatus('wake');return;}
+  if(END_TALK.test(t)&&words.length<=8){stopTalking();return;}
+  // "Stop" / "force stop" always get through to force-stop.js, even without the name.
+  if(typeof isStopRequest==='function'&&(isStopRequest(text)||isForceStop(text)))return idleVoiceCommand(text);
   if(words.length<2&&!SHORT_REPLY.test(t))return;
   // After the first request, more speech only counts if it used the name (or interrupted LUTHUR mid-sentence,
   // which voice-stream.js marks just before calling this).
   const barge=Date.now()-(window.hqVoiceTurn||0)<400;
   if(WakeIdle.sent&&!followUpsOn()&&!barge&&Date.now()-WakeIdle.named>15000)return;
-  WakeIdle.sent=true;
+  WakeIdle.sent=true;WakeIdle.muted=false;
   return idleVoiceCommand(text);
 };
 // Settings → Voice: let the owner turn follow-ups back on.
