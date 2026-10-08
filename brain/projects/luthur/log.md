@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-08 06:35 · claude
+Calendar day pop-up (click a day on Calendar) has Cancel on every item (web/app.js dayModal): reminders and milestones are deleted from HQ after a confirm; a Google Calendar event becomes a "delete" draft in the Outbox and is only removed when the owner presses Send there.
+
 ## 2026-10-08 06:20 · claude
 (1) Context clues for end of turn (web/live.js turnPauseFor): unfinished phrases ("remind me to", "can you", "set an alarm for", "I want", joining words, a lone name) wait base+2 s; finished-sounding ones (full questions, endings like please/now/today/tomorrow/a time or number, yes/no/ok) answer at 70% of base (0.7 s at the default 1 s). (2) "Hey LUTHUR" stays on: the PC listener is forgotten on every restart/unlock (needs a session cookie), so the main window now turns it back on itself whenever the mic is free (web/voice.js pcVoicePoll); unticking it in Settings is remembered (localStorage hq-pcwake=0). In-app hands-free now defaults on (hq-wake).
 

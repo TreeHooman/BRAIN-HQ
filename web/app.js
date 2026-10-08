@@ -424,9 +424,23 @@ let calDays = {};
 function dayModal(day) {
   const items = calDays[day] || [], feeds = Object.fromEntries((S.calendar?.feeds || []).map(f => [f.id, f.name]));
   const src = e => e.rem ? (e.rem.project ? projName(e.rem.project) + " · reminder" : "reminder") : e.ms ? (e.ms.project ? projName(e.ms.project) + " · " : "") + (e.ms.kind || "milestone") : (feeds[e.ev?.feed] || "calendar") + (e.ev?.location ? " · " + e.ev.location : "");
-  const list = items.length ? `<ul class="day-list">${items.map(e => `<li class="${e.cls}"${e.c ? ` style="--gc:${esc(e.c)}"` : ""}><span class="when">${e.time || "all day"}</span><div class="grow"><b>${esc(e.t)}</b><small>${esc(src(e))}</small></div>${e.rem && !e.rem.done ? `<button type="button" class="btn sm ghost" data-remdone="${esc(e.rem.id)}">Done</button>` : ""}</li>`).join("")}</ul>` : `<div class="empty small">Nothing on this day yet.</div>`;
+  const list = items.length ? `<ul class="day-list">${items.map(e => `<li class="${e.cls}"${e.c ? ` style="--gc:${esc(e.c)}"` : ""}><span class="when">${e.time || "all day"}</span><div class="grow"><b>${esc(e.t)}</b><small>${esc(src(e))}</small></div>${e.rem && !e.rem.done ? `<button type="button" class="btn sm ghost" data-remdone="${esc(e.rem.id)}">Done</button>` : ""}${(e.rem && !e.rem.done) || (e.ms && !e.ms.done) || e.ev ? `<button type="button" class="btn sm ghost danger" data-daycancel="${items.indexOf(e)}">Cancel</button>` : ""}</li>`).join("")}</ul>` : `<div class="empty small">Nothing on this day yet.</div>`;
   addOnDayModal(day, `<h3>${(d => `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`)(new Date(day + "T12:00"))} <span class="faint small">${items.length || ""}</span></h3>${list}<div class="pd-sub" style="margin-top:12px">Add</div>`);
   $$("[data-remdone]").forEach(b => b.onclick = async () => { await act(() => api(`/reminders/${b.dataset.remdone}`, "PATCH", { complete: true }), "Done"); closeModal(); dayModal(day); });
+  // Cancel (owner ask, 2026-10-08): reminders and milestones are removed from HQ; a Google Calendar event becomes a
+  // "delete" draft in the Outbox, which only happens when the owner presses Send there (calendar changes always wait).
+  $$("[data-daycancel]").forEach(b => b.onclick = async () => {
+    const e = items[+b.dataset.daycancel]; if (!e) return;
+    if (!(await uiConfirm(e.ev ? `Cancel "${e.t}" in your calendar? It waits in the Outbox until you press Send.` : `Cancel "${e.t}"?`, b))) return;
+    if (e.rem) await act(() => api(`/reminders/${e.rem.id}`, "DELETE"), "Cancelled");
+    else if (e.ms) await act(() => api(`/milestones/${e.ms.id}`, "DELETE"), "Cancelled");
+    else {
+      const d = new Date(e.ev.start), start = e.ev.allDay ? e.ev.start.slice(0, 10) : `${ymd(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      try { await api("/outbox", "POST", { kind: "calendar", payload: { action: "delete", title: e.t, start } }); toast("Cancellation ready in the Outbox. Press Send there to remove it from your calendar.", 6000); }
+      catch (er) { return toast("⚠ " + er.message, 6000); }
+    }
+    closeModal(); dayModal(day);
+  });
 }
 function addOnDayModal(day, head) {
   modal(`${head || `<h3>Add on ${fmtWhen(day)}</h3>`}<form class="form" id="dayForm">
