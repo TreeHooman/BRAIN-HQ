@@ -58,7 +58,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Local branch `luthur-work` tracks that remote branch under a different name, so a plain `git push` refuses: use `git push origin HEAD:claude/relaxed-turing-tnsbre`.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-08 04:50 UTC)
+## Current state (auto, 2026-10-08 06:01 UTC)
 - Stage: building · health: good
 - Next step: Evening debrief is built (src/lib/debrief.ts). Next: ask the owner which LUTHUR upgrade comes next; the Jarvis plan's remaining phase is self-improvement through tested proposals (docs/AUTONOMY-DESIGN.md).
 
@@ -88,6 +88,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-08 06:05 · claude**: Owner: "very slow still; when I talk I want it to stop talking and let me finish (Jarvis is more of a listener); sometimes it doesn't pick up words". (1) Barge-in (web/voice-stream.js): goes quiet on the first 2 non-echo words (was 3) and no longer sends on the first final chunk: keeps listening across pauses and send…
 - **2026-10-08 04:55 · claude**: Owner: "better but still not great". Chat history 04:33-04:38 UTC shows unnamed room speech still answered and stop phrases sent to the model (it replied "Quiet." out loud), but the restart had not happened (scripts/pc-wake.exe.next still waiting), so the voice fixes were likely not loaded yet. Widened local stop hand…
 - **2026-10-08 03:42 · claude**: Stop means stop (owner ask): "Luther stop", "stop", "shut up", "stop listening", "go to sleep", "that's all", "never mind", "goodbye" now all go quiet at once, mute the answer still on its way (and any other speech), close the conversation and listen only for "Hey LUTHUR"; the next accepted request lifts the mute (web…
 - **2026-10-08 03:38 · claude**: Side panel fix (owner: "doesn't pop up when I don't have LUTHUR open"). The main window told the server it was on screen whenever document.visibilityState was "visible", which stays true when the window is just behind other windows, so the wake word went to the hidden main window and the hologram never opened. It now …
@@ -95,6 +96,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-08 03:21 · claude**: Built the evening debrief (owner chose 21:00). New src/lib/debrief.ts words it; orchestrator.debrief() gathers today's reported tasks (done / partly / needs a look), background runs and failures, approvals waiting, brain changes, initiative picks, tomorrow's milestones and reminders, overdue count. No model call. Writ…
 - **2026-10-08 03:14 · claude**: Owner approved both initiative picks; both reports were useful (Reddit recusal rule drafted into the brain, nothing posted; LoanCentral Phase 0 consolidated into an 8-item owner checklist, honestly "Partly done"). Fixes: (1) Tasks page flicker: lists compared with box.innerHTML, which the browser re-serializes, so eve…
 - **2026-10-08 03:09 · claude**: Owner check passed: after the restart, a build task on GenBot ("Add a line saying verify test to LUTHUR-TEST.md") ended with "Checked by HQ: ✓ matches the report · 1 file changed", Changed: GenBot/LUTHUR-TEST.md, no project checks found. Verify-before-done works live.
-- **2026-10-08 03:00 · claude**: Committed + pushed the initiative work (323b98f). Built verify-before-done: new src/lib/verify.ts. A build run on a project with folders is snapshotted before/after (skips node_modules, venv, __pycache__, logs, dbs); when files changed HQ runs the project's checks (config verify.checks per project, else npm test / pyt…
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.

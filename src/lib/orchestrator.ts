@@ -963,8 +963,10 @@ export async function sendChat(text: string, opts: ModelChoice & { project?: str
   try {
     const onStep = opStart({ id: opId, kind: "chat", agent: cfg.assistant?.name || "LUTHUR", title: text.length > 70 ? text.slice(0, 69) + "…" : text, project: c.project, model, level });
     const handoff = switching || returning || rolling ? `Relevant recent chat context (data, do not repeat completed actions):\n${chatHandoff(c)}\n\n${turnNote}\n\nCurrent request:\n${text}` : `${turnNote}\n\n${text}`;
+    // Voice speed (owner: "very slow"): how long until the first words, and until the spoken sentence is complete.
+    const timing = { t0: Date.now(), first: 0, spoken: 0 };
     const options = { prompt: handoff, model, fallbackModel: fallback, effort, level, resume: c.sessionId?.replace(/^codex:/, "") || null, system, activeFile: opts.activeFile, runId: `chat-${c.id}`, history: { title: text.slice(0, 120), ask: text, project: c.project || null, kind: "Chat" },
-      timeoutMs: (cfg.chat?.maxMinutes || 6) * 60e3, addDirs: proj?.paths || [], onSpawn:(pid:number)=>{control.pid=pid;if(control.cancelled)killTree(pid);},onStep:(step:Step)=>{if(!control.cancelled)onStep(step);}, onText: (text: string) => { if(!control.cancelled)chatPartial = redact(text).slice(-60000); } };
+      timeoutMs: (cfg.chat?.maxMinutes || 6) * 60e3, addDirs: proj?.paths || [], onSpawn:(pid:number)=>{control.pid=pid;if(control.cancelled)killTree(pid);},onStep:(step:Step)=>{if(!control.cancelled)onStep(step);}, onText: (text: string) => { if(!control.cancelled)chatPartial = redact(text).slice(-60000); timing.first ||= Date.now(); if (!timing.spoken && text.includes("</spoken>")) timing.spoken = Date.now(); } };
     let res = provider === "codex" ? await runCodex(options) : await runClaude(options);
     let usedOptions = options;
     const claudeStats = provider === "claude" ? res.stats : null;
@@ -1003,7 +1005,8 @@ export async function sendChat(text: string, opts: ModelChoice & { project?: str
     if (provider === "claude" && res.ok) patchState(st => { st.auth = "ok"; });
     if (provider === "claude" && res.kind === "auth") patchState(st => { st.auth = "needs-login"; st.authCheckedAt = new Date().toISOString(); });
     if (res.kind === "limit" && provider === "claude") patchState(st => { st.pausedUntil = new Date(res.resetAt || Date.now() + (cfg.usageLimit?.fallbackPauseMinutes || 60) * 60e3).toISOString(); st.pauseReason = "Claude usage limit"; });
-    activity("chat", { ok: res.ok, kind: res.kind });
+    activity("chat", { ok: res.ok, kind: res.kind, model: usedOptions.model, effort: usedOptions.effort || null,
+      firstMs: timing.first ? timing.first - timing.t0 : null, spokenMs: timing.spoken ? timing.spoken - timing.t0 : null, totalMs: Date.now() - timing.t0 });
   } finally { try { ingestDrop(); } catch {} chatBusy = false;chatControl=null; chatPartial = ""; opEnd(opId, opOk,control.cancelled); kick(); } // ingest now so screen commands are ready with the reply
 }
 

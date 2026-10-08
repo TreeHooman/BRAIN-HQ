@@ -26,7 +26,7 @@ function chatWhileBusy(c){earlySpeak(c);earlyScreen(c);}
 // (words that aren't LUTHUR's own speech echoing back), LUTHUR goes quiet at once and keeps that recognizer open until the
 // owner's sentence is final, then sends it with a note so the reply answers them and can finish the cut-off thought.
 // The name is optional ("Luther, ..." still works). "stop"/"shut up" alone only hush (force-stop.js).
-const Barge={hold:0,said:'',note:'',noteAt:0};
+const Barge={hold:0,said:'',note:'',noteAt:0,from:0,t:0};
 const BARGE_NAME=/^(?:hey |ok |okay )?(?:luthur|luthor|luther|lutha|lothar|jarvis)\b ?/;
 const bargeHolding=()=>Barge.hold&&Date.now()-Barge.hold<12000;
 function bargeEcho(text,speech){
@@ -38,11 +38,11 @@ function bargeQuiet(said){
   window.speechSynthesis?.cancel();
 }
 function bargeRelease(){
-  if(!Barge.hold)return;Barge.hold=0;bargeStop.call(StopMonitor);
+  clearTimeout(Barge.t);if(!Barge.hold)return;Barge.hold=0;bargeStop.call(StopMonitor);
   if(Wake.on&&!ForceStop.stopped&&!Access.locked)Wake.resume();
 }
 function bargeIn(ask,said){
-  Barge.hold=0;bargeStop.call(StopMonitor);window.speechSynthesis?.cancel();
+  clearTimeout(Barge.t);Barge.hold=0;bargeStop.call(StopMonitor);window.speechSynthesis?.cancel();
   const heard=String(said||'').replace(/\s+/g,' ').trim().slice(0,220);
   Barge.note=heard?`The owner interrupted you while you were saying: "${heard}". Answer what they just said first; if your earlier point still matters, finish it in a sentence after.`:'';Barge.noteAt=Date.now();
   setTimeout(()=>{if(!ForceStop.stopped&&!Access.locked){window.hqVoiceTurn=Date.now();voiceCommand(ask);if(Wake.on)Wake.resume();}},250);
@@ -60,17 +60,30 @@ StopMonitor.start=function(){
   if(bargeHolding()&&this.rec)return;
   bargeStart.call(this);const r=this.rec;if(!r)return;const prev=r.onresult,prevEnd=r.onend;
   r.onend=e=>{if(this.rec===r&&Barge.hold){this.rec=null;this.ready=false;bargeRelease();return;}prevEnd?.call(r,e);};
+  // Owner ask (2026-10-08): "whenever I talk I want it to stop talking and let me finish". He goes quiet on the first
+  // two words that aren't his own echo (was three), then keeps listening across pauses and sends only after the owner
+  // has really finished (the same silence rule as a normal turn, longer after "and…"/"um…"), not on the first breath.
   r.onresult=e=>{
     prev?.call(r,e);
     if(this.rec!==r||ForceStop.stopped||Access.locked)return;
     const last=e.results[e.results.length-1];if(!last)return;
-    const text=stopWords(last[0].transcript),ask=text.replace(BARGE_NAME,'').trim();if(!ask)return;
-    if(bargeEcho(text,this.speech))return;
-    const words=ask.split(' ').length;
-    if(!last.isFinal){if(words>=3&&!Barge.hold)bargeQuiet(this.speech);return;}
-    if(isStopRequest(ask)){if(Barge.hold)bargeRelease();return;}
-    if(words<2){if(Barge.hold)bargeRelease();return;}
-    bargeIn(ask,Barge.said||this.speech);
+    if(!Barge.hold){
+      const text=stopWords(last[0].transcript),ask=text.replace(BARGE_NAME,'').trim();if(!ask)return;
+      if(bargeEcho(text,this.speech)||isStopRequest(ask))return;
+      if(ask.split(' ').length<2)return;
+      Barge.from=e.results.length-1;bargeQuiet(this.speech);
+    }
+    Barge.hold=Date.now();clearTimeout(Barge.t); // still talking: keep the mic, restart the silence clock
+    const ask=stopWords(Array.from(e.results).slice(Barge.from).map(x=>x[0].transcript).join(' ')).replace(BARGE_NAME,'').trim();
+    if(!ask)return;
+    if(isStopRequest(ask)){bargeRelease();return;}
+    if(!last.isFinal)return;
+    const said=Barge.said||this.speech;
+    Barge.t=setTimeout(()=>{
+      if(this.rec!==r||!Barge.hold)return;
+      if(ask.split(' ').length<2){bargeRelease();return;}
+      bargeIn(ask,said);
+    },typeof turnPauseFor==='function'?turnPauseFor(ask,turnPauseBase()):1000);
   };
 };
 const earlySpeakChatReply=speakChatReply;
