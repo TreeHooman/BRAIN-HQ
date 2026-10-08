@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Build the daily debrief (docs/AUTONOMY-DESIGN.md: next after verify-before-done). Verify-before-done is built and tested on a copy (10/10); its first real check is the owner check \"Verify\" in plan.md.",
+  "nextStep": "Build the daily debrief (docs/AUTONOMY-DESIGN.md: next after verify-before-done, which is live and owner-confirmed).",
   "updated": "2026-10-08",
   "paths": [],
   "repos": [],

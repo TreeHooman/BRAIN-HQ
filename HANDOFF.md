@@ -57,12 +57,11 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Local branch `luthur-work` tracks that remote branch under a different name, so a plain `git push` refuses: use `git push origin HEAD:claude/relaxed-turing-tnsbre`.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-08 02:59 UTC)
+## Current state (auto, 2026-10-08 03:09 UTC)
 - Stage: building · health: good
-- Next step: Build the daily debrief (docs/AUTONOMY-DESIGN.md: next after verify-before-done). Verify-before-done is built and tested on a copy (10/10); its first real check is the owner check "Verify" in plan.md.
+- Next step: Build the daily debrief (docs/AUTONOMY-DESIGN.md: next after verify-before-done, which is live and owner-confirmed).
 
 ### Waiting on the owner
-- Verify: after a restart, give a small build task on GenBot (e.g. "append a line to LUTHUR-TEST.md"). Its report should end with "Checked by HQ: ✓ matches the report · 1 file changed". (GenBot has no …
 - Daily schedule: refresh, then click the 18:00 Phase 0 reminder (edit window opens), press "Open ↗" (Schedule popout: add a reminder, ○ marks done), and click the red "overdue" pill at the top.
 - Initiative picks: approve the 2 "Initiative ·" cards (LoanCentral Phase 0, Reddit recusal rule), read their reports; if useful press Go live now on the plan-level rule. Reject a weak pick later: it s…
 - Restart LUTHUR so the initiative card shows the real next look (8:00 next morning after 22:00, not "Today 22:38").
@@ -83,6 +82,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-08 04:25 · claude**: Owner check passed: after the restart, a build task on GenBot ("Add a line saying verify test to LUTHUR-TEST.md") ended with "Checked by HQ: ✓ matches the report · 1 file changed", Changed: GenBot/LUTHUR-TEST.md, no project checks found. Verify-before-done works live.
 - **2026-10-08 04:10 · claude**: Committed + pushed the initiative work (323b98f). Built verify-before-done: new src/lib/verify.ts. A build run on a project with folders is snapshotted before/after (skips node_modules, venv, __pycache__, logs, dbs); when files changed HQ runs the project's checks (config verify.checks per project, else npm test / pyt…
 - **2026-10-07 19:55 · claude**: Daily schedule is clickable (owner ask). Clicking a reminder row on Daily → Schedule opens its edit window (title, due, Complete, Delete). Clicking anywhere else on the card, or the new "Open ↗" button, opens a new "Schedule" popout (upgrade.js kind "schedule"): add a reminder (title, date/time, project), plus Overdue…
 - **2026-10-07 19:50 · claude**: Initiative went live after the restart: first scheduled look at 18:38 picked LoanCentral Phase 0 (milestone due 10-08) and the Reddit recusal-rule reminder (prep only, posting stays with the owner); both wait as approvals, plan rule matched 2x on trial. Fixed the card's next-look label (it said 22:38, past the 22:00 c…
@@ -90,6 +90,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-08 03:30 · claude**: Owner check passed: Codex task "GenBot: append line to LUTHUR-TEST.md" (after restart) showed on the live Code tile as Changed steps with red/green lines, including Codex fixing its own first write (joined onto the existing line, then split it). Shell-made changes now visible; tile total +3 −2. Codex write path + live…
 - **2026-10-08 03:10 · claude**: Owner check passed: after the restart, LUTHUR answered "what did we decide about the discord interest rate?" in chat from memory (status open, options, Oct 10 deadline). Removed that owner check. Still to check: a Codex build task showing shell-made changes on its Code tile (task queued, waiting for approval).
 - **2026-10-08 02:50 · claude**: Codex shell changes now show on the Code page. narrate.WorkspaceWatch records a Codex build run's workspace at start (size+mtime of up to 4000 files, text of small files, skipping .git/node_modules/dist/build etc.) and rescans after each command or file edit; new/changed/deleted files appear as a "Changed" step with -…
-- **2026-10-08 02:35 · claude**: Owner check passed: Codex created GenBot/LUTHUR-TEST.md on a build task (first real Codex write from HQ), the live Code tile streamed its steps, nothing in data/guard. Gap: Codex wrote the file with a PowerShell command, not its file-edit tool, so the tile showed +0 −0 and no lines. Fixed in the next entry.
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.

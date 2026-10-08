@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-08 04:25 · claude
+Owner check passed: after the restart, a build task on GenBot ("Add a line saying verify test to LUTHUR-TEST.md") ended with "Checked by HQ: ✓ matches the report · 1 file changed", Changed: GenBot/LUTHUR-TEST.md, no project checks found. Verify-before-done works live.
+
 ## 2026-10-08 04:10 · claude
 Committed + pushed the initiative work (323b98f). Built verify-before-done: new src/lib/verify.ts. A build run on a project with folders is snapshotted before/after (skips node_modules, venv, __pycache__, logs, dbs); when files changed HQ runs the project's checks (config verify.checks per project, else npm test / pytest in venv or .venv, 5 min cap); then it compares the report's "What I did" with the real changes (claimed files that didn't change, code work with no change, "tests pass" when they failed). Any failure = "needs a look" (task status issue, ⚠ notification, red tile); a "Checked by HQ" block is appended to the report; unreported changes are noted. Only the latest check of a task counts, so a reply that fixes it clears the flag. Build prompts now say HQ will check. Tests: docs/validation-2026-10-08/verify-test.mjs 10/10; initiative 8/8, phase0 8/8; autonomy-test has 2 failures that also fail on the committed code before this change (not caused by it).
 

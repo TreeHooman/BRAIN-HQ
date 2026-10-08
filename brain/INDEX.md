@@ -1,6 +1,6 @@
 # HQ index
 
-_Auto-generated 2026-10-07 19:59. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-07 20:09. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
@@ -13,7 +13,7 @@ _Auto-generated 2026-10-07 19:59. Don't edit; change project.json files instead.
 | frontier-plan | strategy | planned | unknown | Collect scaling ideas here as they come up; review after the mid-Feb 2027 decision. | 2026-10-05 |
 | ai-hockey | product | live | good | Check HANDOFF.md in the repo for what's left; confirm the hosting PC auto-update is healthy. | 2026-10-05 |
 | blueprint-estimator | product | paused | unknown | Owner: is this still active? Last work was pre-calibration prep (4 Jul). | 2026-10-05 |
-| luthur | tool | building | good | Build the daily debrief (docs/AUTONOMY-DESIGN.md: next after verify-before-done). Verify-before-done is built and tested on a copy (10/10); its first real check is the owner check "Verify" in plan.md. | 2026-10-08 |
+| luthur | tool | building | good | Build the daily debrief (docs/AUTONOMY-DESIGN.md: next after verify-before-done, which is live and owner-confirmed). | 2026-10-08 |
 
 ## Due in the next 14 days
 - 2026-10-07 18:00 Phase 0 housekeeping is due tomorrow: check what's left [loancentral]
