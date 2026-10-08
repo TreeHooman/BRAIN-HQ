@@ -104,6 +104,33 @@
     "createdAt": "2026-10-07T22:02:40.503Z"
   },
   {
+    "id": "rmuz1ojaisbk2",
+    "title": "Dentist appointment",
+    "due": "2026-10-08T12:00",
+    "repeat": null,
+    "done": true,
+    "notifiedAt": null,
+    "createdAt": "2026-10-08T04:37:00.714Z"
+  },
+  {
+    "id": "rmuz1p8mpbqir",
+    "title": "jerk off appointment at 12:00",
+    "due": "2026-10-08T12:00",
+    "repeat": null,
+    "done": true,
+    "notifiedAt": null,
+    "createdAt": "2026-10-08T04:37:33.553Z"
+  },
+  {
+    "id": "rmuyz6l6zk2x1",
+    "title": "Dentist appointment",
+    "due": "2026-10-08T12:30",
+    "repeat": null,
+    "done": false,
+    "notifiedAt": null,
+    "createdAt": "2026-10-08T03:27:04.139Z"
+  },
+  {
     "id": "r-seed-4",
     "title": "Decide the Discord interest-rate + ID/paystub policy",
     "due": "2026-10-10T12:00",
@@ -142,14 +169,5 @@
     "done": false,
     "notifiedAt": null,
     "createdAt": "2026-10-05T12:00:00Z"
-  },
-  {
-    "id": "rmuyz6l6zk2x1",
-    "title": "Dentist appointment",
-    "due": "2026-10-08T12:30",
-    "repeat": null,
-    "done": false,
-    "notifiedAt": null,
-    "createdAt": "2026-10-08T03:27:04.139Z"
   }
 ]

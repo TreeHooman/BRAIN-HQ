@@ -1,24 +1,27 @@
 # Log
 
-## 2026-10-08 06:55 · claude
+## 2026-10-08 04:55 · claude
+Owner: "better but still not great". Chat history 04:33-04:38 UTC shows unnamed room speech still answered and stop phrases sent to the model (it replied "Quiet." out loud), but the restart had not happened (scripts/pc-wake.exe.next still waiting), so the voice fixes were likely not loaded yet. Widened local stop handling in web/wake-idle.js (no model call, no reply): shut (the fuck) up, be/go quiet, hold up/on, turn off (only at the end or "turn off now/please/Luther"), go away, fuck off, leave me alone, "not talking to you", "talking to my friend", plus utterances made only of stop words and filler ("no no stop stop stop"). Ending on "hey Luther" counts as calling him back, not a stop. Checked against the real phrases from the history. Corrected today's Claude log entry times to UTC commit times.
+
+## 2026-10-08 03:42 · claude
 Stop means stop (owner ask): "Luther stop", "stop", "shut up", "stop listening", "go to sleep", "that's all", "never mind", "goodbye" now all go quiet at once, mute the answer still on its way (and any other speech), close the conversation and listen only for "Hey LUTHUR"; the next accepted request lifts the mute (web/wake-idle.js stopTalking, wrapping force-stop.js hushSpeech + speak/speakAlways). Plain "stop" always gets through, even without the name. "Force stop" unchanged.
 
-## 2026-10-08 06:40 · claude
+## 2026-10-08 03:38 · claude
 Side panel fix (owner: "doesn't pop up when I don't have LUTHUR open"). The main window told the server it was on screen whenever document.visibilityState was "visible", which stays true when the window is just behind other windows, so the wake word went to the hidden main window and the hologram never opened. It now also requires document.hasFocus() (web/voice.js), so unless LUTHUR is the window in use, "Hey LUTHUR" opens the side panel.
 
-## 2026-10-08 06:20 · claude
+## 2026-10-08 03:33 · claude
 Voice fixes (owner: "listens when I'm not talking to him", "5 s of silence"). Chat history showed room noise sent as turns ("a", "s", "has", "UNITA a bad") and "Luther stop listening" sent as a question. (1) Name required: after a request is answered LUTHUR goes straight back to "Hey LUTHUR" (0.7 s, was a 5 s open follow-up window); while a conversation is open, more speech only counts if it used the name or interrupted him. Settings → Voice "Follow-up questions without the name" turns the old behaviour back on (localStorage hq-followup). (2) One-word fragments are dropped unless a real reply (yes/no/stop/…). (3) "Stop listening / go to sleep / that's all / never mind / goodbye" end the conversation. (4) PC wake listener (scripts/pc-wake.cs): open dictation now competes with the name so random speech no longer maps onto "luther"; thresholds 0.8 / 0.65 and the text must start with the name. New exe staged as scripts/pc-wake.exe.next (swapped in by RESTART-LUTHUR; commit pc-wake.exe after). (5) Speed: measured a bare claude -p reply at ~1.3 s startup / ~3 s total; turn-end silence was 1.8 s (3.2 s after the wake word). Now 1 s default (Settings: 0.7 / 1 / 1.6 / 2.4 s, key hq-turn-pause2; trailing "and/um" still waits longer), and the reply poll is 250 ms while waiting. Tried keeping Claude warm: claude -p waits max 3 s for stdin and stream-json input only starts on the first message, so no gain there.
 
-## 2026-10-08 05:40 · claude
+## 2026-10-08 03:21 · claude
 Built the evening debrief (owner chose 21:00). New src/lib/debrief.ts words it; orchestrator.debrief() gathers today's reported tasks (done / partly / needs a look), background runs and failures, approvals waiting, brain changes, initiative picks, tomorrow's milestones and reminders, overdue count. No model call. Written once a day to data/debriefs/<date>.md at config debrief.hour; one 🌙 phone alert only if something happened. "Evening debrief" card on Today (shown until noon next day) with a "So far today" preview; GET /api/debrief. Tests: debrief-test.mjs 5/5; verify 11/11 and initiative 8/8 still pass.
 
-## 2026-10-08 05:00 · claude
+## 2026-10-08 03:14 · claude
 Owner approved both initiative picks; both reports were useful (Reddit recusal rule drafted into the brain, nothing posted; LoanCentral Phase 0 consolidated into an 8-item owner checklist, honestly "Partly done"). Fixes: (1) Tasks page flicker: lists compared with box.innerHTML, which the browser re-serializes, so every poll redrew every card and the injected "Edit / details" button popped in and out. Now compare with the last drawn string (live.js task list, live lines, code tiles; live-builds.js) and the task card draws its own Edit / details button. (2) New task status "partly" (amber "partly done", 🟡 alert) when the latest report says Result: Partly; goal steps stay open. verify-test.mjs now 11/11. Owner chose 21:00 for the evening debrief (next build).
 
-## 2026-10-08 04:25 · claude
+## 2026-10-08 03:09 · claude
 Owner check passed: after the restart, a build task on GenBot ("Add a line saying verify test to LUTHUR-TEST.md") ended with "Checked by HQ: ✓ matches the report · 1 file changed", Changed: GenBot/LUTHUR-TEST.md, no project checks found. Verify-before-done works live.
 
-## 2026-10-08 04:10 · claude
+## 2026-10-08 03:00 · claude
 Committed + pushed the initiative work (323b98f). Built verify-before-done: new src/lib/verify.ts. A build run on a project with folders is snapshotted before/after (skips node_modules, venv, __pycache__, logs, dbs); when files changed HQ runs the project's checks (config verify.checks per project, else npm test / pytest in venv or .venv, 5 min cap); then it compares the report's "What I did" with the real changes (claimed files that didn't change, code work with no change, "tests pass" when they failed). Any failure = "needs a look" (task status issue, ⚠ notification, red tile); a "Checked by HQ" block is appended to the report; unreported changes are noted. Only the latest check of a task counts, so a reply that fixes it clears the flag. Build prompts now say HQ will check. Tests: docs/validation-2026-10-08/verify-test.mjs 10/10; initiative 8/8, phase0 8/8; autonomy-test has 2 failures that also fail on the committed code before this change (not caused by it).
 
 ## 2026-10-07 19:55 · claude

@@ -14,10 +14,13 @@ upConversation=function(on){
 // - Fragments the mic picked up from the room ("a", "s", "has") are dropped: one word only counts if it's a real reply.
 // - "Stop listening", "go to sleep", "that's all", "never mind", "goodbye" end the conversation and go back to the name.
 const SHORT_REPLY=/^(yes|yeah|yep|yup|no|nope|nah|sure|okay|ok|thanks|thank you|stop|continue|go|done|cancel|repeat|again|next|why|what|how|when|where|who|both|neither|later|now)$/;
-const END_TALK=/\b(stop listening|go to sleep|that'?s all|that is all|never ?mind|good ?bye|bye bye|you can go|i'?m done|we'?re done)\b/;
+const END_TALK=/\b(stop listening|stop talking|shut (?:the (?:fuck|hell) )?up|be quiet|go quiet|hold (?:up|on)|turn (?:it |yourself )?off(?= *$| (?:you|luthw*|now|please))|go away|fuck off|leave me alone|not talking to you|talking to (?:my |a )?(?:friend|someone|somebody|people)|go to sleep|that'?s all|that is all|never ?mind|good ?bye|bye bye|you can go|i'?m done|we'?re done)\b/;
+// "No no stop stop stop", "okay Luther stop man": only stop words and filler → stop, without asking the AI.
+const STOP_ONLY=new Set(['stop','no','okay','ok','please','hey','luther','luthur','luthor','lutha','man','dude','just','now','again','right','wait','hold','up','on']);
 // "Stop" in any form (owner ask, 2026-10-08): "Luther stop", "stop", "shut up" (force-stop.js hushSpeech) and the
 // END_TALK phrases all do the same: go quiet now, don't speak the answer still on its way, close the conversation,
 // and listen only for "Hey LUTHUR". Saying the name again lifts the mute. "Force stop" keeps its own behaviour.
+const isForceStopSafe=text=>typeof isForceStop==='function'&&isForceStop(text);
 function stopTalking(){
   WakeIdle.muted=true;window.speechSynthesis?.cancel();
   speechClearTurn();if(UPG.conversation)upConversation(false);speechStatus('wake');
@@ -29,7 +32,10 @@ const idleSpeakAlways=speakAlways;speakAlways=function(text,onEnd){if(WakeIdle.m
 const idleVoiceCommand=voiceCommand;
 voiceCommand=function(text){
   const t=String(text||'').toLowerCase().replace(/[.,!?]+/g,' ').replace(/\s+/g,' ').trim(), words=t.match(/[a-z0-9']+/g)||[];
-  if(END_TALK.test(t)&&words.length<=8){stopTalking();return;}
+  // Ending on "hey Luther" calls him back, so that isn't a stop ("okay Luther stop… hey Luther").
+  const callsBack=/\bhey (?:luther|luthur|luthor)$/.test(t);
+  if(!callsBack&&END_TALK.test(t)&&words.length<=14&&!isForceStopSafe(text)){stopTalking();return;}
+  if(!callsBack&&words.includes('stop')&&words.every(w=>STOP_ONLY.has(w))){stopTalking();return;}
   // "Stop" / "force stop" always get through to force-stop.js, even without the name.
   if(typeof isStopRequest==='function'&&(isStopRequest(text)||isForceStop(text)))return idleVoiceCommand(text);
   if(words.length<2&&!SHORT_REPLY.test(t))return;
