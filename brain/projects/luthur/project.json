@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Restart LUTHUR so autonomy phases 0-4 and the email/calendar watcher go live (turn the Inbox on for email cards). Next build: memory search.",
+  "nextStep": "Restart LUTHUR so the live Code view, memory search and today's fixes go live. Approve the Codex LUTHUR-TEST.md task (reject the README one) and watch it on the Code page.",
   "updated": "2026-10-07",
   "paths": [],
   "repos": [],

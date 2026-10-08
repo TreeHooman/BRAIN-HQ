@@ -724,3 +724,11 @@ html, body { overflow-x: hidden; }
 .up-msg { font: 13px var(--font, sans-serif); color: var(--text2, #b3c1da); min-height: 1.4em; } .up-msg code { color: var(--uc); }
 .up-log { max-width: min(90vw, 640px); display: grid; gap: 8px; justify-items: center; } .up-log pre { max-height: 200px; overflow: auto; text-align: left; white-space: pre-wrap; font: 11.5px/1.45 var(--mono, monospace); color: var(--text2); background: rgba(0, 0, 0, .35); border-radius: 8px; padding: 10px; margin: 0; }
 @media (prefers-reduced-motion: reduce) { .up-over *, .up-over *::before, .up-over *::after { animation: none !important; } }
+/* Background code changes (live-builds.js): live tiles above the workrooms and a step-by-step drawer. */
+#lvBuilds .lb-label { font: 600 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 4px 2px 8px; }
+#lvBuilds .lb-grid { margin-bottom: 16px; }
+.lv-tile .rs.a { color: var(--green); } .lv-tile .rs.d { color: var(--red); }
+.lb-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding: 14px 16px 10px; border-bottom: 1px solid var(--border); }
+.lb-head .a { color: var(--green); } .lb-head .d { color: var(--red); }
+.lb-steps { flex: 1; min-height: 0; overflow: auto; margin: 10px 16px; align-content: start; }
+.lb-done { padding: 0 16px 14px; }

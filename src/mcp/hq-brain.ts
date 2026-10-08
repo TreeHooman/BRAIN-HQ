@@ -9,6 +9,7 @@ import { DATA, DROP, uid, writeJson } from "../lib/store.ts";
 import * as brain from "../lib/brain.ts";
 import * as audit from "../lib/brain-audit.ts";
 import { memorySearch } from "../lib/chat-memory.ts";
+import { memorySearchText } from "../lib/memory-search.ts";
 import * as preferences from "../lib/preferences.ts";
 import { createAlarmRequest } from "../lib/iphone-alarm.ts";
 import { searchCodexChats } from "../lib/codex-transcripts.ts";
@@ -173,6 +174,9 @@ const tools: Tool[] = [
       }
       return out.length ? out.join("\n") : "All clear: nothing stale, overdue or failing.";
     } },
+  { name: "memory_search", description: "Search everything LUTHUR remembers at once (project summaries/plans/logs, decisions, preferences, goals, dates, reminders, briefs, past answers, chat memories), ranked. Use first when the owner refers to anything from before.",
+    inputSchema: S({ query: str("what to find, in plain words"), project: str("optional project slug"), source: str("optional: log, plan, summary, decisions, goal, date, reminder, brief, answer, chat memory, preferences"), limit: { type: "number", description: "max results (default 8, max 30)" } }, ["query"]),
+    run: a => memorySearchText(String(a.query || ""), { project: a.project || undefined, source: a.source || undefined, limit: Number(a.limit) || 8 }) },
   { name: "chat_memory_search", description: "Search durable Markdown memories distilled from retired LUTHUR chats. Use for earlier decisions, findings, preferences and unfinished work.", inputSchema: S({ query: str("words to find") }), run: a => memorySearch(String(a.query || "")).map(m => `${m.file}\n${m.text}`).join("\n\n").slice(0, 24000) || "No matching chat memories." },
   { name: "history_search", description: "Search LUTHUR's saved past answers (chats, Code sessions, explanations, quest briefings, missions, email drafts). Use when the owner refers to something discussed before. Newest first.",
     inputSchema: S({ query: str("words to find (all must match)"), project: str("optional project slug"), limit: { type: "number", description: "max results (default 5, max 20)" } }, ["query"]),
@@ -296,7 +300,7 @@ const tools: Tool[] = [
 ];
 
 // Every tool definition is sent with every model call, so coding runs get only the brain tools they use (~45 -> ~16).
-const CODE_SET = new Set(["hq_index", "project_get", "project_log", "project_update", "project_write", "goal_list", "goal_step_done", "decision_log", "recent_decisions", "history_search", "chat_memory_search", "request_approval", "list_reminders", "reminder_add", "list_milestones", "milestone_add"]);
+const CODE_SET = new Set(["hq_index", "project_get", "project_log", "project_update", "project_write", "goal_list", "goal_step_done", "decision_log", "recent_decisions", "memory_search", "history_search", "request_approval", "list_reminders", "reminder_add", "list_milestones", "milestone_add"]);
 const TOOLSET = process.env.HQ_TOOLSET || (RUN_ID.startsWith("code-") ? "code" : "");
 const visible = tools.filter(t => (TOOLSET !== "code" || CODE_SET.has(t.name)) && (!t.write || CAN_WRITE) && (!t.chatOnly || IS_CHAT) && (!t.name.startsWith("screen_") || !!ACTIVE_FILE) && !(String(process.env.HQ_RUN_ID||'').startsWith('code-')&&t.name==='queue_followup'));
 

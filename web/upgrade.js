@@ -155,7 +155,8 @@ function upHubNav(el,kind,current) {
 vProjects=async function(el){if(route.arg==="roadmap"){await upRoadmap(el);upHubNav(el,"projects","roadmap");}else{await upProjects(el);upHubNav(el,"projects","projects");}};
 vAssistant=async function(el){if(route.arg==="missions"){await upMissions(el);upHubNav(el,"assistant","missions");}else{await upAssistant(el);upHubNav(el,"assistant","assistant");const note=document.createElement("p");note.className="small muted";note.textContent="War Room and this conversation share one chat. Find older conversations in Saved chats; coding chats stay under Code.";el.querySelector(".up-nav").after(note);}};
 const upHistory=vHistory;
-vHistory=async function(el){if(route.arg==="chats")HIS.tab="chats";await upHistory(el);};
+// #history/chats opens on Chats once per visit; later tab clicks must not snap back.
+vHistory=async function(el){if(route.arg==="chats"&&HIS.entered!==location.hash)HIS.tab="chats";HIS.entered=location.hash;await upHistory(el);};window.addEventListener("hashchange",()=>{HIS.entered=null;});
 for(const [k] of VIEWS){const v=VIEWS.find(x=>x[0]===k);if(k==="home")v[1]="Daily";if(k==="command")v[1]="War Room";}
 document.querySelector('#nav [data-view="home"] span')?.replaceChildren("Daily");
 for(const view of ["missions","roadmap"]){const a=document.querySelector(`#nav a[data-view="${view}"]`);if(a){a.hidden=true;a.style.display="none";}}
@@ -310,7 +311,7 @@ document.getElementById('view').addEventListener('click',e=>{
   else if(hash==='home'||hash==='calendar')scrGo({k:'agenda',days:1});
   else if(hash==='tasks'||hash==='missions')upScreen({kind:hash});
   else if(hash==='planner'||hash==='roadmap')upScreen({kind:'goals'});
-  else if(hash==='history'||hash==='history/chats'){HIS.tab=hash.endsWith('/chats')?'chats':'answers';upScreenView('history');}
+  else if(hash==='history'||hash==='history/chats'){HIS.tab=hash.endsWith('/chats')?'chats':'all';upScreenView('history');}
   else if(hash==='outbox')upScreenView('outbox');
 },true);
 

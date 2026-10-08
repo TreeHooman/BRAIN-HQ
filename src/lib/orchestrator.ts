@@ -189,7 +189,7 @@ export function forceStop(){
   setStopped(true);
   if(chatControl){chatControl.cancelled=true;killTree(chatControl.pid);}
   for(const run of runCache.values())if(OPEN.has(run.status))cancelRun(run.id);
-  const work=readJson<Record<string,any>>(GOAL_WORK,{});for(const goal of Object.values(work))goal.active=false;writeJson(GOAL_WORK,work);
+  const work=goalWork();for(const goal of work)goal.active=false;writeJson(GOAL_WORK,work);
   ingestDrop();activity('owner-force-stop');return {stopped:true};
 }
 export function resumeWork(){if(chatBusy||active.size)throw new Error('LUTHUR is still stopping. Wait a moment, then resume.');setStopped(false);kick();return {stopped:false};}
@@ -221,7 +221,7 @@ export function opStart(o: Omit<Op, "startedAt" | "status" | "steps" | "calls" |
   return s => {
     const op = ops.get(o.id); if (!op) return;
     const i = op.steps.findIndex(x => x.id === s.id);
-    if (i >= 0) op.steps[i] = { ...s };
+    if (i >= 0) { const prev = op.steps[i]; op.added += (s.added || 0) - (prev.added || 0); op.removed += (s.removed || 0) - (prev.removed || 0); op.steps[i] = { ...s }; }
     else {
       op.steps.push({ ...s });
       if (s.kind === "tool") { op.calls++; op.added += s.added || 0; op.removed += s.removed || 0; }
@@ -447,7 +447,7 @@ function missionPrompt(run: Run, level: Level, minutes: number): string {
   return [
     `# HQ mission: ${run.title}`,
     `Run id: ${run.id} · trigger: ${run.trigger}${run.parentRun ? ` · follow-up of ${run.parentRun}` : ""}`,
-    `Scope: ${proj ? `project "${proj.slug}" (${proj.name}). Read brain/projects/${proj.slug}/SUMMARY.md first. Folders: ${(proj.paths || []).join("; ") || "none"}` : "HQ-wide. Start with hq_index."}`,
+    `Scope: ${proj ? `project "${proj.slug}" (${proj.name}). Read its SUMMARY first with the hq-brain tool project_get (slug "${proj.slug}", part "summary"), not with shell commands. Folders: ${(proj.paths || []).join("; ") || "none"}` : "HQ-wide. Start with hq_index."}`,
     `Permission: ${levelText}`,
     `Time limit: about ${minutes} minutes. If you can't finish, log progress with project_log and queue_followup the rest.`,
     "",
@@ -462,7 +462,7 @@ function missionPrompt(run: Run, level: Level, minutes: number): string {
     ] : []),
     "## Finish",
     "Patch the brain if facts changed (project_update / project_log / decision_log / reminder_add).",
-    run.taskId ? "End with a short report for the owner: **Result** (1-2 lines), **What I did** (bullets), **Needs you** (approvals, outbox drafts, decisions; or \"Nothing\")." : "End with a 3-6 line summary.",
+    run.taskId ? "End with a short report for the owner: **Result** (1-2 lines, starting with Done, Partly done or Not completed), **What I did** (bullets), **Needs you** (approvals, outbox drafts, decisions; or \"Nothing\")." : "End with a 3-6 line summary.",
   ].join("\n");
 }
 
@@ -514,8 +514,9 @@ async function execute(run: Run) {
   if (provider === "codex") recordHistory(res, options, "codex");
   } finally { active.delete(run.id); }
   const cancelled = slot.cancelled;
-  opEnd(run.id, res.ok && !cancelled,!!cancelled);
   handleResult(run, res, !!cancelled);
+  // After handleResult, so a clean exit that reports "Not completed" shows as failed on the live tiles too.
+  opEnd(run.id, run.status === "done" && !cancelled, !!cancelled);
 }
 
 function handleResult(run: Run, res: RunResult, cancelled: boolean) {
@@ -559,6 +560,9 @@ function handleResult(run: Run, res: RunResult, cancelled: boolean) {
     Object.assign(run, { status: "timeout", endedAt: now, output: res.text });
   } else if (!res.ok) {
     Object.assign(run, { status: "failed", endedAt: now, error: res.text });
+  } else if (/\*\*Result:?\*\*:?\s*(Not completed|Not done|Failed|Blocked)/i.test(res.text)) {
+    // The agent exited cleanly but says it did not do the job: show it as failed, not a green "done".
+    Object.assign(run, { status: "failed", endedAt: now, output: res.text, error: res.text });
   } else {
     Object.assign(run, { status: "done", endedAt: now, output: res.text });
     if (run.missionId) patchState(s => { s.sig[run.missionId!] = fingerprint(run.watch?.length ? run.watch : ["brain"]); });
@@ -657,7 +661,8 @@ export function tasks(limit = 30) {
 // Workstreams use the existing task scheduler, budget and permission ceiling. No new engine or API billing.
 type GoalWork = { goalId: string; permission: string; tier: string; active: boolean; steps: Record<string, string>; finished?: Record<string, string> };
 const GOAL_WORK = path.join(DATA, "goal-work.json");
-export function goalWork() { return readJson<GoalWork[]>(GOAL_WORK, []); }
+// A damaged file (e.g. "{}") must not crash the tick and stall every queued run.
+export function goalWork() { const all = readJson<GoalWork[]>(GOAL_WORK, []); return Array.isArray(all) ? all : []; }
 export function startGoalWork(goalId: string, permission = "plan", tier = "balanced") {
   const g = brain.listGoals().find(g => g.id === goalId); if (!g?.steps.length) throw new Error("Add goal steps first.");
   const all = goalWork(); let work = all.find(w => w.goalId === goalId);
@@ -828,7 +833,7 @@ export async function sendChat(text: string, opts: ModelChoice & { project?: str
     "For your final reply, start with <spoken>one natural sentence of at most 25 words summarizing the result or next action</spoken>. No Markdown inside the tag. Then give the complete written answer without repeating the spoken sentence verbatim. The tag is used only for speech and is hidden from the written chat.",
     "Be brief and concrete. Read brain context only as needed (hq_index first).",
     "For ordinary conversation answer directly without unnecessary checks or tools. Start with the useful answer; avoid long preambles. Inspect only the sources needed for factual or action requests. Keep spoken replies natural and short, with further detail in the written response.",
-    "Be the owner's operational assistant: handle checks, bug diagnosis, scoped fixes, review passes and reports. For 'what is the issue' or 'possible fixes', inspect and explain evidence, likely cause, options and your recommendation before writing. When authorized to fix, execute within permissions and verify. Open the affected project/file with show_on_screen before work so the owner can follow it. Report what changed, checks run, remaining risks and next steps. The dashboard shows actual tool progress; never invent progress or claim untested work passed. Search chat_memory_search when earlier context has been distilled from old chats.",
+    "Be the owner's operational assistant: handle checks, bug diagnosis, scoped fixes, review passes and reports. For 'what is the issue' or 'possible fixes', inspect and explain evidence, likely cause, options and your recommendation before writing. When authorized to fix, execute within permissions and verify. Open the affected project/file with show_on_screen before work so the owner can follow it. Report what changed, checks run, remaining risks and next steps. The dashboard shows actual tool progress; never invent progress or claim untested work passed. When the owner refers to anything from before (a past decision, chat, plan or date), search memory_search first.",
     preferences.context(c.project || undefined, c.personality === "challenger"),
     "Keep learning the owner while you talk, inside the normal turn (no extra calls just for this): an explicit instruction or correction goes to preference_remember; a clear pattern in what they ask, accept, reject or correct goes to preference_suggest (active at once). Mention it in one short line. Use what you know to anticipate: when the next step is obvious from their preferences and recent work, offer it or, if it is safe and within permission, just do it and say so.",
     c.personality === "challenger" ? "You are Challenger: test the owner's current thought from customer, financial, technical, competitive and long-term angles only where relevant. Separate evidence from hunches. Give the strongest counterview and a constructive recommendation. Follow direct orders exactly; do not manufacture disagreement or start extra agents unless useful." : "",

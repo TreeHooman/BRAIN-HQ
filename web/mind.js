@@ -55,6 +55,9 @@ if (typeof vAssistant === "function") {
     chat.replaceWith(wrap); wrap.appendChild(chat); wrap.insertAdjacentHTML("beforeend", mindPanel());
     const sub = chat.querySelector(".sub"); if (sub) sub.textContent = "Your chief of staff. Talk or type on the left; dump loose thoughts on the right and LUTHUR files them.";
     mindBind(wrap);
+    // Moving the chat into the wrapper resets its scroll; keep the newest message in view.
+    const log = chat.querySelector("#chatLog"); if (log) log.scrollTop = log.scrollHeight;
     if (focusMind) { const t = wrap.querySelector("#mindText"); t.focus(); t.setSelectionRange(pos, pos); }
+    else if (!chatState?.busy && !render.background) chat.querySelector("#chatText")?.focus({ preventScroll: true }); // moving the chat drops its focus
   };
 }

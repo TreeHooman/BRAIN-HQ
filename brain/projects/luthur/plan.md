@@ -10,9 +10,8 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 4. Later: Obsidian notes (see docs/BACKLOG.md). Guarded computer control: first version done 2026-10-07.
 
 ## Owner checks
-- Email/calendar watcher: restart LUTHUR, turn the Inbox on (War Room), then add or move an event in Google Calendar. Within a few minutes a "New event"/"Moved" card shows in Needs you and on your phone; × dismisses it.
-- Autonomy: open Missions & approvals. Brain changes should list what LUTHUR changed; try Undo on one log entry. Add a rule (e.g. plan-level tasks for GenBot): it shows "trial until" a week from now.
-- Phase 0 guard: restart LUTHUR, then give a small build task to Codex on GenBot. It should finish normally, and nothing should appear in data/guard/. If you get a "LUTHUR undid a protected change" alert, tell Claude.
+- Chat: open LUTHUR → Conversation; it starts on the newest message and stays there after you send. The Claude and Codex usage lines above it don't overlap.
+- Memory search in chat: ask LUTHUR "what did we decide about the discord interest rate?" in the Message box; it should answer from memory. (History → Search all confirmed 2026-10-07.)
 - ElevenLabs: Settings → Voice → paste the sk_ key, Save, Preview: LUTHUR speaks in the "LUTHUR" voice. With no credits it falls back to a British device voice.
 - Voice noise: talk with fans/wind going; when you stop, LUTHUR shows "Say Hey LUTHUR" after ~5 s and ignores everything until you say the name.
 - War Room conversation panel: opens on the newest message and stays there as replies arrive.
@@ -22,7 +21,6 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 - PC control: say "Luther, pull up YouTube in Chrome", "open Spotify", then "find red running shoes on Amazon" (LUTHUR's browser on the War Room). It must ask before anything like Buy or Send.
 - Voice: while LUTHUR is talking, say "Luther, open my calendar": it should stop and do the new request. Screens should open while it is still answering.
 - Voice: LUTHUR starts speaking before the full answer is done, and waits when you trail off on "and…" or "um…".
-- Restart LUTHUR (scripts/RESTART-LUTHUR.cmd) and refresh so the 2026-10-07 token fixes and auto handoff go live.
 - Say "Hey LUTHUR" with the app minimized: the hologram opens, listens and answers in your voice choice.
 - Hologram stays on top and see-through; drag it by the title bar.
 - First real Outbox email send from a Workspace account with writing allowed.

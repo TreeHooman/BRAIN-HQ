@@ -168,9 +168,11 @@ function render() {
   if (render.background && $("#calUrl")?.value) return; // keep a pasted calendar address
   const el = $("#view"), bg = !!render.background;
   el.dataset.view = route.view;
-  Promise.resolve(fn(el)).then(() => { if (typeof hudAfterRender === "function") hudAfterRender(el, bg); });
+  Promise.resolve(fn(el)).then(() => { if (render.nav && !bg) { render.nav = false; scrollTopAll(); } if (typeof hudAfterRender === "function") hudAfterRender(el, bg); });
 }
-window.addEventListener("hashchange", () => { parseHash(); editing = null; render(); $("#view").scrollTop = 0; window.scrollTo(0, 0); });
+// A new page starts at the top. The body is the scroll box in the HUD layout, and the view renders async, so reset now and once it has drawn.
+const scrollTopAll = () => { $("#view").scrollTop = 0; document.body.scrollTop = 0; document.documentElement.scrollTop = 0; window.scrollTo(0, 0); };
+window.addEventListener("hashchange", () => { parseHash(); editing = null; render.nav = true; render(); scrollTopAll(); });
 
 // ---------------- views ----------------
 function reminderList(items, empty = "Nothing here.") {
@@ -608,7 +610,7 @@ async function vAssistant(el) {
   $("#voiceToggle").onclick = () => { try { localStorage.setItem("hq-voice", voiceOn() ? "0" : "1"); } catch {} if (voiceOn()) speak(`Voice on. At your service.`); else speechSynthesis?.cancel(); render.background = false; vAssistant(el); };
   $("#micBtn").onclick = () => listen((t, done) => { $("#chatText").value = t; if (done) send(t); }, on => $("#micBtn")?.classList.toggle("live", on));
   if (sessionStorage.getItem("hq-listen") === "1") { sessionStorage.removeItem("hq-listen"); $("#micBtn").click(); }
-  if (!c.busy) $("#chatText").focus();
+  if (!c.busy) $("#chatText").focus({ preventScroll: true }); // focusing must not scroll the page past the header
   if (c.busy) pollChat();
   if (typeof usageRingPoll === "function") usageRingPoll();
 }

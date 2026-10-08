@@ -34,6 +34,8 @@
 #view[data-view="assistant"] .chat-tier { margin-bottom: 4px; }
 #view[data-view="assistant"] .chat-claude-usage { padding: 2px 10px; min-height: 0; font-size: 11px; gap: 8px; border-radius: 8px; margin: 2px 0; }
 #view[data-view="assistant"] .chat-claude-usage small { display: none; }
+/* The chat column is a fixed-height flex box: without this the usage lines shrink to a few px and draw over each other. */
+.chat > .chat-claude-usage { flex-shrink: 0; }
 #view[data-view="assistant"] .chat-log { min-height: max(320px, calc(100dvh - 430px)); }
 
 /* Code: talk to LUTHUR box */

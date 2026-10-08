@@ -1,6 +1,6 @@
 # HQ index
 
-_Auto-generated 2026-10-07 15:25. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-07 18:03. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
@@ -8,12 +8,12 @@ _Auto-generated 2026-10-07 15:25. Don't edit; change project.json files instead.
 | loancentral-discord | product | building | good | Do the lender-claim test on test ticket REQ-0002 in the main server (preview). | 2026-10-05 |
 | reddit | workstream | building | risk | Draft the Data Access Request resubmission (deadline 31 Oct). | 2026-10-05 |
 | neuroweb | product | idea | unknown | Owner: tell the assistant what NeuroWeb is (one or two lines) so it can fill this in. | 2026-10-05 |
-| genbot | product | paused | unknown | Owner: confirm GenBot = GenBets-P and say what it does. | 2026-10-05 |
+| genbot | product | paused | unknown | Owner: confirm GenBot = GenBets-P and say what it does. | 2026-10-07 |
 | borrow-fast | business | planned | unknown | Write the one-page concept: where it lives, who it's for, how it differs from LoanCentral. | 2026-10-05 |
 | frontier-plan | strategy | planned | unknown | Collect scaling ideas here as they come up; review after the mid-Feb 2027 decision. | 2026-10-05 |
 | ai-hockey | product | live | good | Check HANDOFF.md in the repo for what's left; confirm the hosting PC auto-update is healthy. | 2026-10-05 |
 | blueprint-estimator | product | paused | unknown | Owner: is this still active? Last work was pre-calibration prep (4 Jul). | 2026-10-05 |
-| luthur | tool | building | good | Restart LUTHUR so autonomy phases 0-4 go live. In Missions & approvals, add your first rule (it starts a 7-day trial) and check Brain changes + Undo. Next build: watch email/calendar streams into Needs-you cards, then memory search. | 2026-10-07 |
+| luthur | tool | building | good | Restart LUTHUR so the live Code view, memory search and today's fixes go live. Approve the Codex LUTHUR-TEST.md task (reject the README one) and watch it on the Code page. | 2026-10-07 |
 
 ## Due in the next 14 days
 - 2026-10-07 18:00 Phase 0 housekeeping is due tomorrow: check what's left [loancentral]

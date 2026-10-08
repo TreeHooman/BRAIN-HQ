@@ -1,6 +1,6 @@
 // LUTHUR answers and local Claude/Codex chats. External Codex transcripts are read on demand, never copied into brain.
 "use strict";
-const HIS = { q: "", kind: "", project: "", open: new Set(), data: null, tab: "answers", chats: null, chatOpen: null, chatBody: null };
+const HIS = { q: "", kind: "", project: "", open: new Set(), data: null, tab: "all", all: null, chats: null, chatOpen: null, chatBody: null };
 const HIS_LINK = e => /^code-/.test(e.ref) ? "#code" : /^chat-/.test(e.ref) ? "#assistant" : e.kind === "Mission" ? "#missions" : e.project ? "#project/" + e.project : "";
 // Chats tab: LUTHUR chats plus locally accessible Claude and Codex sessions.
 async function vHistoryChats(el, head) {
@@ -19,8 +19,25 @@ async function vHistoryChats(el, head) {
   $$("[data-ccont]", el).forEach(b => b.onclick = async () => { await act(() => api(`/chats/${encodeURIComponent(b.dataset.ccont)}/continue`, "POST"), "Continuing in LUTHUR"); chatState = null; if(el.closest("#nvScreen")){Cmd.waiting=false;cmdShowReply(await api("/chat"),false);}else location.hash = "assistant"; });
 }
 async function vHistory(el) {
-  const tabs = `<div class="tabs his-tabs"><button type="button" data-htab="answers" class="${HIS.tab === "answers" ? "on" : ""}">Answers</button><button type="button" data-htab="chats" class="${HIS.tab === "chats" ? "on" : ""}">Chats</button><button type="button" data-htab="memory" class="${HIS.tab === "memory" ? "on" : ""}">Memory & cleanup</button></div>`;
-  const bindTabs = () => $$("[data-htab]", el).forEach(b => b.onclick = () => { HIS.tab = b.dataset.htab; render(); });
+  const tabs = `<div class="tabs his-tabs"><button type="button" data-htab="all" class="${HIS.tab === "all" ? "on" : ""}">Search all</button><button type="button" data-htab="answers" class="${HIS.tab === "answers" ? "on" : ""}">Answers</button><button type="button" data-htab="chats" class="${HIS.tab === "chats" ? "on" : ""}">Chats</button><button type="button" data-htab="memory" class="${HIS.tab === "memory" ? "on" : ""}">Memory & cleanup</button></div>`;
+  // Inside the War Room screen panel, render() would redraw the main page instead, so redraw this element.
+  const redraw = () => el.id === "view" ? render() : vHistory(el);
+  const bindTabs = () => $$("[data-htab]", el).forEach(b => b.onclick = () => { HIS.tab = b.dataset.htab; redraw(); });
+  if (HIS.tab === "all") {
+    // Memory search: one ranked search over projects, decisions, goals, dates, briefs, past answers and chat memories.
+    if (HIS.q && (!HIS.all || !render.background)) HIS.all = await api(`/memory/search?q=${encodeURIComponent(HIS.q)}&project=${encodeURIComponent(HIS.project)}`).catch(e => ({ error: e.message }));
+    const rows = HIS.q && Array.isArray(HIS.all) ? HIS.all : [];
+    const link = h => h.ref.startsWith("goal:") ? "#planner" : /^(date|reminder):/.test(h.ref) ? "#calendar" : h.project ? "#project/" + h.project : "";
+    el.innerHTML = `<div class="between"><div><h1>History</h1><p class="sub">Search everything LUTHUR remembers: project notes and logs, decisions, goals, dates, briefs, past answers and chat memories. Best matches first.</p></div></div>${tabs}
+      <div class="toolbar his-bar"><input id="hisQ" type="search" placeholder="What are you looking for? e.g. discord interest rate decision" value="${esc(HIS.q)}" aria-label="Search memory">
+        <select id="hisP">${projOptions(HIS.project, "All projects")}</select></div>
+      <div class="his-list">${HIS.all?.error ? `<div class="card danger">${esc(HIS.all.error)}</div>` : rows.map(h => `<div class="card his-row"><div class="his-head"><span class="pill his-k">${esc(h.source)}</span><b>${esc(h.title)}</b><span class="his-meta">${h.project ? esc(projName(h.project)) + " · " : ""}${h.at ? esc(h.at.slice(0, 10)) : ""}</span></div>
+        <div class="his-snip">${esc(h.snippet)}</div>${link(h) ? `<div class="row end"><a class="btn sm ghost" href="${link(h)}">Open</a></div>` : ""}</div>`).join("") || `<div class="wk-zero"><b>${HIS.q ? "Nothing matches" : "Type to search"}</b><span class="small muted">${HIS.q ? "Try fewer or different words." : "Any words work; the closest matches come first."}</span></div>`}</div>`;
+    bindTabs();
+    const q = $("#hisQ"); let t; q.oninput = () => { clearTimeout(t); t = setTimeout(async () => { HIS.q = q.value.trim(); HIS.data = null; const pos = q.selectionStart; await redraw(); const n = $("#hisQ"); n?.focus(); n?.setSelectionRange(pos, pos); }, 300); };
+    $("#hisP").onchange = e => { HIS.project = e.target.value; HIS.data = null; redraw(); };
+    return;
+  }
   if(HIS.tab === "memory") {
     const s=await api("/chat/retention"), memories=await api("/chat/memories");
     el.innerHTML=`<h1>Chat memory</h1>${tabs}<p class="sub">Old LUTHUR archives become Markdown notes containing decisions, findings and unfinished work. The original is removed only after the note is saved and verified. Active chats and outside Claude/Codex sessions are protected.</p><form id="chatRetention" class="form card"><label class="f">Keep full chats for this many days<input name="days" type="number" min="7" max="365" value="${s.days}" required></label><label><input name="enabled" type="checkbox" ${s.enabled?"checked":""}> Automatically clean old archives while idle</label><div class="row"><button class="btn sm">Save settings</button><button type="button" id="chatClean" class="btn sm ghost" ${s.busy?"disabled":""}>Save memory & clean old chats</button></div><p class="small muted">${s.memories} Markdown memories · up to two chats per daily cleanup · no chat is removed when extraction fails.</p>${s.last?`<p class="small">Last cleanup: ${esc(ago(s.last.at))} · ${s.last.removed} removed · ${s.last.kept} kept for review</p>`:""}</form>${memories.map(m=>`<details class="card"><summary>${esc(m.file)}</summary><div class="md">${md(m.text)}</div></details>`).join("")||"<p>No distilled chat memories yet.</p>"}`;
@@ -53,9 +70,9 @@ async function vHistory(el) {
     }).join("") || `<div class="wk-zero"><b>${HIS.q || HIS.kind || HIS.project ? "Nothing matches" : "Nothing saved yet"}</b><span class="small muted">Answers appear here as you use LUTHUR.</span></div>`}</div>`;
   bindTabs();
   let t; const q = $("#hisQ");
-  q.oninput = () => { clearTimeout(t); t = setTimeout(async () => { HIS.q = q.value.trim(); await load(); const pos = q.selectionStart; render(); const n = $("#hisQ"); n?.focus(); n?.setSelectionRange(pos, pos); }, 250); };
-  $("#hisP").onchange = async e => { HIS.project = e.target.value; await load(); render(); };
-  $$("[data-hk]", el).forEach(b => b.onclick = async () => { HIS.kind = b.dataset.hk; await load(); render(); });
-  $$("[data-htog]", el).forEach(b => b.onclick = () => { const id = b.dataset.htog; HIS.open.has(id) ? HIS.open.delete(id) : HIS.open.add(id); render.background = true; render(); render.background = false; });
+  q.oninput = () => { clearTimeout(t); t = setTimeout(async () => { HIS.q = q.value.trim(); await load(); const pos = q.selectionStart; await redraw(); const n = $("#hisQ"); n?.focus(); n?.setSelectionRange(pos, pos); }, 250); };
+  $("#hisP").onchange = async e => { HIS.project = e.target.value; await load(); redraw(); };
+  $$("[data-hk]", el).forEach(b => b.onclick = async () => { HIS.kind = b.dataset.hk; await load(); redraw(); });
+  $$("[data-htog]", el).forEach(b => b.onclick = () => { const id = b.dataset.htog; HIS.open.has(id) ? HIS.open.delete(id) : HIS.open.add(id); render.background = true; redraw(); render.background = false; });
   $$("[data-hcopy]", el).forEach(b => b.onclick = () => { const e = d.items.find(x => x.id === b.dataset.hcopy); navigator.clipboard?.writeText(e.answer).then(() => toast("Copied"), () => toast("Couldn't copy")); });
 }

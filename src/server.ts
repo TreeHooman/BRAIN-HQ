@@ -9,6 +9,7 @@ import * as orch from "./lib/orchestrator.ts";
 import { MODEL_CATALOG, validateChoice, explicitModel } from "./lib/model-policy.ts";
 import {isStopped,checkStopped} from './lib/stop-control.ts';
 import * as chatMemory from "./lib/chat-memory.ts";
+import { searchMemory } from "./lib/memory-search.ts";
 import { notify, ntfy } from "./lib/notify.ts";
 import { describe } from "./lib/schedule.ts";
 import * as cal from "./lib/calendar.ts";
@@ -272,6 +273,7 @@ const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/chat\/retention$/, () => chatMemory.retentionStatus()],
   ["PUT", /^\/api\/chat\/retention$/, (_, b) => chatMemory.setRetention(b)],
   ["POST", /^\/api\/chat\/cleanup$/, () => { const s = orch.status(); if (s.chatBusy || s.active.length) throw new Error("Wait for current work to finish before cleanup."); return chatMemory.cleanChats(); }],
+  ["GET", /^\/api\/memory\/search$/, (_, __, u) => searchMemory(u.searchParams.get("q") || "", { project: u.searchParams.get("project") || undefined, source: u.searchParams.get("source") || undefined, limit: Number(u.searchParams.get("limit")) || 30 })],
   ["GET", /^\/api\/chat\/memories$/, (_, __, u) => chatMemory.memorySearch(u.searchParams.get("q") || "")],
   ["POST", /^\/api\/chat$/, (_, b) => { checkStopped();if (orch.chat().busy) throw Object.assign(new Error("LUTHUR is still answering. Your follow-up can wait for this reply."), { code: 409 }); if (!String(b.text || "").trim()) throw new Error("Say what you want to discuss."); writeCheck(); validateChoice({...b,...explicitModel(String(b.text||""))}); void orch.sendChat(String(b.text || ""), { provider: b.provider, model: b.model, astraApproved: b.astraApproved === true, opusApproved: b.opusApproved === true, adaptive:b.adaptive!==false, project: b.project, tier: b.tier, effort: b.effort, voice: b.voice === true, context: chatContext(b.context), personality: b.personality, activeFile: b.context?.screen?.k === "file" && /^g-[a-f0-9]{10}$/.test(b.context.screen.acct || "") && /^[A-Za-z0-9_-]{10,200}$/.test(b.context.screen.id || "") ? { acct: b.context.screen.acct, id: b.context.screen.id } : undefined }).catch(() => {}); return { ok: true }; }],
   ["POST", /^\/api\/chat\/new$/, () => { orch.newChat(); return { ok: true }; }],

@@ -1,6 +1,9 @@
 // Turns Claude Code's stream-json output into short, safe step lines for the live operations feed.
 // Never passes file contents from secret-looking paths, and redacts token-like strings everywhere.
 import * as brain from "./brain.ts";
+import fs from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 
 export type Step = {
   id: string; at: number; kind: "tool" | "text";
@@ -19,6 +22,8 @@ export function redact(s: string): string {
 }
 const clip = (s: string, n: number) => { const t = String(s ?? "").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n - 1) + "…" : t; };
 const shortPath = (p: string) => { const parts = String(p || "").split(/[\\/]+/).filter(Boolean); return parts.slice(-2).join("/") || String(p || ""); };
+// Judge only the file and its folder: the owner's projects live under "Project Secrets", which must not hide every file.
+const isSecretPath = (p: string) => SECRET_PATH.test(shortPath(p));
 const lineCount = (s: unknown) => typeof s === "string" && s.length ? s.replace(/\n$/, "").split("\n").length : 0;
 const projName = (slug: unknown) => { const p = slug ? brain.getProject(String(slug)) : null; return p?.name || String(slug || "project"); };
 
@@ -26,6 +31,69 @@ function resultText(c: any): string {
   if (typeof c === "string") return c;
   if (Array.isArray(c)) return c.map(x => (typeof x === "string" ? x : x?.type === "text" ? x.text : "")).join("\n");
   return "";
+}
+/** Watches a build run's workspace so changes made by shell commands (not only file-edit tools) show on the Code page.
+ *  Keeps size+mtime for every file and the text of small files, so a change can be shown as removed/added lines. */
+export class WorkspaceWatch {
+  private files = new Map<string, { size: number; mtime: number; text: string | null }>();
+  private budget = 8_000_000; // bytes of file text kept in memory
+  private dir: string;
+  constructor(dir: string) { this.dir = dir; this.scan(true); }
+  private list(): string[] {
+    const out: string[] = [], skip = /^(\.git|node_modules|dist|build|\.next|venv|\.venv|__pycache__|target|\.cache|coverage)$/;
+    const walk = (d: string, depth: number) => {
+      if (out.length >= 4000 || depth > 8) return;
+      let ents: fs.Dirent[] = []; try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+      for (const e of ents) { const p = path.join(d, e.name); if (e.isDirectory()) { if (!skip.test(e.name)) walk(p, depth + 1); } else if (e.isFile() && out.length < 4000) out.push(p); }
+    };
+    walk(this.dir, 0); return out;
+  }
+  private read(file: string, size: number): string | null {
+    if (size > 200_000 || size > this.budget || isSecretPath(file)) return null;
+    try { const t = fs.readFileSync(file, "utf8"); if (t.includes("\u0000")) return null; this.budget -= t.length; return t; } catch { return null; }
+  }
+  /** Rescans; returns the lines that changed since the last scan (first scan only records). */
+  scan(first = false): { files: string[]; diff: string[]; added: number; removed: number } {
+    const res = { files: [] as string[], diff: [] as string[], added: 0, removed: 0 }, seen = new Set<string>();
+    const push = (sign: string, lines: string[]) => { for (const l of lines) { if (sign === "+") res.added++; else res.removed++; if (res.diff.length < 14 && l.trim()) res.diff.push(sign + clip(redact(l), 90)); } };
+    for (const file of this.list()) {
+      seen.add(file);
+      let st: fs.Stats; try { st = fs.statSync(file); } catch { continue; }
+      const old = this.files.get(file);
+      if (old && old.size === st.size && old.mtime === st.mtimeMs) continue;
+      const text = this.read(file, st.size);
+      this.files.set(file, { size: st.size, mtime: st.mtimeMs, text });
+      if (first) continue;
+      res.files.push(path.basename(file));
+      if (isSecretPath(file)) continue; // name only, never contents
+      const before = old?.text?.split(/\r?\n/) || [], after = text?.split(/\r?\n/) || [];
+      // Multiset line diff: enough to show what was removed and added without a full LCS.
+      const count = new Map<string, number>(); for (const l of before) count.set(l, (count.get(l) || 0) + 1);
+      const added: string[] = []; for (const l of after) { const n = count.get(l) || 0; if (n) count.set(l, n - 1); else added.push(l); }
+      const removed: string[] = []; for (const [l, n] of count) for (let i = 0; i < n; i++) removed.push(l);
+      push("-", removed.filter(l => l.trim())); push("+", added.filter(l => l.trim()));
+    }
+    if (!first) for (const [file, f] of this.files) if (!seen.has(file)) { this.files.delete(file); res.files.push(path.basename(file) + " (deleted)"); if (!isSecretPath(file)) push("-", (f.text || "").split(/\r?\n/).filter(l => l.trim())); }
+    return res;
+  }
+}
+
+/** Codex reports only which files changed; read the change itself (git diff, or a new file's lines) so the Code page can show it live. */
+export function fileChangeDiff(cwd: string, changes: { path?: string; kind?: string }[]): { diff: string[]; added: number; removed: number } {
+  const diff: string[] = []; let added = 0, removed = 0;
+  for (const c of changes.slice(0, 4)) {
+    const file = path.resolve(cwd, String(c.path || "")); if (!c.path || isSecretPath(file)) continue;
+    let out = "";
+    const g = spawnSync("git", ["diff", "--no-color", "--no-ext-diff", "-U0", "--", file], { cwd: path.dirname(file), encoding: "utf8", timeout: 3000, windowsHide: true });
+    if (g.status === 0 && g.stdout.trim()) out = g.stdout;
+    else if (c.kind === "add") { try { const st = fs.statSync(file); if (st.size < 200_000) out = fs.readFileSync(file, "utf8").split(/\r?\n/).map(l => "+" + l).join("\n"); } catch {} }
+    for (const l of out.split(/\r?\n/)) {
+      if (/^(\+\+\+|---)/.test(l) || (l[0] !== "+" && l[0] !== "-")) continue;
+      if (l[0] === "+") added++; else removed++;
+      if (diff.length < 14 && l.slice(1).trim()) diff.push(l[0] + clip(redact(l.slice(1)), 90));
+    }
+  }
+  return { diff, added, removed };
 }
 function diffPreview(removedText: string, addedText: string): string[] {
   const out: string[] = [];
@@ -65,7 +133,7 @@ const BRAIN: Record<string, (i: any) => string> = {
 function describeTool(name: string, i: any): { tool: string; verb: string; target: string; step: Partial<Step> } {
   i = i || {};
   const file = String(i.file_path || i.path || i.notebook_path || "");
-  const secret = SECRET_PATH.test(file);
+  const secret = isSecretPath(file);
   if (name.startsWith("mcp__hq-brain__")) {
     const t = name.slice("mcp__hq-brain__".length);
     return { tool: "brain", verb: "Brain", target: (BRAIN[t] || (() => t.replace(/_/g, " ")))(i), step: {} };

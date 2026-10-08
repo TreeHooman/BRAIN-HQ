@@ -71,7 +71,7 @@
     "project": "loancentral",
     "repeat": null,
     "done": false,
-    "notifiedAt": null,
+    "notifiedAt": "2026-10-08T01:00:00.737Z",
     "createdAt": "2026-10-05T12:00:00Z"
   },
   {
@@ -92,6 +92,16 @@
     "done": false,
     "notifiedAt": null,
     "createdAt": "2026-10-07T22:02:39.910Z"
+  },
+  {
+    "id": "rmuynleyfocxy",
+    "title": "Post the dated mod recusal rule in the r/LoanCentral wiki",
+    "due": "2026-10-08T12:00",
+    "project": "reddit",
+    "repeat": null,
+    "done": false,
+    "notifiedAt": null,
+    "createdAt": "2026-10-07T22:02:40.503Z"
   },
   {
     "id": "r-seed-4",
@@ -132,15 +142,5 @@
     "done": false,
     "notifiedAt": null,
     "createdAt": "2026-10-05T12:00:00Z"
-  },
-  {
-    "id": "rmuynleyfocxy",
-    "title": "Post the dated mod recusal rule in the r/LoanCentral wiki",
-    "due": "2026-10-08T12:00",
-    "project": "reddit",
-    "repeat": null,
-    "done": false,
-    "notifiedAt": null,
-    "createdAt": "2026-10-07T22:02:40.503Z"
   }
 ]

@@ -5,7 +5,7 @@ import path from "node:path";
 import { ROOT } from "./store.ts";
 import { guarded, safeWriteDirs, scratchWorkspace } from "./guard.ts";
 import { agentRules, loadConfig, type Level } from "./config.ts";
-import { redact, type Step } from "./narrate.ts";
+import { fileChangeDiff, redact, WorkspaceWatch, type Step } from "./narrate.ts";
 import type { RunResult } from "./claude.ts";
 
 export type CodexOptions = {
@@ -79,6 +79,9 @@ export function codexArgs(o: CodexOptions): string[] {
   args.push("-c", `model_reasoning_effort=${tomlString(o.effort && ["low","medium","high","xhigh","max"].includes(o.effort) ? o.effort : "low")}`);
   // Config overrides apply on resume too. Explicitly suppress inherited approvals and MCP servers.
   args.push("-c", "approval_policy=never", "-c", `sandbox_mode=${tomlString(o.level === "build" ? "workspace-write" : "read-only")}`);
+  // Codex 0.160 on Windows silently runs workspace-write as read-only unless its Windows sandbox is chosen
+  // (the owner's config.toml is ignored above). "unelevated" needs no admin; writes outside the workspace stay blocked.
+  if (process.platform === "win32" && o.level === "build") args.push("-c", `windows.sandbox=${tomlString("unelevated")}`);
   args.push("-c", "mcp_servers={}");
   args.push("-c", `mcp_servers.hq-brain.command=${tomlString(process.execPath)}`);
   args.push("-c", `mcp_servers.hq-brain.args=${JSON.stringify(["--no-warnings", path.join(ROOT, "src", "mcp", "hq-brain.ts")])}`);
@@ -124,7 +127,7 @@ function runCodexInner(o: CodexOptions): Promise<RunResult> {
     const where = o.level !== "build" ? "" : `You can write files only in: ${[ws.cwd, ...ws.extra].join("; ")}. HQ's own code, config and data are read-only for you (changes there are undone); use the hq-brain tools for the brain.`;
     const child = spawn(bin, fake ? [fake, ...args] : args, { cwd: ws.cwd, env, windowsHide: true, detached: process.platform !== "win32", stdio: ["pipe", "pipe", "pipe"] });
     if (child.pid) { children.add(child.pid); child.on("close", () => children.delete(child.pid!)); o.onSpawn?.(child.pid); }
-    const parser = new JsonlParser(o.onStep, o.onText);
+    const parser = new JsonlParser(o.onStep, o.onText, ws.cwd, o.level === "build");
     let stderr = "", timedOut = false;
     child.stdout.on("data", data => parser.feed(String(data)));
     child.stderr.on("data", data => { stderr = (stderr + String(data)).slice(-16_000); });
@@ -142,7 +145,9 @@ export class JsonlParser {
   private failed = false; private n = 0; sessionId: string | null = null;
   private onStep?: (step: Step) => void;
   private onText?: (text: string) => void;
-  constructor(onStep?: (step: Step) => void, onText?: (text: string) => void) { this.onStep = onStep; this.onText = onText; }
+  private cwd: string; private watch: WorkspaceWatch | null;
+  // watch: a build run compares its workspace after each step, so shell-made changes show too.
+  constructor(onStep?: (step: Step) => void, onText?: (text: string) => void, cwd = ROOT, watch = false) { this.onStep = onStep; this.onText = onText; this.cwd = cwd; this.watch = watch && onStep ? new WorkspaceWatch(cwd) : null; }
   feed(chunk: string) {
     this.buffer += chunk;
     // Avoid unbounded memory if an unexpected CLI writes a non-JSON stream.
@@ -167,7 +172,13 @@ export class JsonlParser {
     } else if (this.onStep && ["command_execution", "mcp_tool_call", "file_change", "web_search"].includes(item.type)) {
       const kind = item.type === "mcp_tool_call" ? "mcp" : item.type === "command_execution" ? "bash" : item.type === "file_change" ? "edit" : "web";
       const target = item.type === "mcp_tool_call" ? `${item.server || "MCP"} · ${item.tool || "tool"}` : item.type === "command_execution" ? item.command : item.type === "file_change" ? (item.changes || []).map((x: any) => path.basename(x.path || "")).join(", ") : item.query;
-      this.onStep({ id: String(item.id || `step-${++this.n}`), at: Date.now(), kind: "tool", tool: kind, verb: kind === "bash" ? "Run" : kind === "edit" ? "Edit" : kind === "web" ? "Search" : "Tool", target: clean(target, 100), done: e.type === "item.completed", ok: e.type === "item.completed" ? item.status !== "failed" : undefined });
+      // A finished file change carries only paths; read the lines that changed so the Code page can show them.
+      const done = e.type === "item.completed", id = String(item.id || `step-${++this.n}`);
+      // What changed on disk: the watcher's comparison when there is one, else git for the files Codex names.
+      const seen = done && (kind === "edit" || kind === "bash") && this.watch ? this.watch.scan() : null;
+      const change = kind === "edit" && done && item.status !== "failed" ? (seen || fileChangeDiff(this.cwd, item.changes || [])) : null;
+      this.onStep({ id, at: Date.now(), kind: "tool", tool: kind, verb: kind === "bash" ? "Run" : kind === "edit" ? "Edit" : kind === "web" ? "Search" : "Tool", target: clean(target, 100), done, ok: done ? item.status !== "failed" : undefined, ...(change ? { diff: change.diff, added: change.added, removed: change.removed } : {}) });
+      if (kind === "bash" && seen?.files.length) this.onStep({ id: id + "-files", at: Date.now(), kind: "tool", tool: "edit", verb: "Changed", target: clean(seen.files.join(", "), 100), done: true, ok: true, diff: seen.diff, added: seen.added, removed: seen.removed });
     }
   }
   result(exitCode: number | null, stderr: string, timedOut: boolean, durationMs: number): RunResult {
