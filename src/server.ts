@@ -47,6 +47,7 @@ import * as intake from "./lib/intake.ts";
 import * as plans from "./lib/plans.ts";
 import * as signals from "./lib/signals.ts";
 import * as remote from "./lib/remote.ts";
+import * as health from "./lib/health.ts";
 
 ensureLocalConfig();
 const cfg = loadConfig();
@@ -214,6 +215,7 @@ const routes: [string, RegExp, Handler][] = [
   // Away mode (docs/AWAY-MODE.md): phone access, health, usage pacing, outcome ratings, habits.
   ["GET", /^\/api\/away$/, () => orch.away()],
   ["POST", /^\/api\/away\/health$/, () => orch.healthNow()],
+  ["POST", /^\/api\/away\/ping$/, async (_, b) => { const r = health.setPingUrl(b.url, saveLocal); await orch.healthNow(); return r; }],
   ["POST", /^\/api\/remote\/serve$/, () => remote.serve(PORT)],
   ["POST", /^\/api\/remote\/unserve$/, () => remote.unserve(PORT)],
   ["GET", /^\/api\/outcomes$/, () => ({ reliability: orch.reliability(30), finished: orch.finishedWork().slice(0, 30) })],

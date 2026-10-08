@@ -34,7 +34,7 @@
     "comment": "When Claude says the usage limit is hit, HQ pauses until the reset time it reports, or this many minutes if it can't read one, then resumes the same session."
   },
 
-  "keepAwake": "busy",
+  "keepAwake": "always",
   "keepAwakeComment": "busy = keep the PC awake while missions are queued or running; always = whenever HQ runs (best for multi-day autonomy); off = never.",
 
   "notifications": {

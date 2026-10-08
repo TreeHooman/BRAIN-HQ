@@ -24,7 +24,11 @@ function awCard() {
   const bad = checks.filter(c => c.level !== "ok");
   const health = `<div class="aw-row">${awDot(bad.some(c => c.level === "bad") ? "bad" : bad.length ? "warn" : "ok")}<div class="grow"><b>${bad.length ? `${bad.length} thing${bad.length > 1 ? "s" : ""} need${bad.length > 1 ? "" : "s"} a look` : "Healthy"}</b>
       <small>${h?.at ? `checked ${esc(ago(h.at))}` : "not checked yet"}${h?.restarts?.length ? ` · ${h.restarts.length} auto-restart${h.restarts.length > 1 ? "s" : ""} this week` : ""} · ${h?.pingConfigured ? (h.ping?.ok ? "dead-man ping ok" : h.ping?.at ? "dead-man ping failing" : "dead-man ping set") : "no dead-man ping (see docs/AWAY-MODE.md)"}</small>
-      ${bad.length ? `<ul class="aw-list">${bad.map(c => `<li>${awDot(c.level)}${esc(c.text)}${c.fix ? `<small>${esc(c.fix)}</small>` : ""}</li>`).join("")}</ul>` : ""}</div><button type="button" class="btn sm ghost" data-awcheck>Check now</button></div>`;
+      ${bad.length ? `<ul class="aw-list">${bad.map(c => `<li>${awDot(c.level)}${esc(c.text)}${c.fix ? `<small>${esc(c.fix)}</small>` : ""}</li>`).join("")}</ul>` : ""}
+      <details class="aw-ping" ${h?.pingConfigured ? "" : "open"}><summary class="small muted">Dead-man ping ${h?.pingConfigured ? "(set)" : "(not set: you won't hear about it if the PC is off)"}</summary>
+        <form data-awping autocomplete="off"><input name="url" type="url" inputmode="url" placeholder="https://hc-ping.com/…" aria-label="Dead-man ping URL"><button class="btn sm">Save</button></form>
+        <small>Free at healthchecks.io: new check, period 10 min, grace 30 min, add your email. Paste its ping URL here. Full checklist: run scripts\\AWAY-CHECK.cmd on the PC.</small></details></div>
+      <button type="button" class="btn sm ghost" data-awcheck>Check now</button></div>`;
   const pace = `<div class="aw-row">${awDot(p?.mode === "reserve" ? "warn" : "ok")}<div class="grow"><b>Usage: ${p?.mode === "save" ? "saving" : p?.mode === "reserve" ? "reserve reached" : "on pace"}</b>
       <small>${p?.weekly != null ? `Claude this week ${Math.round(p.weekly)}%${p.expected != null ? ` (even pace ${p.expected}%)` : ""}${p.fiveHour != null ? ` · 5-hour ${Math.round(p.fiveHour)}%` : ""}` : "No weekly reading yet"}${p?.mode === "save" ? " · background work goes to Codex or waits" : p?.mode === "reserve" ? ` · the last ${p.settings.reserve}% is kept for you` : ""}. Your chat and your tasks are never held back.</small></div></div>`;
   const relLine = rel?.finished ? `${rel.finished} results in 30 days · ${rel.done} done, ${rel.partly} partly, ${rel.issue} needed a look · you rated ${rel.rated}${rel.rated ? ` (${rel.score}% right${rel.falseDone ? `, <b class="aw-bad">${rel.falseDone} said done but weren't</b>` : ""})` : ""}` : "Nothing finished yet.";
@@ -51,6 +55,7 @@ async function awRate(id, good) {
 function awBind(root, repaint) {
   root.querySelectorAll("[data-awcopy]").forEach(b => b.onclick = () => navigator.clipboard?.writeText(b.dataset.awcopy).then(() => toast("Copied")).catch(() => toast(b.dataset.awcopy, 8000)));
   root.querySelectorAll("[data-awserve]").forEach(b => b.onclick = async () => { b.disabled = true; try { await api("/remote/serve", "POST", {}); toast("Phone access on"); } catch (e) { toast("⚠ " + e.message, 9000); } await awLoad(true); repaint(); });
+  root.querySelectorAll("[data-awping]").forEach(f => f.onsubmit = async e => { e.preventDefault(); const url = f.url.value.trim(); try { const r = await api("/away/ping", "POST", { url }); toast(r.pingConfigured ? "Dead-man ping saved" : "Dead-man ping removed"); } catch (er) { return toast("⚠ " + er.message, 7000); } await awLoad(true); repaint(); });
   root.querySelectorAll("[data-awcheck]").forEach(b => b.onclick = async () => { b.disabled = true; try { await api("/away/health", "POST", {}); } catch (e) { toast("⚠ " + e.message); } await awLoad(true); repaint(); });
   root.querySelectorAll("[data-awrate]").forEach(b => b.onclick = async () => { if (await awRate(b.dataset.awrate, b.dataset.good === "1")) { await awLoad(true); repaint(); } });
   root.querySelectorAll("[data-awhabit]").forEach(b => b.onclick = async () => {

@@ -23,3 +23,6 @@
   .aw .aw-row > .btn { margin-left: 19px; }
   .aw-habit li .btn { flex: 1 1 auto; }
 }
+.aw-ping { margin-top: 8px; }
+.aw-ping form { display: flex; gap: 6px; margin: 6px 0 4px; }
+.aw-ping input { flex: 1; min-width: 0; }

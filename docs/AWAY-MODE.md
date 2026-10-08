@@ -16,8 +16,10 @@ learns from results, and says when something is wrong. Built 2026-10-08 (night).
 | API | `src/server.ts` | `GET /api/away`, `POST /api/away/health`, `POST /api/remote/serve|unserve`, `GET /api/outcomes`, `POST /api/outcomes/rate`, `POST /api/habits/:key`. |
 
 ## Before you leave (owner checklist; things code can't do)
+Run `scripts/AWAY-CHECK.cmd` (read-only) to see what is done and what is left; step-by-step list in `brain/projects/luthur/away-setup.md`. The dead-man ping URL can be pasted on the Away card.
+
 1. **Phone:** Tailscale app signed in to the same account (already: iPhone is on the tailnet). Open the Away card's address on the phone, unlock with the PIN, Add to Home Screen. ntfy app subscribed to your topic.
-2. **PC never sleeps:** set `"keepAwake": "always"` in `config/hq.json` (today it is `busy`, which lets the PC sleep when idle, and a sleeping PC can't answer the phone). Windows: Settings → System → Power → Screen and sleep → plugged in: Never (sleep).
+2. **PC never sleeps:** done 2026-10-08 (`keepAwake` = `always`; Windows sleep/hibernate on mains = never).
 3. **Power cut:** BIOS/UEFI → "Restore on AC power loss" = Power On. A small UPS helps with flickers.
 4. **Comes back after a reboot:** Windows must sign in by itself so the Startup shortcut (`HQ.lnk`, already installed) starts LUTHUR and the watchdog. Use Sysinternals Autologon (stores the password encrypted) or `netplwiz`. Trade-off: anyone at the PC gets your desktop; keep the PC somewhere private.
 5. **Windows Update:** set active hours, or pause updates for the trip; after an update reboot, step 4 brings LUTHUR back.

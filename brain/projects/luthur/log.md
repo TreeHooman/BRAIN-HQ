@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-08 03:40 · claude
+Owner: "set keep awake always and do as much as you can for me to manually do tomorrow". keepAwake = always (hq.json + the local override that said busy). New scripts/AWAY-CHECK.cmd (read-only readiness check). Already OK: Windows sleep/hibernate never on mains, startup, watchdog, Tailscale connected + automatic + serving, iPhone on tailnet, ntfy. Left for the owner (brain/projects/luthur/away-setup.md): phone test, disable Tailscale key expiry (both expire 3 Apr 2027), dead-man ping (now pasteable on the Away card, stored in hq.local.json, never sent to the page), Chrome Remote Desktop, Autologon, BIOS power-on. away-test 18/18.
+
 ## 2026-10-08 03:00 · claude
 Away mode built overnight (owner: "talk and get shit done… away for months, back and forth with LUTHUR while he controls usage and does work"). docs/AWAY-MODE.md.
 - Phone access: Tailscale was already installed, the iPhone is on the tailnet and `tailscale serve` already serves LUTHUR at https://desktop-aklj0fo.tail2bfce5.ts.net/ (HTTPS, tailnet only). remote.ts reads it; phone alerts now open that address; Away card shows it with a Turn on button.

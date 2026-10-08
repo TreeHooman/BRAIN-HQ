@@ -127,6 +127,15 @@ try {
     await assert.rejects(api('/remote/serve', {}), e => /HTTPS Certificates/.test(e.message));
     write('data/qa-tailscale.json', { running: true, serving: true });
   });
+  await test('Dead-man ping: pasted URL saved locally (https only), pinged, removable', async () => {
+    await assert.rejects(api('/away/ping', { url: 'http://insecure.example/x' }), e => e.status === 400);
+    await assert.rejects(api('/away/ping', { url: 'javascript:alert(1)' }), e => e.status === 400);
+    const r = await api('/away/ping', { url: 'https://127.0.0.1:1/qa-ping' }); assert.equal(r.pingConfigured, true);
+    assert.equal(readJ('config/hq.local.json', {}).health.pingUrl, 'https://127.0.0.1:1/qa-ping');
+    const h = (await api('/away')).health; assert.equal(h.pingConfigured, true); assert.equal(h.ping.ok, false, 'unreachable ping reported as failing');
+    assert.equal(JSON.stringify(await api('/away')).includes('qa-ping'), false, 'the URL is never sent to the page');
+    assert.equal((await api('/away/ping', { url: '' })).pingConfigured, false);
+  });
   await test('Health: one alert per problem (no repeat within 12 h)', async () => {
     const a1 = readJ('data/health.json', {}).alerted || {};
     await api('/away/health', {}); const a2 = readJ('data/health.json', {}).alerted || {};

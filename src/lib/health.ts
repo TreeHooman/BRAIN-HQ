@@ -88,3 +88,13 @@ export function view() {
   const s = load();
   return { at: s.at, startedAt: s.startedAt, checks: s.checks, ping: s.ping, pingConfigured: !!loadConfig().health?.pingUrl, restarts: watchdogRestarts(7) };
 }
+
+/** Owner pastes the dead-man ping URL (healthchecks.io or similar) on the Away card. Stored in config/hq.local.json,
+ *  never sent to the page. Empty clears it. Only plain https URLs. */
+export function setPingUrl(url: unknown, save: (patch: any) => void): { pingConfigured: boolean } {
+  const u = String(url ?? "").trim();
+  if (u && !/^https:\/\/[^\s"'<>]{4,300}$/i.test(u)) throw Object.assign(new Error("Paste the https:// ping URL from healthchecks.io (or leave it empty to remove it)."), { code: 400 });
+  save({ health: { pingUrl: u } });
+  last = 0; // ping on the next tick
+  return { pingConfigured: !!u };
+}
