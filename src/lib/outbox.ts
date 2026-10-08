@@ -130,11 +130,12 @@ export function setConnector(kind: "email" | "calendar", name: string | null) { 
 export const toolPrefix = (server: string) => "mcp__" + server.replace(/[^a-zA-Z0-9_-]/g, "_");
 
 // ---------------- sending ----------------
-let sending = false;
+// One item goes out at a time; later Sends wait their turn instead of failing (owner hit "Another item is being sent"
+// cancelling a calendar event while an earlier removal was still running, 2026-10-08).
+let sending = false, queue: Promise<unknown> = Promise.resolve();
 export function busy() { return sending; }
 
 export function precheck(id: string): OutItem {
-  if (sending) throw new Error("Another item is being sent. Try again in a moment.");
   const it = list().find(x => x.id === id);
   if (!it) throw new Error("No such draft.");
   if (it.status !== "draft" && it.status !== "failed") throw new Error("Already handled.");
@@ -142,9 +143,16 @@ export function precheck(id: string): OutItem {
 }
 export function fail(id: string, why?: string) { patch(id, x => { if (x.status !== "sent" && x.status !== "drafted") { x.status = "failed"; x.result = String(why || "Failed").slice(0, 300); } }); }
 
-export async function send(id: string): Promise<OutItem> {
+export function send(id: string): Promise<OutItem> {
   const it = precheck(id);
   const payload = validate(it.kind, it.payload); // re-check what's on disk
+  patch(id, x => { x.status = "sending"; x.result = undefined; x.updatedAt = new Date().toISOString(); }); // a second Send is now "Already handled"
+  const run = queue.then(() => deliver(id, it, payload));
+  queue = run.catch(() => {});
+  return run;
+}
+
+async function deliver(id: string, it: OutItem, payload: EmailPayload | CalPayload): Promise<OutItem> {
   sending = true; // claim the slot before the (slow) connector lookup
   const em = it.kind === "email" ? payload as EmailPayload : null;
   if (em?.from) { // a connected Google account: send straight through Gmail, no Claude run

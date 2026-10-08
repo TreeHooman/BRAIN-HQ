@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-08 07:15 · claude
+Outbox sends now queue (src/lib/outbox.ts): a second Send while one is running waits its turn instead of failing with "Another item is being sent" (owner hit it cancelling a calendar event). Send marks the item "sending" at once, so pressing again is "Already handled". Calendar Cancel reuses an existing Outbox removal instead of making copies, and hides an event while its removal is sending or done (2 h, until the feed catches up). The first removal of "test test luthur test" had actually worked; 5 leftover duplicate drafts discarded. Tested on a copy with a fake CLI: two removals sent back to back, both sent in order.
+
 ## 2026-10-08 06:55 · claude
 Calendar day Cancel rework (owner: "has a confirm button at the bottom, built badly, doesn't delete some"). Causes: the shared confirm box landed under the Add form with "Confirm/Cancel" buttons; the calendar shows duplicate reminders (same title+time) once, so Cancel removed only one copy; Google events only went to the Outbox. Now: press Cancel, the same button becomes "Sure? Cancel it" for 4 s, press again; every copy in the group is removed; a Google event's delete is created in the Outbox and sent at once (the second press is the owner's approval). The form's bottom button says "Close". Tested on a copy in the browser: duplicate pair removed in one go, inline confirm shown. Google event removal not tested (copy has no calendar connector).
 

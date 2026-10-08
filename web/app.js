@@ -399,6 +399,7 @@ function vCalendar(el) {
     api(`/calendar?from=${key}&to=${ymd(end)}`).then(r => { if (calFeed.key !== key) return; calFeed.events = r.events || []; if (route.view === "calendar") render(); }).catch(() => {});
   }
   if (feeds.length) calFeed.events.forEach(e => {
+    if (calRemoving(e)) return; // a Cancel already on its way: don't show it until the next sync
     if (e.allDay) { for (let d = toDate(e.start); ymd(d) < e.end; d.setDate(d.getDate() + 1)) add(ymd(d), { t: e.title, cls: fcls(e.feed), c: fsty(e.feed), ev: e }); }
     else { const d = new Date(e.start); add(ymd(d), { t: e.title, cls: fcls(e.feed), c: fsty(e.feed), time: `${pad(d.getHours())}:${pad(d.getMinutes())}`, ev: e }); }
   });
@@ -425,6 +426,12 @@ function vCalendar(el) {
   $$("[data-day]", el).forEach(c => c.onclick = () => dayModal(c.dataset.day));
 }
 let calDays = {};
+/** The Outbox payload start for a feed event (local time, minutes). */
+const calEvStart = ev => { const d = new Date(ev.start); return ev.allDay ? ev.start.slice(0, 10) : `${ymd(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+/** The Outbox delete for this event, if one exists (newest first). */
+const calDelete = ev => { const st = calEvStart(ev); return (S.outbox || []).find(x => x.kind === "calendar" && x.payload?.action === "delete" && x.payload.title === ev.title && x.payload.start === st && x.status !== "discarded"); };
+/** Being removed, or removed in the last 2 hours (the feed can lag behind). */
+const calRemoving = ev => { const x = calDelete(ev); return !!x && (x.status === "sending" || (x.status === "sent" && Date.now() - Date.parse(x.updatedAt || 0) < 2 * 3600e3)); };
 /** A day's full list (time order) with done buttons for reminders, then the add form. */
 function dayModal(day) {
   const items = calDays[day] || [], feeds = Object.fromEntries((S.calendar?.feeds || []).map(f => [f.id, f.name]));
@@ -452,12 +459,15 @@ function dayModal(day) {
     }
     const ev = group.find(g => g.ev)?.ev;
     if (ev) {
-      const d = new Date(ev.start), start = ev.allDay ? ev.start.slice(0, 10) : `${ymd(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      try { const it = await api("/outbox", "POST", { kind: "calendar", payload: { action: "delete", title: e.t, start } }); await api(`/outbox/${it.id}/send`, "POST"); }
-      catch (er) { errors.push(er.message); }
+      // Reuse a removal already in the Outbox, so pressing again never makes copies.
+      const had = calDelete(ev);
+      if (!had || !["sending", "sent"].includes(had.status)) {
+        try { const it = had || await api("/outbox", "POST", { kind: "calendar", payload: { action: "delete", title: ev.title, start: calEvStart(ev) } }); await api(`/outbox/${it.id}/send`, "POST"); }
+        catch (er) { errors.push(er.message); }
+      }
     }
     if (errors.length) toast("⚠ " + errors[0], 6000);
-    else toast(ev ? `Removing "${e.t}" from your calendar. It disappears here after the next calendar sync.` : `Cancelled "${e.t}"`, 5000);
+    else toast(ev ? `Removing "${e.t}" from your calendar. It may take up to a minute to leave Google Calendar.` : `Cancelled "${e.t}"`, 5000);
     await refresh(); render(); closeModal(); dayModal(day);
   });
 }
