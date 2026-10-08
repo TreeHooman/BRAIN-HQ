@@ -382,7 +382,12 @@ function vCalendar(el) {
   const today = ymd(new Date());
   const events = {};
   // the same event on several calendars (holidays on every account) shows once
-  const add = (k, e) => { const l = events[k] = events[k] || []; if (!l.some(x => x.t === e.t && (x.time || "") === (e.time || ""))) l.push(e); };
+  // Duplicates (same title and time) are kept in .group so Cancel removes every copy; an open reminder wins over a done one.
+  const add = (k, e) => {
+    const l = events[k] = events[k] || [], same = l.find(x => x.t === e.t && (x.time || "") === (e.time || ""));
+    if (!same) { e.group = [e]; l.push(e); return; }
+    same.group.push(e); if (same.rem?.done && e.rem && !e.rem.done) { same.rem = e.rem; same.cls = e.cls; }
+  };
   S.reminders.forEach(r => add(r.due.slice(0, 10), { t: r.title, cls: r.done ? "done" : "", time: r.due.slice(11, 16), rem: r }));
   S.milestones.forEach(m => add(m.date, { t: m.title, cls: `${m.kind || "milestone"} ${m.done ? "done" : ""}`, ms: m }));
   const feeds = S.calendar?.feeds || [], fcol = Object.fromEntries(feeds.map(f => [f.id, f.color || "teal"]));
@@ -424,22 +429,36 @@ let calDays = {};
 function dayModal(day) {
   const items = calDays[day] || [], feeds = Object.fromEntries((S.calendar?.feeds || []).map(f => [f.id, f.name]));
   const src = e => e.rem ? (e.rem.project ? projName(e.rem.project) + " · reminder" : "reminder") : e.ms ? (e.ms.project ? projName(e.ms.project) + " · " : "") + (e.ms.kind || "milestone") : (feeds[e.ev?.feed] || "calendar") + (e.ev?.location ? " · " + e.ev.location : "");
-  const list = items.length ? `<ul class="day-list">${items.map(e => `<li class="${e.cls}"${e.c ? ` style="--gc:${esc(e.c)}"` : ""}><span class="when">${e.time || "all day"}</span><div class="grow"><b>${esc(e.t)}</b><small>${esc(src(e))}</small></div>${e.rem && !e.rem.done ? `<button type="button" class="btn sm ghost" data-remdone="${esc(e.rem.id)}">Done</button>` : ""}${(e.rem && !e.rem.done) || (e.ms && !e.ms.done) || e.ev ? `<button type="button" class="btn sm ghost danger" data-daycancel="${items.indexOf(e)}">Cancel</button>` : ""}</li>`).join("")}</ul>` : `<div class="empty small">Nothing on this day yet.</div>`;
+  const list = items.length ? `<ul class="day-list">${items.map(e => `<li class="${e.cls}"${e.c ? ` style="--gc:${esc(e.c)}"` : ""}><span class="when">${e.time || "all day"}</span><div class="grow"><b>${esc(e.t)}</b><small>${esc(src(e))}</small></div>${e.rem && !e.rem.done ? `<button type="button" class="btn sm ghost" data-remdone="${esc(e.rem.id)}">Done</button>` : ""}${(e.group || [e]).some(g => (g.rem && !g.rem.done) || (g.ms && !g.ms.done) || g.ev) ? `<button type="button" class="btn sm ghost danger" data-daycancel="${items.indexOf(e)}">Cancel</button>` : ""}</li>`).join("")}</ul>` : `<div class="empty small">Nothing on this day yet.</div>`;
   addOnDayModal(day, `<h3>${(d => `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`)(new Date(day + "T12:00"))} <span class="faint small">${items.length || ""}</span></h3>${list}<div class="pd-sub" style="margin-top:12px">Add</div>`);
   $$("[data-remdone]").forEach(b => b.onclick = async () => { await act(() => api(`/reminders/${b.dataset.remdone}`, "PATCH", { complete: true }), "Done"); closeModal(); dayModal(day); });
-  // Cancel (owner ask, 2026-10-08): reminders and milestones are removed from HQ; a Google Calendar event becomes a
-  // "delete" draft in the Outbox, which only happens when the owner presses Send there (calendar changes always wait).
+  // Cancel (owner ask, 2026-10-08): press once, the same button turns into "Sure? Cancel it" for 4 s, press again.
+  // Every copy is removed (duplicates included). A Google Calendar event is removed through the Outbox and sent at
+  // once: the owner's second press is the approval, the same as pressing Send in the Outbox.
   $$("[data-daycancel]").forEach(b => b.onclick = async () => {
     const e = items[+b.dataset.daycancel]; if (!e) return;
-    if (!(await uiConfirm(e.ev ? `Cancel "${e.t}" in your calendar? It waits in the Outbox until you press Send.` : `Cancel "${e.t}"?`, b))) return;
-    if (e.rem) await act(() => api(`/reminders/${e.rem.id}`, "DELETE"), "Cancelled");
-    else if (e.ms) await act(() => api(`/milestones/${e.ms.id}`, "DELETE"), "Cancelled");
-    else {
-      const d = new Date(e.ev.start), start = e.ev.allDay ? e.ev.start.slice(0, 10) : `${ymd(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      try { await api("/outbox", "POST", { kind: "calendar", payload: { action: "delete", title: e.t, start } }); toast("Cancellation ready in the Outbox. Press Send there to remove it from your calendar.", 6000); }
-      catch (er) { return toast("⚠ " + er.message, 6000); }
+    if (!b.dataset.armed) {
+      b.dataset.armed = "1"; b.textContent = "Sure? Cancel it"; b.classList.add("primary");
+      setTimeout(() => { if (b.isConnected && b.dataset.armed) { delete b.dataset.armed; b.textContent = "Cancel"; b.classList.remove("primary"); } }, 4000);
+      return;
     }
-    closeModal(); dayModal(day);
+    b.disabled = true; b.textContent = "Cancelling…";
+    const group = e.group || [e], errors = [];
+    for (const g of group) {
+      try {
+        if (g.rem) await api(`/reminders/${g.rem.id}`, "DELETE");
+        else if (g.ms) await api(`/milestones/${g.ms.id}`, "DELETE");
+      } catch (er) { errors.push(er.message); }
+    }
+    const ev = group.find(g => g.ev)?.ev;
+    if (ev) {
+      const d = new Date(ev.start), start = ev.allDay ? ev.start.slice(0, 10) : `${ymd(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      try { const it = await api("/outbox", "POST", { kind: "calendar", payload: { action: "delete", title: e.t, start } }); await api(`/outbox/${it.id}/send`, "POST"); }
+      catch (er) { errors.push(er.message); }
+    }
+    if (errors.length) toast("⚠ " + errors[0], 6000);
+    else toast(ev ? `Removing "${e.t}" from your calendar. It disappears here after the next calendar sync.` : `Cancelled "${e.t}"`, 5000);
+    await refresh(); render(); closeModal(); dayModal(day);
   });
 }
 function addOnDayModal(day, head) {
@@ -449,7 +468,7 @@ function addOnDayModal(day, head) {
     <label class="f">Time (reminders)<input type="time" name="time" value="09:00"></label>
     <label class="f">Repeat<select name="repeat"><option value="">No</option><option>daily</option><option>weekly</option><option>monthly</option></select></label></div>
     <label class="f">Project<select name="project">${projOptions(activeProject())}</select></label>
-    <div class="row end"><button type="button" class="btn ghost" data-close>Cancel</button><button class="btn primary">Add</button></div></form>`);
+    <div class="row end"><button type="button" class="btn ghost" data-close>Close</button><button class="btn primary">Add</button></div></form>`);
   $("#dayForm").onsubmit = async e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));
     if (f.type === "reminder") await act(() => api("/reminders", "POST", { title: f.title, due: `${day} ${f.time || "09:00"}`, project: f.project, repeat: f.repeat || null }), "Reminder added");

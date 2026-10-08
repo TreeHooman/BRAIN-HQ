@@ -58,7 +58,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Local branch `luthur-work` tracks that remote branch under a different name, so a plain `git push` refuses: use `git push origin HEAD:claude/relaxed-turing-tnsbre`.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-08 06:06 UTC)
+## Current state (auto, 2026-10-08 06:16 UTC)
 - Stage: building · health: good
 - Next step: Evening debrief is built (src/lib/debrief.ts). Next: ask the owner which LUTHUR upgrade comes next; the Jarvis plan's remaining phase is self-improvement through tested proposals (docs/AUTONOMY-DESIGN.md).
 
@@ -89,6 +89,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-08 06:55 · claude**: Calendar day Cancel rework (owner: "has a confirm button at the bottom, built badly, doesn't delete some"). Causes: the shared confirm box landed under the Add form with "Confirm/Cancel" buttons; the calendar shows duplicate reminders (same title+time) once, so Cancel removed only one copy; Google events only went to …
 - **2026-10-08 06:35 · claude**: Calendar day pop-up (click a day on Calendar) has Cancel on every item (web/app.js dayModal): reminders and milestones are deleted from HQ after a confirm; a Google Calendar event becomes a "delete" draft in the Outbox and is only removed when the owner presses Send there.
 - **2026-10-08 06:20 · claude**: (1) Context clues for end of turn (web/live.js turnPauseFor): unfinished phrases ("remind me to", "can you", "set an alarm for", "I want", joining words, a lone name) wait base+2 s; finished-sounding ones (full questions, endings like please/now/today/tomorrow/a time or number, yes/no/ok) answer at 70% of base (0.7 s …
 - **2026-10-08 06:05 · claude**: Owner: "very slow still; when I talk I want it to stop talking and let me finish (Jarvis is more of a listener); sometimes it doesn't pick up words". (1) Barge-in (web/voice-stream.js): goes quiet on the first 2 non-echo words (was 3) and no longer sends on the first final chunk: keeps listening across pauses and send…
@@ -96,6 +97,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-08 03:42 · claude**: Stop means stop (owner ask): "Luther stop", "stop", "shut up", "stop listening", "go to sleep", "that's all", "never mind", "goodbye" now all go quiet at once, mute the answer still on its way (and any other speech), close the conversation and listen only for "Hey LUTHUR"; the next accepted request lifts the mute (web…
 - **2026-10-08 03:38 · claude**: Side panel fix (owner: "doesn't pop up when I don't have LUTHUR open"). The main window told the server it was on screen whenever document.visibilityState was "visible", which stays true when the window is just behind other windows, so the wake word went to the hidden main window and the hologram never opened. It now …
 - **2026-10-08 03:33 · claude**: Voice fixes (owner: "listens when I'm not talking to him", "5 s of silence"). Chat history showed room noise sent as turns ("a", "s", "has", "UNITA a bad") and "Luther stop listening" sent as a question. (1) Name required: after a request is answered LUTHUR goes straight back to "Hey LUTHUR" (0.7 s, was a 5 s open fol…
-- **2026-10-08 03:21 · claude**: Built the evening debrief (owner chose 21:00). New src/lib/debrief.ts words it; orchestrator.debrief() gathers today's reported tasks (done / partly / needs a look), background runs and failures, approvals waiting, brain changes, initiative picks, tomorrow's milestones and reminders, overdue count. No model call. Writ…
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.

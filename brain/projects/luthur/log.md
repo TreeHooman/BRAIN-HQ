@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-08 06:55 · claude
+Calendar day Cancel rework (owner: "has a confirm button at the bottom, built badly, doesn't delete some"). Causes: the shared confirm box landed under the Add form with "Confirm/Cancel" buttons; the calendar shows duplicate reminders (same title+time) once, so Cancel removed only one copy; Google events only went to the Outbox. Now: press Cancel, the same button becomes "Sure? Cancel it" for 4 s, press again; every copy in the group is removed; a Google event's delete is created in the Outbox and sent at once (the second press is the owner's approval). The form's bottom button says "Close". Tested on a copy in the browser: duplicate pair removed in one go, inline confirm shown. Google event removal not tested (copy has no calendar connector).
+
 ## 2026-10-08 06:35 · claude
 Calendar day pop-up (click a day on Calendar) has Cancel on every item (web/app.js dayModal): reminders and milestones are deleted from HQ after a confirm; a Google Calendar event becomes a "delete" draft in the Outbox and is only removed when the owner presses Send there.
 
