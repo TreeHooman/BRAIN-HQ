@@ -21,8 +21,8 @@ function buildTiles() {
       <div class="f">${end}<span>${op.calls} steps · <span class="a">+${op.added}</span> <span class="d">−${op.removed}</span></span></div></div>`;
   };
   const html = ops.length ? `<div class="lb-label">Background code changes · live</div><div class="lv-grid lb-grid">${ops.map(tile).join("")}</div>` : "";
-  if (box.innerHTML !== html) {
-    box.innerHTML = html;
+  if (box._html !== html) {
+    box.innerHTML = html; box._html = html;
     box.querySelectorAll("[data-open-op]").forEach(t => { t.onclick = () => buildOpen(t.dataset.openOp); t.onkeydown = e => { if (e.key === "Enter") buildOpen(t.dataset.openOp); }; });
   }
 }

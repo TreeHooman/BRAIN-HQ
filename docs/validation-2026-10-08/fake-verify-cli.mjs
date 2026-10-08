@@ -12,4 +12,5 @@ if(p.includes('QA_EDIT')){w('app.py','x = '+Date.now()+'\n');report='**Result:**
 if(p.includes('QA_LIE')){report='**Result:** Done\n**What I did:**\n- Edited app.py and fixed the bug.\n- Tests pass.\n**Needs you:** Nothing';}
 if(p.includes('QA_QUIET')){w('app.py','y = '+Date.now()+'\n');}
 if(p.includes('QA_BREAK')){w('app.py','z = 1\n');w('fail.flag','1');report='**Result:** Done\n**What I did:**\n- Edited app.py.\n- All tests pass.\n**Needs you:** Nothing';}
+if(p.includes('QA_PARTLY')){report='**Result:** Partly done. Two items are left for the owner.\n**What I did:**\n- Looked around.\n**Needs you:** Two items';}
 console.log(JSON.stringify({type:'result',result:report,is_error:false,session_id:'qa-session',num_turns:1}));

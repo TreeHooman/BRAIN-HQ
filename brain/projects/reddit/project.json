@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-05",
+  "updated": "2026-10-07",
   "links": [],
   "tags": [
     "reddit",
@@ -37,5 +37,5 @@
   "health": "risk",
   "order": 3,
   "summary": "Everything Reddit-side: API access, registration, the AutoMod reddit-first flow, compliance.",
-  "nextStep": "Draft the Data Access Request resubmission (deadline 31 Oct)."
+  "nextStep": "Owner: review the recusal rule draft in plan.md, date it and post it in the r/LoanCentral wiki (reminder 8 Oct 12:00); then the resubmission draft."
 }

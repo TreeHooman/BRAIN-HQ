@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Build the daily debrief (docs/AUTONOMY-DESIGN.md: next after verify-before-done, which is live and owner-confirmed).",
+  "nextStep": "Build the evening debrief (owner agreed 2026-10-08): code-only, no model call. At 21:00 local (config debrief.hour, after 21:00 until midnight if HQ was off) build from data HQ already has: tasks reported today (done / partly / needs a look), scheduled missions that failed, approvals waiting, brain changes today (Undo-able), initiative picks today, reminders + milestones due tomorrow, overdue count. Save data/debriefs/<date>.md, one phone notification only if something happened (state.notified.debrief guards once a day), \"Evening debrief\" card on Today next to Morning brief, GET /api/debrief. Formatter in a new src/lib/debrief.ts, gathering in orchestrator (needs runCache/taskStatus). Test on a copy like verify-test.mjs.",
   "updated": "2026-10-08",
   "paths": [],
   "repos": [],

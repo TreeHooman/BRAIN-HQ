@@ -67,6 +67,7 @@ try{
     assert.equal(x.status,'done');});
   await test('Plan-level task: not checked',async()=>{
     const t=await task('QA_EDIT plan only','qa-plan','plan'); assert.equal(t.runs[0].verify,undefined); assert.doesNotMatch(t.runs[0].output||'',/Checked by HQ/);});
+  await test('Partly done report: amber "partly", not green done',async()=>{const t=await task('QA_PARTLY some','qa-plan','plan'); assert.equal(t.status,'partly');});
   await test('Build prompt tells the agent it will be checked',async()=>{
     const calls=fs.readFileSync(path.join(root,'data','fake-calls.jsonl'),'utf8').trim().split('\n').map(l=>JSON.parse(l));
     assert.ok(calls.some(c=>/HQ checks build work after you finish/.test(c.prompt)));});

@@ -124,7 +124,7 @@ function feedUpdate(box, scope) {
       : `<span class="tm">${hhmmss(r.at)}</span><b>${esc(r.who)}</b><span class="ar">→</span><span class="v ${r.s.ok === false ? "bad" : ""}">${esc(r.s.verb)}</span> <span class="tg">${esc(r.s.target || "")}</span>${r.s.result ? ` <span class="rs ${r.s.ok === false ? "bad" : ""}">${r.s.ok === false ? "✕" : "✓"} ${esc(r.s.result)}</span>` : ""}`;
     let el = have.has(r.k) ? box.querySelector(`[data-k="${CSS.escape(r.k)}"]`) : null;
     if (!el) { el = document.createElement("div"); el.className = "lv-line in"; el.dataset.k = r.k; box.appendChild(el); }
-    if (el.innerHTML !== html) el.innerHTML = html;
+    if (el._html !== html) { el.innerHTML = html; el._html = html; }
   }
   while (box.children.length > 60) box.firstElementChild.remove();
   if (stick) box.scrollTop = box.scrollHeight;
@@ -186,8 +186,8 @@ function codeGrid() {
   };
   const empty = !sessions.length ? `<div class="tui-empty"><b>No sessions yet.</b><span>Start a new one, or bring in a Claude Code session you already have open in the terminal or VS Code.</span></div>` : !shown.length ? `<div class="tui-empty"><span>Nothing here. <a href="javascript:void 0" data-cf-all>Show all</a></span></div>` : "";
   const html = empty + shown.map(tile).join("") + `<button class="lv-tile lv-add" type="button" id="lvAdd"><span>+</span>New session<small>runs in parallel with the others</small></button>`;
-  if (g.innerHTML !== html) {
-    g.innerHTML = html;
+  if (g._html !== html) {
+    g.innerHTML = html; g._html = html;
     g.querySelectorAll("[data-open-s]").forEach(t => { t.onclick = e => { if (!e.target.closest("button")) codeOpen(t.dataset.openS); }; t.onkeydown = e => { if (e.key === "Enter") codeOpen(t.dataset.openS); }; });
     g.querySelectorAll("[data-stop]").forEach(b => b.onclick = () => api(`/code/${b.dataset.stop}/stop`, "POST").then(liveKick).catch(x => toast(x.message)));
     g.querySelectorAll("[data-closes]").forEach(b => b.onclick = async () => { if (!(await uiConfirm("Close this session? Its history is archived."))) return; await api(`/code/${b.dataset.closes}`, "DELETE").catch(x => toast(x.message)); Live.code = await api("/code").catch(() => Live.code); codeGrid(); });
@@ -377,7 +377,7 @@ async function codeSend() {
 }
 
 // ---------------- Tasks: delegate → watch the agents → report back ----------------
-const TK_ST = { queued: ["", "queued"], running: ["blue", "working"], paused: ["amber", "paused"], done: ["green", "done"], issue: ["red", "needs a look"], cancelled: ["", "cancelled"] };
+const TK_ST = { queued: ["", "queued"], running: ["blue", "working"], paused: ["amber", "paused"], done: ["green", "done"], issue: ["red", "needs a look"], partly: ["amber", "partly done"], cancelled: ["", "cancelled"] };
 const CAN = [["read", "Just look and tell me"], ["plan", "Can update my notes"], ["build", "Can write code"]];
 async function vTasks(el) {
   const can = hstore.get("hq-task-can", "plan"), name = esc(S.settings.assistantName || "LUTHUR");
@@ -435,7 +435,7 @@ function taskList() {
     const subs = agents.slice(1).filter(r => r.output);
     return `<div class="card lv-task st-${t.status}" data-task="${t.id}" ${t.project ? `style="--pc:${projColor(t.project)}"` : ""}>
       <div class="h"><span class="pill ${cls}">${lbl}</span><b>${esc(t.title)}</b><span class="faint small">${t.project ? esc(projName(t.project)) + " · " : ""}${ago(t.createdAt)}</span>
-        ${open.includes(t) ? `<button class="btn sm ghost" data-tcancel="${t.id}" type="button">Cancel</button>` : ""}</div>
+        ${open.includes(t) ? `<button class="btn sm ghost" data-tcancel="${t.id}" type="button">Cancel</button>` : ""}<button type="button" class="btn sm ghost" data-upopen="${esc(JSON.stringify({ kind: "task", id: t.id }))}">Edit / details</button></div>
       ${agents.length > 1 || open.includes(t) ? `<div class="lv-chain">${chain}</div>` : ""}
       ${liveOp ? `<div class="lv-now"><span class="dot pulse"></span>${esc(agentName(liveOp))} · ${last ? (last.kind === "text" ? "“" + esc(last.target) + "”" : `${esc(last.verb)} ${esc(last.target)}`) : "starting…"}</div>` : ""}
       ${thread}
@@ -450,8 +450,10 @@ function taskList() {
   const lv = document.getElementById("tkLive"); if (lv) { const was = lv.hidden; lv.hidden = !open.length; if (was && !lv.hidden) netUpdate(document.getElementById("lvNet"), "tasks"); }
   const how = document.getElementById("tkHow"); if (how) how.hidden = ts.length > 2;
   const typing = box.contains(document.activeElement) && document.activeElement.tagName === "INPUT";
-  if (box.innerHTML !== html && !typing) {
-    box.innerHTML = html;
+  // Compare with what was last drawn, not box.innerHTML: the browser re-serializes attributes, so that never matched
+  // and the whole list (open reports, the Edit buttons) was redrawn on every poll, which flickered.
+  if (box._html !== html && !typing) {
+    box.innerHTML = html; box._html = html;
     box.querySelectorAll("[data-tcancel]").forEach(b => b.onclick = () => api(`/tasks/${b.dataset.tcancel}/cancel`, "POST").then(liveKick).catch(x => toast(x.message)));
     box.querySelectorAll("[data-treply]").forEach(f => f.onsubmit = async e => {
       e.preventDefault(); const v = f.querySelector("input").value.trim(); if (!v) return;
@@ -461,11 +463,11 @@ function taskList() {
   // report back: a task that just finished speaks up
   for (const t of ts) {
     const was = Live.taskSeen.get(t.id);
-    if (was && ["running", "queued", "paused"].includes(was) && (t.status === "done" || t.status === "issue")) {
+    if (was && ["running", "queued", "paused"].includes(was) && ["done", "issue", "partly"].includes(t.status)) {
       const out = [...t.runs].reverse().find(r => r.output)?.output || "";
       const first = out.replace(/\*\*Result\*\*:?/i, "").replace(/[#*_`>]/g, "").split(/\n+/).map(x => x.trim()).filter(Boolean)[0] || "";
-      toast(`${t.status === "done" ? "Done" : "Needs a look"}: ${t.title}`, 6000); Snd.blip(1320, .08);
-      speakAlways(`${t.status === "done" ? "Task complete" : "A task needs your attention"}: ${t.title}. ${first}`);
+      toast(`${t.status === "done" ? "Done" : t.status === "partly" ? "Partly done" : "Needs a look"}: ${t.title}`, 6000); Snd.blip(1320, .08);
+      speakAlways(`${t.status === "done" ? "Task complete" : t.status === "partly" ? "Task partly done" : "A task needs your attention"}: ${t.title}. ${first}`);
     }
     Live.taskSeen.set(t.id, t.status);
   }

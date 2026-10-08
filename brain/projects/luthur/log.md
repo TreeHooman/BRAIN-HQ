@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-08 05:00 · claude
+Owner approved both initiative picks; both reports were useful (Reddit recusal rule drafted into the brain, nothing posted; LoanCentral Phase 0 consolidated into an 8-item owner checklist, honestly "Partly done"). Fixes: (1) Tasks page flicker: lists compared with box.innerHTML, which the browser re-serializes, so every poll redrew every card and the injected "Edit / details" button popped in and out. Now compare with the last drawn string (live.js task list, live lines, code tiles; live-builds.js) and the task card draws its own Edit / details button. (2) New task status "partly" (amber "partly done", 🟡 alert) when the latest report says Result: Partly; goal steps stay open. verify-test.mjs now 11/11. Owner chose 21:00 for the evening debrief (next build).
+
 ## 2026-10-08 04:25 · claude
 Owner check passed: after the restart, a build task on GenBot ("Add a line saying verify test to LUTHUR-TEST.md") ended with "Checked by HQ: ✓ matches the report · 1 file changed", Changed: GenBot/LUTHUR-TEST.md, no project checks found. Verify-before-done works live.
 

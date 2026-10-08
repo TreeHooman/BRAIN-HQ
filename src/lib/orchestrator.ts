@@ -538,6 +538,7 @@ async function execute(run: Run) {
 }
 
 /** The agent exited cleanly but its own report says it did not do the job. */
+const PARTLY = /\*\*Result:?\*\*:?\s*Partly/i;
 const NOT_DONE = /\*\*Result:?\*\*:?\s*(Not completed|Not done|Failed|Blocked)/i;
 
 function handleResult(run: Run, res: RunResult, cancelled: boolean) {
@@ -608,7 +609,10 @@ function taskStatus(rs: Run[]): string {
   if (rs.every(r => r.status === "cancelled")) return "cancelled";
   // Only the latest HQ check counts: an owner reply that fixes the work clears an earlier "needs a look".
   const checked = [...rs].reverse().find(r => r.verify);
-  return rs.some(r => r.status === "failed" || r.status === "timeout") || checked?.verify?.ok === false || root?.status !== "done" ? "issue" : "done";
+  if (rs.some(r => r.status === "failed" || r.status === "timeout") || checked?.verify?.ok === false || root?.status !== "done") return "issue";
+  // The agent's own report says it finished only part of the job: not a green "done" (and a goal step stays open).
+  const last = [...rs].reverse().find(r => r.output);
+  return last && PARTLY.test(last.output!) ? "partly" : "done";
 }
 /** Budget for one task tree (config tasks.maxSubtasks / tasks.maxTaskMinutes). Returns why it is spent, or null. */
 function taskOverBudget(taskId: string): string | null {
@@ -638,7 +642,7 @@ function taskCheck(run: Run) {
   const ids = new Set(rs.map(r => r.id)), changes = audit.list(300).filter(c => ids.has(c.run) && !c.undone).length;
   const extra = [root.autoRule ? "Started on its own (your rule)." : "", changes ? `${changes} brain change${changes > 1 ? "s" : ""}; Undo in Missions & approvals.` : "", root.budgetNote ? `Stopped adding agents: ${root.budgetNote}.` : ""].filter(Boolean).join(" ");
   const body = ((extra ? extra + " " : "") + (last.output || last.error || "").replace(/[#*_`]/g, "").replace(/\s+/g, " ").trim()).slice(0, 360);
-  notify({ title: `${st === "done" ? "✅ Task done" : "⚠️ Task needs a look"}: ${root.title}`, body: body || st, priority: st === "done" ? 3 : 4, tags: st === "done" ? "white_check_mark" : "warning" });
+  notify({ title: `${st === "done" ? "✅ Task done" : st === "partly" ? "🟡 Task partly done" : "⚠️ Task needs a look"}: ${root.title}`, body: body || st, priority: st === "issue" ? 4 : 3, tags: st === "done" ? "white_check_mark" : st === "partly" ? "yellow_circle" : "warning" });
 }
 export function createTask(input: { text?: string; project?: string | null; tier?: string; permission?: string; effort?: string }): Run {
   const text = String(input.text || "").trim().slice(0, 8000);

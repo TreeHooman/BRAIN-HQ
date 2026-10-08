@@ -1,19 +1,19 @@
 # HQ index
 
-_Auto-generated 2026-10-07 20:09. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-07 20:14. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
-| loancentral | business | live | watch | Finish Phase 0 housekeeping (due 8 Oct), then Phase 1 dashboard v1. | 2026-10-06 |
+| loancentral | business | live | watch | Phase 0 by 8 Oct: owner does Reddit items (US/CA rule, close r/LoanCentralEU, ModSupport modmail, r/borrow + r/SimpleLoans mods, wiki), runs website updater, then tick milestone; see log 2026-10-07 checklist. | 2026-10-07 |
 | loancentral-discord | product | building | good | Do the lender-claim test on test ticket REQ-0002 in the main server (preview). | 2026-10-05 |
-| reddit | workstream | building | risk | Draft the Data Access Request resubmission (deadline 31 Oct). | 2026-10-05 |
+| reddit | workstream | building | risk | Owner: review the recusal rule draft in plan.md, date it and post it in the r/LoanCentral wiki (reminder 8 Oct 12:00); then the resubmission draft. | 2026-10-07 |
 | neuroweb | product | idea | unknown | Owner: tell the assistant what NeuroWeb is (one or two lines) so it can fill this in. | 2026-10-05 |
 | genbot | product | paused | unknown | Owner: confirm GenBot = GenBets-P and say what it does. | 2026-10-07 |
 | borrow-fast | business | planned | unknown | Write the one-page concept: where it lives, who it's for, how it differs from LoanCentral. | 2026-10-05 |
 | frontier-plan | strategy | planned | unknown | Collect scaling ideas here as they come up; review after the mid-Feb 2027 decision. | 2026-10-05 |
 | ai-hockey | product | live | good | Check HANDOFF.md in the repo for what's left; confirm the hosting PC auto-update is healthy. | 2026-10-05 |
 | blueprint-estimator | product | paused | unknown | Owner: is this still active? Last work was pre-calibration prep (4 Jul). | 2026-10-05 |
-| luthur | tool | building | good | Build the daily debrief (docs/AUTONOMY-DESIGN.md: next after verify-before-done, which is live and owner-confirmed). | 2026-10-08 |
+| luthur | tool | building | good | Build the evening debrief (owner agreed 2026-10-08): code-only, no model call. At 21:00 local (config debrief.hour, after 21:00 until midnight if HQ was off) build from data HQ already has: tasks reported today (done / partly / needs a look), scheduled missions that failed, approvals waiting, brain changes today (Undo-able), initiative picks today, reminders + milestones due tomorrow, overdue count. Save data/debriefs/<date>.md, one phone notification only if something happened (state.notified.debrief guards once a day), "Evening debrief" card on Today next to Morning brief, GET /api/debrief. Formatter in a new src/lib/debrief.ts, gathering in orchestrator (needs runCache/taskStatus). Test on a copy like verify-test.mjs. | 2026-10-08 |
 
 ## Due in the next 14 days
 - 2026-10-07 18:00 Phase 0 housekeeping is due tomorrow: check what's left [loancentral]
