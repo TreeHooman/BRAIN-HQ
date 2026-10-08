@@ -140,7 +140,7 @@ function renderChrome() {
   if (st.queued) pills.push(`<a class="pill" href="#missions">${st.queued} queued</a>`);
   if (st.pendingApprovals) pills.push(`<a class="pill amber" href="#missions">${st.pendingApprovals} need your OK</a>`);
   const over = S.reminders.filter(r => !r.done && toDate(r.due) < new Date()).length;
-  if (over) pills.push(`<a class="pill red" href="#home">${over} overdue</a>`);
+  if (over) pills.push(`<a class="pill red" href="#home" data-upopen='{"kind":"schedule"}'>${over} overdue</a>`);
   $("#pills").innerHTML = pills.join("");
   const authTxt = !st.claudeBin ? "CLI not found" : st.auth === "ok" ? "connected" : st.auth === "needs-login" ? "needs sign-in" : "not checked yet";
   $("#engine").innerHTML = `

@@ -58,6 +58,16 @@ async function upPaint(w) {
       const rem=S.reminders.filter(i=>!i.done).sort((a,b)=>a.due.localeCompare(b.due));
       const milestones=S.milestones.filter(i=>!i.done).sort((a,b)=>a.date.localeCompare(b.date));
       html=`<h3>Daily work</h3>${(S.today?.items||[]).map(i=>upListItem("daily",i)).join("")}<h3>Reminders</h3>${rem.slice(0,20).map(i=>upListItem("reminder",i)).join("")}<h3>Milestones & deadlines</h3>${milestones.slice(0,12).map(i=>upListItem("milestone",i)).join("")}<h3>Calendar</h3>${(S.calendar?.upcoming||[]).slice(0,12).map(e=>`<div class="up-row"><div><b>${esc(e.title)}</b><small>${esc(fmtWhen(e.start))}</small></div></div>`).join("")}`;
+    } else if(r.kind==="schedule") {
+      title="Schedule";
+      const now=new Date(), d0=new Date(ymd(now)+"T00:00"), end=new Date(d0.getTime()+864e5), soon=new Date(d0.getTime()+15*864e5);
+      const rem=S.reminders.filter(i=>!i.done).sort((a,b)=>toDate(a.due)-toDate(b.due));
+      const over=rem.filter(i=>toDate(i.due)<now), today=rem.filter(i=>toDate(i.due)>=now&&toDate(i.due)<end), later=rem.filter(i=>toDate(i.due)>=end&&toDate(i.due)<soon);
+      const cal=(S.calendar?.upcoming||[]).filter(e=>!e.allDay&&new Date(e.start)>=d0&&new Date(e.start)<end);
+      const row=i=>`<div class="up-row"><button type="button" class="btn sm" data-upremdone="${esc(i.id)}" aria-label="Complete ${esc(i.title)}">○</button><button type="button" class="up-item grow" data-upitem="reminder|${esc(i.id)}"><b>${esc(i.title)}</b><small>${esc(fmtWhen(i.due))}${i.project?" · "+esc(projName(i.project)):""}</small></button></div>`;
+      const sec=(h,list,cls="")=>list.length?`<h3 class="${cls}">${h}</h3>${list.map(row).join("")}`:"";
+      html=`<form class="form up-addrem" data-upaddrem>${upField("New reminder","title","")}<div class="row">${upField("When","due",`${ymd(now)}T${pad(Math.min(23,now.getHours()+1))}:00`,"datetime-local")}<label class="f">Project<select name="project"><option value="">None</option>${S.projects.map(p=>`<option value="${esc(p.slug)}">${esc(p.name)}</option>`).join("")}</select></label></div><button class="btn sm primary">Add reminder</button></form>
+        ${sec(`Overdue (${over.length})`,over,"up-late")}${sec("Later today",today)}${cal.length?`<h3>Calendar today</h3>${cal.map(e=>`<div class="up-row"><div><b>${esc(e.title)}</b><small>${esc(fmtWhen(e.start))}</small></div></div>`).join("")}`:""}${sec("Next 2 weeks",later)}${over.length+today.length+later.length+cal.length?"":`<p class="muted">Nothing scheduled.</p>`}`;
     } else if(r.kind==="process") {
       title="LUTHUR · Work process";
       const live=await api("/live"), chat=await api("/chat"), tasks=(await api("/tasks")).tasks;
@@ -94,6 +104,8 @@ function upBind(w) {
   box.querySelectorAll("[data-upstep]").forEach(b=>b.onclick=()=>upOpen({kind:"step",id:r.id,step:b.dataset.upstep}));
   box.querySelectorAll("[data-upstepdone]").forEach(b=>b.onclick=async()=>{const step=upFind({kind:"step",id:r.id,step:b.dataset.upstepdone});try{await upMutate(`/goals/${r.id}/steps/${step.id}`,"PATCH",{done:!step.done},step.done?"Reopened":"Complete");}catch(e){toast(e.message);}});
   box.querySelectorAll("[data-uptask]").forEach(b=>b.onclick=()=>upOpen({kind:"task",id:b.dataset.uptask}));
+  box.querySelectorAll("[data-upremdone]").forEach(b=>b.onclick=()=>upMutate(`/reminders/${b.dataset.upremdone}`,"PATCH",{complete:true},"Done").catch(e=>toast(e.message)));
+  box.querySelector("[data-upaddrem]")?.addEventListener("submit",async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.target));if(!f.title.trim())return;w.dirty=false;try{await upMutate("/reminders","POST",{title:f.title.trim(),due:f.due,project:f.project||undefined},"Reminder added");}catch(er){toast(er.message,6000);}});
   box.querySelectorAll("[data-upwork]").forEach(b=>b.onclick=()=>cmdSend(b.dataset.upwork));
   box.querySelectorAll("[data-upapprove],[data-upreject]").forEach(b=>b.onclick=()=>upMutate(`/approvals/${b.dataset.upapprove||b.dataset.upreject}`,"POST",{approve:!!b.dataset.upapprove}).catch(e=>toast(e.message)));
   box.querySelectorAll("[data-upmission]").forEach(b=>b.onclick=()=>upMutate(`/missions/${b.dataset.upmission}/run`,"POST",{}).catch(e=>toast(e.message)));

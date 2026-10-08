@@ -28,7 +28,7 @@ function tdTimeline() {
   for (const r of rows) {
     if (!nowPut && r.s > now) { out.push(`<li class="td-now"><span>${tdHM(now)}</span><i></i></li>`); nowPut = true; }
     const past = (r.en || r.s) < now && r.k !== "free";
-    out.push(`<li class="td-ev k-${r.k} ${past ? "past" : ""}"><span class="td-t">${tdHM(r.s)}${r.en && r.k !== "rem" ? `<small>${tdHM(r.en)}</small>` : ""}</span><div><b>${esc(r.t)}</b>${r.sub ? `<small>${esc(r.sub)}</small>` : ""}</div>${r.k === "rem" ? `<button type="button" class="icon-btn" data-tdrem="${esc(r.id)}" title="Done" aria-label="Mark done">✓</button>` : ""}</li>`);
+    out.push(`<li class="td-ev k-${r.k} ${past ? (r.k === "rem" ? "late" : "past") : ""}"${r.k === "rem" ? ` data-tdopen="${esc(r.id)}" tabindex="0" title="Edit reminder"` : ""}><span class="td-t">${tdHM(r.s)}${r.en && r.k !== "rem" ? `<small>${tdHM(r.en)}</small>` : ""}</span><div><b>${esc(r.t)}</b>${r.sub ? `<small>${esc(r.sub)}</small>` : ""}</div>${r.k === "rem" ? `<button type="button" class="icon-btn" data-tdrem="${esc(r.id)}" title="Done" aria-label="Mark done">✓</button>` : ""}</li>`);
   }
   if (!nowPut) out.push(`<li class="td-now"><span>${tdHM(now)}</span><i></i></li>`);
   return `${overdue.length ? `<div class="td-over"><b>${overdue.length} overdue</b> ${overdue.slice(0, 3).map(r => `<button type="button" data-tdrem="${esc(r.id)}" title="Mark done">✓ ${esc(r.title)}</button>`).join("")}</div>` : ""}
@@ -74,7 +74,7 @@ function tdPaint(el) {
       <div class="row"><button type="button" class="btn primary" id="tdPlan" ${TD.planning ? "disabled" : ""}>${TD.planning ? "Planning…" : "✦ Plan my day"}</button></div></div>
     ${alerts.join("")}
     <div class="td-cols">
-      <section class="card nv-panel td-sched"><div class="panel-title">Schedule <small>today</small></div>${tdTimeline()}
+      <section class="card nv-panel td-sched"><div class="panel-title between">Schedule <button type="button" class="btn sm ghost" data-tdsched>Open ↗</button></div>${tdTimeline()}
         <form id="quickRem" class="td-add" autocomplete="off"><input name="title" placeholder="Add a reminder…" aria-label="Reminder"><input type="time" name="at" value="${pad(Math.min(23, h + 1))}:00" aria-label="Time"><button class="btn sm">Add</button></form></section>
       <section class="card nv-panel td-goals"><div class="panel-title">Today's goals</div>${tdGoals()}</section>
     </div>
@@ -95,6 +95,13 @@ function tdPaint(el) {
     TD.at = 0; tdLoad(el);
   });
   el.querySelectorAll("[data-tdx]").forEach(b => b.onclick = async () => { try { S.today = await api(`/today/items/${b.dataset.tdx}`, "DELETE"); } catch {} tdPaint(el); });
+  const sched = el.querySelector(".td-sched");
+  sched.onclick = e => {
+    if (typeof upOpen !== "function" || e.target.closest("form, [data-tdrem], [data-upopen]")) return;
+    const row = e.target.closest("[data-tdopen]");
+    upOpen(row ? { kind: "reminder", id: row.dataset.tdopen } : { kind: "schedule" });
+  };
+  sched.onkeydown = e => { if (e.key === "Enter" && e.target.matches("[data-tdopen]")) e.target.click(); };
   el.querySelectorAll("[data-tdrem]").forEach(b => b.onclick = () => act(() => api(`/reminders/${b.dataset.tdrem}`, "PATCH", { complete: true }), "Done"));
   el.querySelector("#tdAdd").onsubmit = async e => {
     e.preventDefault(); const f = new FormData(e.target), t = String(f.get("t") || "").trim(); if (!t) return;
