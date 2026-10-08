@@ -55,9 +55,9 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Local branch `luthur-work` tracks that remote branch under a different name, so a plain `git push` refuses: use `git push origin HEAD:claude/relaxed-turing-tnsbre`.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-08 01:20 UTC)
+## Current state (auto, 2026-10-08 01:24 UTC)
 - Stage: building · health: good
-- Next step: Approve the queued Codex build task and check its Code tile shows the changed lines (shell-made changes). Memory search in chat is confirmed.
+- Next step: Today's fixes are confirmed live (Codex writes, live Code diffs, memory search in chat). Next: work through the remaining owner checks (voice, ElevenLabs, desktop/PC control, hologram, phone layout, first Outbox send) as time allows.
 
 ### Waiting on the owner
 - Chat: open LUTHUR → Conversation; it starts on the newest message and stays there after you send. The Claude and Codex usage lines above it don't overlap.
@@ -76,6 +76,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-08 03:30 · claude**: Owner check passed: Codex task "GenBot: append line to LUTHUR-TEST.md" (after restart) showed on the live Code tile as Changed steps with red/green lines, including Codex fixing its own first write (joined onto the existing line, then split it). Shell-made changes now visible; tile total +3 −2. Codex write path + live…
 - **2026-10-08 03:10 · claude**: Owner check passed: after the restart, LUTHUR answered "what did we decide about the discord interest rate?" in chat from memory (status open, options, Oct 10 deadline). Removed that owner check. Still to check: a Codex build task showing shell-made changes on its Code tile (task queued, waiting for approval).
 - **2026-10-08 02:50 · claude**: Codex shell changes now show on the Code page. narrate.WorkspaceWatch records a Codex build run's workspace at start (size+mtime of up to 4000 files, text of small files, skipping .git/node_modules/dist/build etc.) and rescans after each command or file edit; new/changed/deleted files appear as a "Changed" step with -…
 - **2026-10-08 02:35 · claude**: Owner check passed: Codex created GenBot/LUTHUR-TEST.md on a build task (first real Codex write from HQ), the live Code tile streamed its steps, nothing in data/guard. Gap: Codex wrote the file with a PowerShell command, not its file-edit tool, so the tile showed +0 −0 and no lines. Fixed in the next entry.
@@ -83,6 +84,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-08 01:50 · claude**: Follow-up (owner report): opening LUTHUR from the menu showed the page scrolled ~270 px down, hiding the header. Cause: app.js focused the message box on every render and the browser scrolled the page to it. Now focus({ preventScroll: true }), and mind.js puts the cursor back after moving the chat into its wrapper. Ch…
 - **2026-10-08 01:30 · claude**: Live code view + chat fixes (owner asks). New web/live-builds.js: build-level background tasks/missions (Claude or Codex) show as live tiles at the top of the Code page ("Background code changes · live"); clicking one opens a drawer that streams every step with the changed lines (green/red) and stays open when the tas…
 - **2026-10-08 00:45 · claude**: Memory search (next build) + two run fixes. New src/lib/memory-search.ts: one ranked, code-only search (BM25 with light stemming, phrase and recency boosts; ~30 ms first call, ~5 ms cached, rebuilt only when a file changes) over project SUMMARY/plan/log/project.json, decisions, preferences, goals, milestones, reminder…
-- **2026-10-08 00:15 · claude**: Queue stall fixed: since ~08:00 on 10-07 every 30 s tick crashed ("all.some is not a function"), so no queued run started (Morning brief sat 9 h). Cause: forceStop() wrote data/goal-work.json as {} when the file was missing. forceStop now uses goalWork(), and goalWork() treats a non-list file as empty. File reset to […
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.

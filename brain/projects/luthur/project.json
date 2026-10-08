@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Approve the queued Codex build task and check its Code tile shows the changed lines (shell-made changes). Memory search in chat is confirmed.",
+  "nextStep": "Today's fixes are confirmed live (Codex writes, live Code diffs, memory search in chat). Next: work through the remaining owner checks (voice, ElevenLabs, desktop/PC control, hologram, phone layout, first Outbox send) as time allows.",
   "updated": "2026-10-08",
   "paths": [],
   "repos": [],

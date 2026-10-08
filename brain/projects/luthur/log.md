@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-08 03:30 · claude
+Owner check passed: Codex task "GenBot: append line to LUTHUR-TEST.md" (after restart) showed on the live Code tile as Changed steps with red/green lines, including Codex fixing its own first write (joined onto the existing line, then split it). Shell-made changes now visible; tile total +3 −2. Codex write path + live code view both confirmed.
+
 ## 2026-10-08 03:10 · claude
 Owner check passed: after the restart, LUTHUR answered "what did we decide about the discord interest rate?" in chat from memory (status open, options, Oct 10 deadline). Removed that owner check. Still to check: a Codex build task showing shell-made changes on its Code tile (task queued, waiting for approval).
 
