@@ -18,6 +18,10 @@ Function Up()
   Up = (Err.Number = 0 And (x.status = 200 Or x.status = 401))
 End Function
 
+' Starting means the owner wants it running: clear a deliberate stop and make sure the watchdog runs (watchdog.vbs).
+If fso.FileExists(hq & "\data\hq-stopped.flag") Then fso.DeleteFile hq & "\data\hq-stopped.flag", True
+If fso.FileExists(hq & "\scripts\watchdog.vbs") Then sh.Run "wscript """ & hq & "\scripts\watchdog.vbs""", 0, False
+
 If Not Up() Then
   sh.Run "cmd /c node --no-warnings src\server.ts >> data\server.log 2>&1", 0, False
   For i = 1 To 40   ' wait up to ~20s for the server

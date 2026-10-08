@@ -1,0 +1,25 @@
+/* Away mode card (web/away.js) */
+.aw .aw-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--border); }
+.aw .aw-row:first-of-type { border-top: 0; }
+.aw .aw-row > .grow { min-width: 0; }
+.aw .aw-row b { display: block; font-weight: 600; }
+.aw .aw-row small { display: block; color: var(--text2); line-height: 1.45; overflow-wrap: anywhere; }
+.aw .aw-row a { color: var(--accent); }
+.aw-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; background: var(--green); display: inline-block; }
+.aw-dot.warn { background: var(--amber); }
+.aw-dot.bad { background: var(--red); }
+.aw-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.aw-list li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.aw-list li .grow { flex: 1 1 180px; min-width: 0; }
+.aw-list li small { flex-basis: 100%; }
+.aw-list li .grow small { flex-basis: auto; }
+.aw-list .aw-dot { margin-top: 0; }
+.aw .aw-row .aw-bad { color: var(--red); display: inline; }
+.aw-btns { display: inline-flex; gap: 4px; }
+.aw-btns .btn { min-width: 36px; min-height: 32px; }
+.aw-taskrate { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; flex-wrap: wrap; }
+@media (max-width: 600px) {
+  .aw .aw-row { flex-wrap: wrap; }
+  .aw .aw-row > .btn { margin-left: 19px; }
+  .aw-habit li .btn { flex: 1 1 auto; }
+}

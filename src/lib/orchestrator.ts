@@ -37,6 +37,11 @@ import * as tts from "./tts.ts";
 import * as projectState from "./project-state.ts";
 import * as signals from "./signals.ts";
 import { writeText } from "./store.ts";
+import * as outcomes from "./outcomes.ts";
+import * as pacing from "./pacing.ts";
+import * as health from "./health.ts";
+import * as patterns from "./patterns.ts";
+import * as remote from "./remote.ts";
 
 /** Level 4 switches (config "l4"). Unattended pieces stay off until the owner turns them on after validation. */
 export function l4() {
@@ -305,6 +310,8 @@ async function tick() {
     checkReminders();
     maybeDebrief();
     handoff.refreshIfChanged();
+    // Health checks run even while work is stopped or paused: that is when the owner most needs to hear about it.
+    void health.tick(healthInputs).catch(e => activity("error", { where: "health", error: String(e) }));
     if(isStopped())return;
     scheduleMissions();
     resumeIfReady();
@@ -315,6 +322,7 @@ async function tick() {
     if (L4.projectState) projectState.refresh(stateInputs);
     if (L4.signals) signalsScan();
     if (initiative.due()) initiativeScan();
+    maybePatterns();
     manageAwake();
     runNext();
     autoCleanChats(!chatBusy && !active.size && !status().queued);
@@ -424,6 +432,10 @@ function ingestDrop() {
       else try { answerQuestion(String(d.id || ""), String(d.answer || ""), "owner (chat)"); } catch (e) { activity("answer-dropped", { reason: String(e) }); }
     } else if (d.type === "notify") {
       notify({ title: d.title || "HQ", body: d.body || "", priority: d.priority });
+    } else if (d.type === "rating") {
+      // Only the owner's own conversation rates work (hq-brain rate_work).
+      if (!String(d.fromRun || "").startsWith("chat-")) { activity("rating-dropped", { reason: "only the chat can rate work" }); continue; }
+      try { rateWork({ id: d.id || null, good: d.good === true, note: String(d.note || "") }); } catch (e) { activity("rating-dropped", { reason: String(e) }); }
     }
   }
 }
@@ -456,8 +468,90 @@ export function debrief(): debriefLib.Debrief {
     ],
     overdue: reminders.filter(r => brain.whenToDate(r.due) < now).length,
     projectName: slug => brain.getProject(slug)?.name || slug,
+    unrated: finishedWork().filter(w => isToday(w.at) && !outcomes.ratingOf(w.id)).length,
+    reliability: reliabilityLine(),
   });
 }
+// ---------------- away mode (docs/AWAY-MODE.md): pacing, health, outcome learning, habits ----------------
+/** Codex can take background work: installed and not known to be signed out. */
+const codexReady = () => !!findCodex() && codexAvailability() !== "needs-login";
+
+/** Lessons the owner taught by marking work "not right", for the run's prompt. */
+function lessonLines(project: string | null): string[] {
+  const l = outcomes.lessons(project, 5);
+  return l.length ? ["## Lessons from earlier work (the owner marked these not right; don't repeat them)", ...l.map(x => "- " + x), ""] : [];
+}
+
+/** Finished owner work HQ reported on: tasks (latest status) and settled plans. */
+export function finishedWork(): { id: string; kind: "task" | "plan"; title: string; project: string | null; status: string; at: string; autoRule: string | null }[] {
+  const out: ReturnType<typeof finishedWork> = [];
+  for (const r of runCache.values()) {
+    if (!r.taskId || r.taskId !== r.id || r.dismissed || !r.reportedAt) continue;
+    const st = r.ownerDone ? "done" : taskStatus(taskRuns(r.id));
+    if (st === "cancelled" || OPEN.has(st)) continue;
+    out.push({ id: r.id, kind: "task", title: r.title, project: r.project || null, status: st, at: r.reportedAt, autoRule: r.autoRule || null });
+  }
+  for (const p of plans.list(200)) if (["completed", "needs-verification", "failed"].includes(p.status))
+    out.push({ id: p.id, kind: "plan", title: p.title, project: p.project, status: p.status === "completed" ? "done" : p.status === "needs-verification" ? "partly" : "issue", at: p.updatedAt, autoRule: null });
+  return out.sort((a, b) => b.at.localeCompare(a.at));
+}
+export function reliability(days = 30) { return outcomes.reliability(finishedWork(), days); }
+function reliabilityLine(): string | null {
+  const r = reliability(30);
+  if (!r.finished) return null;
+  return `Last 30 days: ${r.finished} results (${r.done} done, ${r.partly} partly, ${r.issue} needed a look); you rated ${r.rated}` +
+    (r.rated ? `: ${r.score}% right${r.falseDone ? `, ${r.falseDone} said done but weren't` : ""}.` : ".");
+}
+
+/** The owner's verdict on finished work. No id = the most recent result. A "not right" with a note becomes a lesson;
+ *  on work a fast-approve rule started, it turns that rule off (like an Undo). */
+export function rateWork(input: { id?: string | null; good: boolean; note?: string }) {
+  const all = finishedWork();
+  const w = input.id ? all.find(x => x.id === input.id) : all[0];
+  if (!w) throw Object.assign(new Error(input.id ? "No finished task or plan with that id." : "Nothing has finished yet to rate."), { code: 404 });
+  const o = outcomes.record({ id: w.id, kind: w.kind, title: w.title, project: w.project, good: !!input.good, note: String(input.note || ""), status: w.status, autoRule: w.autoRule });
+  if (!o.good && w.autoRule) autonomy.demote(w.autoRule, `you marked "${w.title.slice(0, 80)}" not right`);
+  activity("work-rated", { id: w.id, good: o.good, lesson: !o.good && !!o.note });
+  return { ...o, ruleTurnedOff: !o.good && w.autoRule ? w.autoRule : null, lesson: !o.good && !!o.note };
+}
+
+function missionTexts(): string[] { return missions().map(m => `${m.title} ${m.prompt}`); }
+export function habitSuggestions() { return patterns.suggestions(missionTexts()); }
+export function answerHabit(key: string, accept: boolean) {
+  const p = habitSuggestions().find(x => x.key === key);
+  if (!p) throw Object.assign(new Error("That suggestion is gone."), { code: 404 });
+  if (!accept) { patterns.dismiss(key); return { ok: true }; }
+  const m = saveMission({ ...patterns.missionFor(p), permission: minLevel("plan", loadConfig().autonomy?.maxLevel || "build") });
+  patterns.dismiss(key); // scheduled now; don't suggest it again
+  activity("habit-scheduled", { mission: m.id, title: m.title });
+  return { ok: true, mission: m };
+}
+/** Once a day (after 9:00): new habits are announced on the phone once. */
+function maybePatterns() {
+  const today = localDate(), now = new Date();
+  if (now.getHours() < 9 || state().notified.patterns === today) return;
+  patchState(s => { s.notified.patterns = today; });
+  const fresh = patterns.fresh(habitSuggestions());
+  if (fresh.length) notify({ title: "💡 LUTHUR spotted a habit", body: `${fresh[0].title}: you ask this ${fresh[0].when.replace("every ", "most ")}. Want it done before you ask? (Today → Away mode)`, priority: 2, tags: "bulb" });
+}
+
+async function healthInputs(): Promise<health.Inputs> {
+  const cfg = loadConfig(), port = Number(process.env.HQ_PORT || cfg.port || 8800);
+  const rem = await remote.status(port).catch(() => null);
+  const all = [...runCache.values()];
+  const lastOk = all.filter(r => r.status === "done" && r.endedAt).reduce((m, r) => Math.max(m, Date.parse(r.endedAt!)), 0);
+  const pv = pacing.view();
+  return { claudeAuth: state().auth, codex: findCodex() ? codexAvailability() : "unavailable", remoteUrl: rem?.url || null, tailscaleInstalled: !!rem?.installed,
+    queued: all.filter(r => r.status === "queued" || r.status === "paused").length, running: active.size, lastOkRunAt: lastOk || null, pacing: { mode: pv.mode, reason: pv.reason } };
+}
+/** Everything the Away mode card shows. */
+export async function away() {
+  const cfg = loadConfig(), port = Number(process.env.HQ_PORT || cfg.port || 8800);
+  return { remote: await remote.status(port).catch(() => null), health: health.view(), pacing: pacing.view(), reliability: reliability(30),
+    unrated: finishedWork().filter(w => !outcomes.ratingOf(w.id)).slice(0, 8), habits: habitSuggestions() };
+}
+export async function healthNow() { return health.tick(healthInputs, true); }
+
 /** Once a day from config debrief.hour (default 21:00) until midnight; a phone alert only when something happened. */
 function maybeDebrief() {
   const cfg = loadConfig().debrief || {}, now = new Date(), today = localDate(now);
@@ -520,7 +614,8 @@ function runNext() {
   if (!queue.length) return;
   const b = budget();
   const today = localDate();
-  let capped = 0;
+  let capped = 0, paced = 0;
+  const pace = pacing.view();
   for (const run of queue) {
     if (s.pausedUntil && Date.parse(s.pausedUntil) > Date.now() && (run.provider === "claude" || (run.sessionId && run.provider !== "codex") || run.extraAllow?.length)) continue;
     const running = [...active.values()].map(x => x.run);
@@ -528,6 +623,12 @@ function runNext() {
     // that touch the same files apart).
     if (run.project && running.some(r => r.project === run.project && !(run.planId && r.planId === run.planId))) continue;
     const owner = ownerRun(run);
+    // Away-mode pacing (pacing.ts): background work spreads Claude's weekly allowance and leaves a reserve for the
+    // owner. When Claude is ahead of pace it goes to Codex if Codex is signed in, else it waits.
+    if (!owner && pace.mode !== "normal") {
+      const needsClaude = run.provider === "claude" || (!!run.sessionId && run.provider !== "codex") || !!run.extraAllow?.length;
+      if (needsClaude || !codexReady()) { paced++; continue; }
+    }
     // The live conversation comes first: scheduled background work doesn't start while LUTHUR is answering the owner.
     if (!owner && chatBusy) continue;
     if (owner ? running.filter(ownerRun).length >= maxTasks() : running.some(r => !ownerRun(r))) continue;
@@ -538,6 +639,10 @@ function runNext() {
       Object.assign(run, { status: "failed", endedAt: new Date().toISOString(), error: String(e), failure: { cls: "permanent", reason: String(e).slice(0, 200) } }); saveRun(run); opEnd(run.id, false);
       if (run.taskId) taskCheck(run); planHook(run);
     }).finally(kick);
+  }
+  if (paced && s.notified.paced !== today) {
+    patchState(x => { x.notified.paced = today; });
+    activity("paced", { runs: paced, mode: pace.mode, reason: pace.reason });
   }
   if (capped && s.notified.cap !== today) {
     patchState(x => { x.notified.cap = today; });
@@ -558,6 +663,7 @@ function missionPrompt(run: Run, level: Level, minutes: number): string {
     "## Task",
     run.prompt.trim(),
     "",
+    ...lessonLines(run.project || null),
     ...(run.planId ? [] : run.taskId ? [
       "## This is a delegated task",
       "The owner gave you this task from HQ's Tasks screen and is watching it live. Before each group of actions, say in one short line what you're doing and why.",
@@ -590,7 +696,8 @@ async function execute(run: Run) {
   const claudeModel = run.permission === "build" || run.tier !== "fast" ? "sonnet" : "haiku";
   const fallback = undefined;
   const blocked = state().pausedUntil && Date.parse(state().pausedUntil!) > Date.now();
-  const provider = run.provider || (run.sessionId || run.extraAllow?.length ? "claude" : blocked && findCodex() ? "codex" : "claude");
+  const saving = !ownerRun(run) && pacing.view().mode !== "normal" && codexReady();
+  const provider = run.provider || (run.sessionId || run.extraAllow?.length ? "claude" : (blocked || saving) && findCodex() ? "codex" : "claude");
   const model = provider === "codex" ? codexModelFor(run.tier) : claudeModel;
   const resuming = !!run.sessionId;
   // Verify-before-done (src/lib/verify.ts): build runs on a project with folders are checked against the real files.
@@ -827,9 +934,11 @@ export function dismissTask(id: string) {
 }
 export function tasks(limit = 30) {
   const roots = [...runCache.values()].filter(r => r.taskId && r.taskId === r.id && !r.dismissed).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
+  const rated = outcomes.latest();
   return roots.map(root => {
     const rs = taskRuns(root.id);
     return { id: root.id, title: root.title, prompt: root.prompt.slice(0, 2000), project: root.project, createdAt: root.createdAt, status: root.ownerDone && !rs.some(r => OPEN.has(r.status)) ? "done" : taskStatus(rs), reportedAt: root.reportedAt || null,
+      rating: (o => o ? { good: o.good, note: o.note } : null)(rated.get(root.id)),
       runs: rs.map(r => ({ id: r.id, title: r.title, status: r.status, parent: r.parentRun, depth: r.depth, reply: !!r.reply, prompt: r.reply ? r.prompt.slice(0, 600) : undefined, level: r.level || r.permission, model: r.model || r.tier,
         startedAt: r.startedAt, endedAt: r.endedAt, durationMs: r.durationMs, output: r.output?.slice(0, 6000), error: r.error?.slice(0, 800), verify: r.verify ? { ok: r.verify.ok, changed: r.verify.changed.length, checks: r.verify.checks.length, mismatches: r.verify.mismatches } : undefined })) };
   });
@@ -972,7 +1081,9 @@ function advancePlans() {
 async function proposeSteps(b: intake.Brief, briefText: string): Promise<unknown[]> {
   const proj = b.project ? brain.getProject(b.project) : null;
   const dirs = verify.projectDirs(proj?.paths);
-  const prompt = `${briefText}\n\nFacts: permission ${b.permission}; project folders ${dirs.length ? "exist" : "none"}; up to ${b.budget.agents} workers at once; about ${b.budget.minutes} minutes in total.\nReturn the JSON now.`;
+  const learned = outcomes.lessons(b.project, 6);
+  const lessonText = learned.length ? `\n\nLessons from earlier work the owner marked not right (plan so they don't repeat):\n${learned.map(l => "- " + l).join("\n")}` : "";
+  const prompt = `${briefText}${lessonText}\n\nFacts: permission ${b.permission}; project folders ${dirs.length ? "exist" : "none"}; up to ${b.budget.agents} workers at once; about ${b.budget.minutes} minutes in total.\nReturn the JSON now.`;
   const r = await runClaude({ prompt, model: "sonnet", level: "read", bare: true, system: PLANNER_SYSTEM, runId: `planner-${b.id}`, timeoutMs: 120e3, effort: "low" }).catch(() => null);
   const m = r?.ok ? r.text.match(/\{[\s\S]*\}/) : null;
   try { const j = m ? JSON.parse(m[0]) : null; if (Array.isArray(j?.steps) && j.steps.length) return j.steps; } catch {}

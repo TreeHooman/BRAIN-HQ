@@ -1,6 +1,7 @@
 // Alerts: Windows toast (bottom-right pop-up) + optional phone push via ntfy.
 import { spawn } from "node:child_process";
 import { loadConfig } from "./config.ts";
+import { phoneUrl } from "./remote.ts";
 
 const xml = (s: string) => s.replace(/[<>&"']/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;", "'": "&apos;" }[c]!));
 
@@ -41,5 +42,7 @@ export function notify(a: Alert): void {
   const cfg = loadConfig();
   const url = `http://localhost:${cfg.port || 8800}/`;
   if (cfg.notifications?.toast !== false) toast(a.title, a.body, url);
-  if (a.phone !== false) void ntfy(a.title, a.body, { priority: a.priority, tags: a.tags });
+  // Tapping a phone alert opens LUTHUR over Tailscale when phone access is on (remote.ts).
+  const click = phoneUrl();
+  if (a.phone !== false) void ntfy(a.title, a.body, { priority: a.priority, tags: a.tags, ...(click ? { url: click } : {}) });
 }

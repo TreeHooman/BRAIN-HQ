@@ -46,6 +46,7 @@ import * as timing from "./lib/timing.ts";
 import * as intake from "./lib/intake.ts";
 import * as plans from "./lib/plans.ts";
 import * as signals from "./lib/signals.ts";
+import * as remote from "./lib/remote.ts";
 
 ensureLocalConfig();
 const cfg = loadConfig();
@@ -210,6 +211,14 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/initiative\/settings$/, (_, b) => { autonomy.setInitiative(b || {}); return initiative.status(); }],
   ["POST", /^\/api\/initiative\/scan$/, () => orch.initiativeScan(true)],
   ["GET", /^\/api\/debrief$/, () => ({ latest: debrief.latest(), now: orch.debrief() })],
+  // Away mode (docs/AWAY-MODE.md): phone access, health, usage pacing, outcome ratings, habits.
+  ["GET", /^\/api\/away$/, () => orch.away()],
+  ["POST", /^\/api\/away\/health$/, () => orch.healthNow()],
+  ["POST", /^\/api\/remote\/serve$/, () => remote.serve(PORT)],
+  ["POST", /^\/api\/remote\/unserve$/, () => remote.unserve(PORT)],
+  ["GET", /^\/api\/outcomes$/, () => ({ reliability: orch.reliability(30), finished: orch.finishedWork().slice(0, 30) })],
+  ["POST", /^\/api\/outcomes\/rate$/, (_, b) => orch.rateWork({ id: b.id ? String(b.id) : null, good: b.good === true, note: String(b.note || "") })],
+  ["POST", /^\/api\/habits\/([a-f0-9]{12})$/, (m, b) => orch.answerHabit(m[1], b.accept === true)],
 
   ["GET", /^\/api\/calendar$/, (_m, _b, url) => {
     const day = (v: string | null, d: Date) => /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? new Date(v + "T00:00") : d;

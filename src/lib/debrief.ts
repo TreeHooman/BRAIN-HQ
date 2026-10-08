@@ -17,6 +17,8 @@ export type DebriefInput = {
   tomorrow: { title: string; when?: string; kind: "reminder" | "milestone"; project?: string | null }[];
   overdue: number;
   projectName?: (slug: string) => string;
+  // Outcome learning (outcomes.ts): results not rated yet today, and the 30-day reliability line.
+  unrated?: number; reliability?: string | null;
 };
 export type Debrief = { date: string; text: string; headline: string; empty: boolean };
 
@@ -54,6 +56,8 @@ export function compose(i: DebriefInput): Debrief {
   const tmr = i.tomorrow.map(t => `📅 ${t.title}${t.when ? ` · ${t.when}` : ""}${name(t.project)}`);
   if (i.overdue) tmr.push(`${plural(i.overdue, "reminder")} still overdue`);
   section("Tomorrow", tmr.length ? tmr : ["Nothing due."]);
+  const rel = [i.unrated ? `Rate today's ${plural(i.unrated, "result")} (👍 / 👎 on Tasks, or tell LUTHUR "that was right / wrong because…") so it learns.` : "", i.reliability || ""].filter(Boolean);
+  section("Reliability", rel);
   return { date: i.date, text: out.join("\n") + "\n", headline, empty };
 }
 

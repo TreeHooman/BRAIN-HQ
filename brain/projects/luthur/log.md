@@ -1,5 +1,16 @@
 # Log
 
+## 2026-10-08 03:00 · claude
+Away mode built overnight (owner: "talk and get shit done… away for months, back and forth with LUTHUR while he controls usage and does work"). docs/AWAY-MODE.md.
+- Phone access: Tailscale was already installed, the iPhone is on the tailnet and `tailscale serve` already serves LUTHUR at https://desktop-aklj0fo.tail2bfce5.ts.net/ (HTTPS, tailnet only). remote.ts reads it; phone alerts now open that address; Away card shows it with a Turn on button.
+- Health (health.ts): every 5 min checks sign-ins, disk, phone access, stuck work, usage reserve, crash restarts; one phone alert per problem. Optional dead-man ping (health.pingUrl in hq.local.json).
+- Watchdog (scripts/watchdog.vbs, started by start-hq.vbs): restarts a dead server after 3 min; STOP-HQ writes data/hq-stopped.flag so deliberate stops stay stopped.
+- Usage pacing (pacing.ts, config pacing): background work → Codex or waits when Claude is ahead of the weekly pace / 5-hour window high / 15% reserve left. Owner chat and tasks never held back. Right now (48% used, reset Tue 13 Oct) background work goes to Codex.
+- Learning from results (outcomes.ts): 👍/👎 on Tasks and the Away card, or by voice (chat tool rate_work). 👎 + note → lessons.md that every later run and the planner read; 👎 on rule-started work turns the rule off; reliability (incl. "said done but wasn't") on the card and in the debrief.
+- Prediction (patterns.ts): repeated asks (3+ days, regular weekday/time) → "Do it before I ask" scheduled missions.
+Tests: docs/validation-2026-10-10/away-test.mjs 17/17 (incl. a real watchdog restart), l4-test 31/31, earlier suites unchanged (same 2 known autonomy failures). UI checked at desktop and phone width on a copy.
+Not done (owner): BIOS power-on, Windows auto sign-in, keepAwake "always" before leaving, healthchecks.io ping, Chrome Remote Desktop, a 3-5 day dry run. Shipping while away (deploy permission) still needs a decision.
+
 ## 2026-10-08 08:32 · claude
 Owner said go: switched on l4.plans, l4.retries, l4.projectState in config/hq.json (signals, web research, chat.persistent stay off). Trial week 8-15 Oct: checklist + scorecard in brain/projects/luthur/l4-trial.md; daily 19:00 reminder "LUTHUR trial" and a 15 Oct 19:00 review reminder. Restarted LUTHUR so it is live.
 

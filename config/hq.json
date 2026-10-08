@@ -85,6 +85,18 @@
     "comment": "Level 4 (docs/L4-PROGRESS.md). fastpath: simple app questions answered without a model. intake: complex chat requests become a reviewable brief. plans: 'go' runs a brief as a plan of checked steps (off = one ordinary Task). retries: bounded retries with backoff for temporary failures of tasks/missions (plan steps always retry). review: independent review pass for code/research steps. signals: link mail/calendar to projects and propose prep tasks. projectState: generated brain/projects/<slug>/STATE.md. stallMinutes: stop a run that prints nothing this long (with plans or retries on)."
   },
 
+  "pacing": {
+    "enabled": true,
+    "reservePercent": 15,
+    "aheadMargin": 10,
+    "fiveHourMax": 80,
+    "comment": "Away mode (docs/AWAY-MODE.md, src/lib/pacing.ts). Spreads Claude's weekly allowance: background work (scheduled missions, initiative picks, follow-ups) goes to Codex or waits when this week's use is more than aheadMargin points ahead of an even pace, when the 5-hour window is past fiveHourMax %, or when only reservePercent % of the week is left. The owner's chat and tasks are never held back."
+  },
+
+  "health": {
+    "comment": "Away mode health checks (src/lib/health.ts) run every 5 minutes and alert the phone once per problem. Optional dead-man ping: put \"health\": { \"pingUrl\": \"https://hc-ping.com/<your-check-id>\" } in config/hq.local.json (healthchecks.io free account) so you hear about it when the PC is off or offline."
+  },
+
   "verify": {
     "enabled": true,
     "timeoutMinutes": 5,

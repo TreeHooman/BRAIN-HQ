@@ -10,6 +10,9 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 4. Later: Obsidian notes (see docs/BACKLOG.md). Guarded computer control: first version done 2026-10-07.
 
 ## Owner checks
+- Away mode: on your phone (Tailscale on) open https://desktop-aklj0fo.tail2bfce5.ts.net/, unlock, Add to Home Screen; talk to LUTHUR from there. On the PC: Today → Away mode card shows phone access on, health, usage, reliability.
+- Away mode: rate a finished task 👎 with a note ("always…"); give a similar task: its report should follow the lesson. Or say "that last task was wrong because …".
+- Away mode: before a long trip do the checklist in docs/AWAY-MODE.md (keepAwake always, BIOS power-on, auto sign-in, dead-man ping, remote desktop) and a 3-5 day phone-only dry run.
 - Level 4 speed: after a restart ask "what time is it", "what's next on LUTHUR" and "is anything waiting for me": answers should be instant (no thinking pause). Open /api/timing to see the numbers.
 - Level 4 intake: tell LUTHUR a multi-step job by voice (e.g. "work out what it would take to move my project notes into a database and plan it"). A Task brief appears bottom-right (Work panel) with at most 2 questions; correct it by voice, then say "go" (or "go anyway").
 - Level 4 interrupt: ask something long, talk over the answer: the answer stops AND the model stops generating (no late reply).
