@@ -67,4 +67,13 @@ step, nextStep; risk/watch health ranks higher). Each pick goes through the same
 otherwise it waits for the owner. Owner-only steps ("Owner: …"), paused/done and busy projects are skipped; HQ is plan-only;
 build needs the project on the build list and a folder. Limits: ≤2 per scan, ≤4 per day, 8:00-22:00, not repeated for
 7 days (30 after a reject). Tests: `docs/validation-2026-10-08/initiative-test.mjs` (8).
-Next: verify-before-done (build tasks run the project's checks, reports compared with the real diff), then a daily debrief.
+Next: a daily debrief.
+
+## 6. Verify-before-done (built 2026-10-08)
+`src/lib/verify.ts`, called from `orchestrator.execute()`. The agent's word is not the check: for a build run on a project with
+folders (HQ and LoanCentral-Test excluded, as in guard.ts) HQ snapshots the folders before and after, runs the project's checks
+when files changed (owner list in config `verify.checks[slug]`, else `npm test` / pytest in venv or .venv; 5 min cap; after the
+"after" snapshot so their leftovers don't count) and compares the report with the real changes. A failed check, a claimed file
+that didn't change, code work with no change, or "tests pass" when they failed makes it "needs a look" (task status issue,
+⚠ alert, red tile). A "Checked by HQ" block is added to the report; changes not named in it are noted. The latest check of a
+task counts. No model calls. Tests: `docs/validation-2026-10-08/verify-test.mjs` (10).

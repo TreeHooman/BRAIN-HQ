@@ -66,6 +66,13 @@
     "comment": "How many delegated tasks / sub-agents (and manual runs) may run at once. Scheduled missions use one extra lane. Two runs never work on the same project at the same time. An approved task runs to the end without asking, up to maxSubtasks agents and maxTaskMinutes of agent time in total."
   },
 
+  "verify": {
+    "enabled": true,
+    "timeoutMinutes": 5,
+    "checks": {},
+    "comment": "Verify-before-done (src/lib/verify.ts). After a build run on a project with folders, HQ compares the folders before and after, runs the project's checks when files changed, and compares the agent's report with the real changes. A failed check or mismatch marks it 'needs a look'. checks: { \"<project slug>\": [\"command\", ...] } overrides what HQ finds (npm test, pytest in venv/.venv); [] turns checks off for that project."
+  },
+
   "code": {
     "maxParallel": 4,
     "maxMinutes": 20,

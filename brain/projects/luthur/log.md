@@ -1,5 +1,11 @@
 # Log
 
+## 2026-10-08 04:10 · claude
+Committed + pushed the initiative work (323b98f). Built verify-before-done: new src/lib/verify.ts. A build run on a project with folders is snapshotted before/after (skips node_modules, venv, __pycache__, logs, dbs); when files changed HQ runs the project's checks (config verify.checks per project, else npm test / pytest in venv or .venv, 5 min cap); then it compares the report's "What I did" with the real changes (claimed files that didn't change, code work with no change, "tests pass" when they failed). Any failure = "needs a look" (task status issue, ⚠ notification, red tile); a "Checked by HQ" block is appended to the report; unreported changes are noted. Only the latest check of a task counts, so a reply that fixes it clears the flag. Build prompts now say HQ will check. Tests: docs/validation-2026-10-08/verify-test.mjs 10/10; initiative 8/8, phase0 8/8; autonomy-test has 2 failures that also fail on the committed code before this change (not caused by it).
+
+## 2026-10-07 19:55 · claude
+Daily schedule is clickable (owner ask). Clicking a reminder row on Daily → Schedule opens its edit window (title, due, Complete, Delete). Clicking anywhere else on the card, or the new "Open ↗" button, opens a new "Schedule" popout (upgrade.js kind "schedule"): add a reminder (title, date/time, project), plus Overdue / Later today / Calendar today / Next 2 weeks lists, each with a ○ to mark done and a click to edit. The header "N overdue" pill now opens this popout instead of just jumping to Daily. Past-due reminders show red with "overdue" instead of faded. The squeezed "Edit /" button on schedule rows is hidden, since the row itself opens the editor. Checked in a browser on a test copy: edit window, popout, add, mark done, header pill. Frontend only: refresh to activate.
+
 ## 2026-10-07 19:50 · claude
 Initiative went live after the restart: first scheduled look at 18:38 picked LoanCentral Phase 0 (milestone due 10-08) and the Reddit recusal-rule reminder (prep only, posting stays with the owner); both wait as approvals, plan rule matched 2x on trial. Fixed the card's next-look label (it said 22:38, past the 22:00 cutoff; now shows 8:00 next morning, or tomorrow when the daily cap is used); needs a restart. Handoff: next window commits/pushes, then builds verify-before-done.
 

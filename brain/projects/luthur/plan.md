@@ -10,6 +10,8 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 4. Later: Obsidian notes (see docs/BACKLOG.md). Guarded computer control: first version done 2026-10-07.
 
 ## Owner checks
+- Verify: after a restart, give a small build task on GenBot (e.g. "append a line to LUTHUR-TEST.md"). Its report should end with "Checked by HQ: ✓ matches the report · 1 file changed". (GenBot has no tests, so it says no checks found.)
+- Daily schedule: refresh, then click the 18:00 Phase 0 reminder (edit window opens), press "Open ↗" (Schedule popout: add a reminder, ○ marks done), and click the red "overdue" pill at the top.
 - Initiative picks: approve the 2 "Initiative ·" cards (LoanCentral Phase 0, Reddit recusal rule), read their reports; if useful press Go live now on the plan-level rule. Reject a weak pick later: it shows "you said no".
 - Restart LUTHUR so the initiative card shows the real next look (8:00 next morning after 22:00, not "Today 22:38").
 - Decide the Discord interest-rate + ID/paystub policy by Oct 10 (loancentral-discord); ask LUTHUR or Claude to lay out options and log the decision.

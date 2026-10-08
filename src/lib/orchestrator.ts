@@ -19,6 +19,8 @@ import * as brain from "./brain.ts";
 import * as audit from "./brain-audit.ts";
 import * as autonomy from "./autonomy.ts";
 import * as initiative from "./initiative.ts";
+import * as verify from "./verify.ts";
+import { safeWriteDirs } from "./guard.ts";
 import * as handoff from "./handoff.ts";
 import * as transcripts from "./transcripts.ts";
 import * as outbox from "./outbox.ts";
@@ -38,6 +40,7 @@ export type Run = {
   extraAllow?: string[]; parentRun?: string | null; depth: number; followups?: number; restarts?: number; autoRule?: string; budgetNote?: string;
   watch?: string[]; skipIfUnchanged?: boolean;
   taskId?: string | null; reply?: boolean; reportedAt?: string; effort?: string | null; dismissed?: boolean; ownerDone?: boolean;
+  verify?: verify.Verify | null;
 };
 export type Approval = {
   id: string; createdAt: string; title: string; detail: string; project?: string | null;
@@ -463,6 +466,7 @@ function missionPrompt(run: Run, level: Level, minutes: number): string {
       run.depth ? `You are a sub-agent of task ${run.taskId}. Do only your part.` : "If it splits into independent parts, hand each one to a sub-agent with queue_followup (they run in parallel and report into this task). Do the rest yourself.",
       "",
     ] : []),
+    ...(level === "build" ? ["HQ checks build work after you finish: it compares the project folders before and after, runs the project's tests, and compares your report with the files that really changed. Name every file you changed, and say Partly done if something is left.", ""] : []),
     "## Finish",
     "Patch the brain if facts changed (project_update / project_log / decision_log / reminder_add).",
     run.taskId ? "End with a short report for the owner: **Result** (1-2 lines, starting with Done, Partly done or Not completed), **What I did** (bullets), **Needs you** (approvals, outbox drafts, decisions; or \"Nothing\")." : "End with a 3-6 line summary.",
@@ -491,6 +495,10 @@ async function execute(run: Run) {
   const provider = run.provider || (run.sessionId || run.extraAllow?.length ? "claude" : blocked && findCodex() ? "codex" : "claude");
   const model = provider === "codex" ? codexModelFor(run.tier) : claudeModel;
   const resuming = !!run.sessionId;
+  // Verify-before-done (src/lib/verify.ts): build runs on a project with folders are checked against the real files.
+  const vDirs = level === "build" ? safeWriteDirs(verify.projectDirs(proj?.paths), cfg.guard?.protectedPaths || []).ok : [];
+  const vBefore = vDirs.length && cfg.verify?.enabled !== false ? verify.snapshot(vDirs) : null;
+  run.verify = null;
   const reply = run.reply && !run.startedAt;
   Object.assign(run, { status: "running", startedAt: new Date().toISOString(), level, model, provider });
   saveRun(run);
@@ -515,12 +523,22 @@ async function execute(run: Run) {
   };
   res = provider === "codex" ? await runCodex(options) : await runClaude(options);
   if (provider === "codex") recordHistory(res, options, "codex");
+  if (vBefore && !slot.cancelled && res.ok && res.kind === "ok" && !NOT_DONE.test(res.text)) {
+    onStep({ id: "hq-verify", at: Date.now(), kind: "tool", tool: "verify", verb: "Checking", target: "the work against the report" });
+    try { run.verify = await verify.after(vBefore, vDirs, run.project, res.text); }
+    catch (e) { activity("error", { where: "verify", run: run.id, error: String(e) }); }
+    onStep({ id: "hq-verify", at: Date.now(), kind: "tool", tool: "verify", verb: "Checked", target: "the work against the report", done: true, ok: run.verify?.ok !== false,
+      result: run.verify ? (run.verify.ok ? "matches" : "needs a look") + ` · ${run.verify.changed.length} changed · ${run.verify.checks.length} checks` : "could not check" });
+  }
   } finally { active.delete(run.id); }
   const cancelled = slot.cancelled;
   handleResult(run, res, !!cancelled);
   // After handleResult, so a clean exit that reports "Not completed" shows as failed on the live tiles too.
-  opEnd(run.id, run.status === "done" && !cancelled, !!cancelled);
+  opEnd(run.id, run.status === "done" && run.verify?.ok !== false && !cancelled, !!cancelled);
 }
+
+/** The agent exited cleanly but its own report says it did not do the job. */
+const NOT_DONE = /\*\*Result:?\*\*:?\s*(Not completed|Not done|Failed|Blocked)/i;
 
 function handleResult(run: Run, res: RunResult, cancelled: boolean) {
   run.sessionId = res.sessionId ? (run.provider === "codex" ? `codex:${res.sessionId}` : res.sessionId) : run.sessionId;
@@ -563,19 +581,20 @@ function handleResult(run: Run, res: RunResult, cancelled: boolean) {
     Object.assign(run, { status: "timeout", endedAt: now, output: res.text });
   } else if (!res.ok) {
     Object.assign(run, { status: "failed", endedAt: now, error: res.text });
-  } else if (/\*\*Result:?\*\*:?\s*(Not completed|Not done|Failed|Blocked)/i.test(res.text)) {
+  } else if (NOT_DONE.test(res.text)) {
     // The agent exited cleanly but says it did not do the job: show it as failed, not a green "done".
     Object.assign(run, { status: "failed", endedAt: now, output: res.text, error: res.text });
   } else {
-    Object.assign(run, { status: "done", endedAt: now, output: res.text });
+    Object.assign(run, { status: "done", endedAt: now, output: res.text + (run.verify ? "\n\n" + verify.summary(run.verify) : "") });
     if (run.missionId) patchState(s => { s.sig[run.missionId!] = fingerprint(run.watch?.length ? run.watch : ["brain"]); });
   }
   saveRun(run);
   pruneRuns();
-  activity(run.status, { run: run.id, title: run.title, minutes: Math.round((run.durationMs || 0) / 6e4) });
+  activity(run.status, { run: run.id, title: run.title, minutes: Math.round((run.durationMs || 0) / 6e4), ...(run.verify ? { verified: run.verify.ok, changed: run.verify.changed.length } : {}) });
   const body = (run.output || run.error || "").replace(/[#*_`]/g, "").trim().slice(0, 300);
   if (run.taskId) { taskCheck(run); return; }
-  notify({ title: `${run.status === "done" ? "✅" : "⚠️"} ${run.title}`, body: body || run.status, priority: run.status === "done" ? 2 : 3, phone: run.status !== "done" || run.trigger === "schedule" });
+  const good = run.status === "done" && run.verify?.ok !== false;
+  notify({ title: `${good ? "✅" : "⚠️"} ${run.title}${good || run.status !== "done" ? "" : " (needs a look)"}`, body: body || run.status, priority: good ? 2 : 3, phone: !good || run.trigger === "schedule" });
 }
 
 // ---------------- tasks (owner-delegated work, may fan out into parallel sub-agents) ----------------
@@ -587,7 +606,9 @@ function taskStatus(rs: Run[]): string {
   if (rs.some(r => r.status === "queued")) return "queued";
   const root = rs[0];
   if (rs.every(r => r.status === "cancelled")) return "cancelled";
-  return rs.some(r => r.status === "failed" || r.status === "timeout") || root?.status !== "done" ? "issue" : "done";
+  // Only the latest HQ check counts: an owner reply that fixes the work clears an earlier "needs a look".
+  const checked = [...rs].reverse().find(r => r.verify);
+  return rs.some(r => r.status === "failed" || r.status === "timeout") || checked?.verify?.ok === false || root?.status !== "done" ? "issue" : "done";
 }
 /** Budget for one task tree (config tasks.maxSubtasks / tasks.maxTaskMinutes). Returns why it is spent, or null. */
 function taskOverBudget(taskId: string): string | null {
@@ -657,7 +678,7 @@ export function tasks(limit = 30) {
     const rs = taskRuns(root.id);
     return { id: root.id, title: root.title, prompt: root.prompt.slice(0, 2000), project: root.project, createdAt: root.createdAt, status: root.ownerDone && !rs.some(r => OPEN.has(r.status)) ? "done" : taskStatus(rs), reportedAt: root.reportedAt || null,
       runs: rs.map(r => ({ id: r.id, title: r.title, status: r.status, parent: r.parentRun, depth: r.depth, reply: !!r.reply, prompt: r.reply ? r.prompt.slice(0, 600) : undefined, level: r.level || r.permission, model: r.model || r.tier,
-        startedAt: r.startedAt, endedAt: r.endedAt, durationMs: r.durationMs, output: r.output?.slice(0, 6000), error: r.error?.slice(0, 800) })) };
+        startedAt: r.startedAt, endedAt: r.endedAt, durationMs: r.durationMs, output: r.output?.slice(0, 6000), error: r.error?.slice(0, 800), verify: r.verify ? { ok: r.verify.ok, changed: r.verify.changed.length, checks: r.verify.checks.length, mismatches: r.verify.mismatches } : undefined })) };
   });
 }
 
