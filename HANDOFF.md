@@ -59,15 +59,15 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Local branch `luthur-work` tracks that remote branch under a different name, so a plain `git push` refuses: use `git push origin HEAD:claude/relaxed-turing-tnsbre`.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-08 08:25 UTC)
+## Current state (auto, 2026-10-08 08:31 UTC)
 - Stage: building · health: good
-- Next step: Owner: restart LUTHUR, try the Level 4 checks in plan.md, then decide: switch on l4.plans/retries/projectState in config/hq.json, and whether research may use WebSearch/WebFetch (config/permissions.json).
+- Next step: Owner: Level 4 trial week (8-15 Oct): give LUTHUR one real job a day and score it in l4-trial.md; review 15 Oct, then decide signals and web research.
 
 ### Waiting on the owner
 - Level 4 speed: after a restart ask "what time is it", "what's next on LUTHUR" and "is anything waiting for me": answers should be instant (no thinking pause). Open /api/timing to see the numbers.
 - Level 4 intake: tell LUTHUR a multi-step job by voice (e.g. "work out what it would take to move my project notes into a database and plan it"). A Task brief appears bottom-right (Work panel) with at…
 - Level 4 interrupt: ask something long, talk over the answer: the answer stops AND the model stops generating (no late reply).
-- Level 4 decision: switch on l4.plans, l4.retries and l4.projectState in config/hq.json (then restart) when you are happy with the brief flow; decide whether research may use WebSearch/WebFetch (confi…
+- Level 4 trial week (to 15 Oct): one real job a day, score it in brain/projects/luthur/l4-trial.md; review on 15 Oct (Level 4 if no false "done").
 - Calendar: click a day, press Cancel on a reminder (it disappears) and on a Google event (a delete draft appears in the Outbox; Send removes it). Voice: after a restart "Hey LUTHUR" is on by itself, n…
 - Voice stop: ask LUTHUR something long, then say "Luther stop" (or "stop listening"): he goes quiet, doesn't finish the answer out loud, and ignores normal talk until you say "Hey LUTHUR" again.
 - Side panel: after a restart, click into another app (LUTHUR behind it or minimized) and say "Hey LUTHUR": the small side panel should pop up and answer.
@@ -94,6 +94,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-08 08:32 · claude**: Owner said go: switched on l4.plans, l4.retries, l4.projectState in config/hq.json (signals, web research, chat.persistent stay off). Trial week 8-15 Oct: checklist + scorecard in brain/projects/luthur/l4-trial.md; daily 19:00 reminder "LUTHUR trial" and a 15 Oct 19:00 review reminder. Restarted LUTHUR so it is live.
 - **2026-10-08 01:25 · claude**: Level 4 build (docs/L4-PROGRESS.md). Outcome → brief → plan of checked steps → verified result, or one question only the owner can answer. Built: speed (timing.ts stage timings, fastpath.ts no-model answers, memo.ts cache, per-turn brain facts, SSE /api/chat/stream, TTS prefetch, /api/chat/cancel, background runs belo…
 - **2026-10-08 07:15 · claude**: Outbox sends now queue (src/lib/outbox.ts): a second Send while one is running waits its turn instead of failing with "Another item is being sent" (owner hit it cancelling a calendar event). Send marks the item "sending" at once, so pressing again is "Already handled". Calendar Cancel reuses an existing Outbox removal…
 - **2026-10-08 06:55 · claude**: Calendar day Cancel rework (owner: "has a confirm button at the bottom, built badly, doesn't delete some"). Causes: the shared confirm box landed under the Add form with "Confirm/Cancel" buttons; the calendar shows duplicate reminders (same title+time) once, so Cancel removed only one copy; Google events only went to …
@@ -101,6 +102,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-08 06:20 · claude**: (1) Context clues for end of turn (web/live.js turnPauseFor): unfinished phrases ("remind me to", "can you", "set an alarm for", "I want", joining words, a lone name) wait base+2 s; finished-sounding ones (full questions, endings like please/now/today/tomorrow/a time or number, yes/no/ok) answer at 70% of base (0.7 s …
 - **2026-10-08 06:05 · claude**: Owner: "very slow still; when I talk I want it to stop talking and let me finish (Jarvis is more of a listener); sometimes it doesn't pick up words". (1) Barge-in (web/voice-stream.js): goes quiet on the first 2 non-echo words (was 3) and no longer sends on the first final chunk: keeps listening across pauses and send…
 - **2026-10-08 04:55 · claude**: Owner: "better but still not great". Chat history 04:33-04:38 UTC shows unnamed room speech still answered and stop phrases sent to the model (it replied "Quiet." out loud), but the restart had not happened (scripts/pc-wake.exe.next still waiting), so the voice fixes were likely not loaded yet. Widened local stop hand…
-- **2026-10-08 03:42 · claude**: Stop means stop (owner ask): "Luther stop", "stop", "shut up", "stop listening", "go to sleep", "that's all", "never mind", "goodbye" now all go quiet at once, mute the answer still on its way (and any other speech), close the conversation and listen only for "Hey LUTHUR"; the next accepted request lifts the mute (web…
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.
