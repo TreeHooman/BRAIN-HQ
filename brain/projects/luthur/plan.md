@@ -10,6 +10,7 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 4. Later: Obsidian notes (see docs/BACKLOG.md). Guarded computer control: first version done 2026-10-07.
 
 ## Owner checks
+- Side panel: after a restart, click into another app (LUTHUR behind it or minimized) and say "Hey LUTHUR": the small side panel should pop up and answer.
 - Voice: after a restart, say "Hey LUTHUR, what time is it". After he answers, talk normally: he should NOT respond. Say "Hey LUTHUR" again: he should. Say "Luther, stop listening": he goes back to waiting for his name. Replies should start about 1-2 s sooner.
 - Evening debrief: after a restart, open Today and press "So far today" on the Evening debrief card. At 21:00 one 🌙 alert should arrive (only if LUTHUR did something today) and the card shows it.
 - Tasks page: refresh (Ctrl+R); the cards and the agent lines no longer flicker. After a restart, a task whose report says "Partly done" shows an amber "partly done" label, not green "done".
