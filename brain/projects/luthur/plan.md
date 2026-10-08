@@ -10,6 +10,9 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 4. Later: Obsidian notes (see docs/BACKLOG.md). Guarded computer control: first version done 2026-10-07.
 
 ## Owner checks
+- Initiative picks: approve the 2 "Initiative ·" cards (LoanCentral Phase 0, Reddit recusal rule), read their reports; if useful press Go live now on the plan-level rule. Reject a weak pick later: it shows "you said no".
+- Restart LUTHUR so the initiative card shows the real next look (8:00 next morning after 22:00, not "Today 22:38").
+- Decide the Discord interest-rate + ID/paystub policy by Oct 10 (loancentral-discord); ask LUTHUR or Claude to lay out options and log the decision.
 - Chat: open LUTHUR → Conversation; it starts on the newest message and stays there after you send. The Claude and Codex usage lines above it don't overlap.
 - ElevenLabs: Settings → Voice → paste the sk_ key, Save, Preview: LUTHUR speaks in the "LUTHUR" voice. With no credits it falls back to a British device voice.
 - Voice noise: talk with fans/wind going; when you stop, LUTHUR shows "Say Hey LUTHUR" after ~5 s and ignores everything until you say the name.

@@ -18,12 +18,15 @@ export type Rule = {
   titleMatch: string | null; source: "owner" | "suggested"; createdAt: string; trialUntil: string;
   state: "trial" | "live" | "off"; trialFailed?: string | null; offReason?: string | null; matches?: number; lastMatch?: string | null;
 };
-type Store = { rules: Rule[]; buildProjects: string[]; dismissed: Record<string, string> };
+/** The initiative loop's settings (src/lib/initiative.ts). Owner-only, like the rules. */
+export type Initiative = { enabled: boolean; everyHours: number; maxPerScan: number; maxPerDay: number; fromHour: number; toHour: number };
+export const INITIATIVE_DEFAULT: Initiative = { enabled: true, everyHours: 4, maxPerScan: 2, maxPerDay: 4, fromHour: 8, toHour: 22 };
+type Store = { rules: Rule[]; buildProjects: string[]; dismissed: Record<string, string>; initiative: Initiative };
 export type TaskRequest = { project?: string | null; permission: string; engine?: string | null; title: string };
 
 function load(): Store {
   const s = readJson<Partial<Store>>(FILE, {});
-  return { rules: Array.isArray(s.rules) ? s.rules : [], buildProjects: Array.isArray(s.buildProjects) ? s.buildProjects : [], dismissed: s.dismissed || {} };
+  return { rules: Array.isArray(s.rules) ? s.rules : [], buildProjects: Array.isArray(s.buildProjects) ? s.buildProjects : [], dismissed: s.dismissed || {}, initiative: { ...INITIATIVE_DEFAULT, ...(s.initiative || {}) } };
 }
 function save(s: Store) { writeJson(FILE, s); }
 
@@ -80,6 +83,17 @@ export function setBuildProjects(list: unknown) {
   const s = load();
   s.buildProjects = (Array.isArray(list) ? list : []).map(String).filter(x => brain.getProject(x)).slice(0, 30);
   save(s); return { buildProjects: s.buildProjects };
+}
+
+export function buildProjects(): string[] { return load().buildProjects; }
+export function initiativeSettings(): Initiative { return load().initiative; }
+export function setInitiative(patch: Partial<Initiative>): Initiative {
+  const s = load(), cur = s.initiative;
+  const num = (v: unknown, lo: number, hi: number, d: number) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+  s.initiative = { enabled: patch.enabled === undefined ? cur.enabled : !!patch.enabled, everyHours: num(patch.everyHours ?? cur.everyHours, 1, 48, cur.everyHours),
+    maxPerScan: num(patch.maxPerScan ?? cur.maxPerScan, 1, 5, cur.maxPerScan), maxPerDay: num(patch.maxPerDay ?? cur.maxPerDay, 1, 20, cur.maxPerDay),
+    fromHour: num(patch.fromHour ?? cur.fromHour, 0, 23, cur.fromHour), toHour: num(patch.toHour ?? cur.toHour, 1, 24, cur.toHour) };
+  save(s); note("initiative-settings", { ...s.initiative }); return s.initiative;
 }
 
 /** Demotion is never gated: an Undo of an auto-started task's work turns its rule off at once. */

@@ -59,3 +59,12 @@ is instant, and everything it does is a record.
    then live.
 3. **Learned suggestions** with instant demotion.
 4. **Run to finish** with budgets. Build-level rules only for projects the owner lists.
+
+## 5. Initiative loop (built 2026-10-08)
+`src/lib/initiative.ts` + `orchestrator.initiativeScan()`. LUTHUR stops only reacting: every few hours a code-only pass
+(no model call) reads the brain and picks a few small jobs itself (deadlines ≤14 days, reminders ≤3 days, next open goal
+step, nextStep; risk/watch health ranks higher). Each pick goes through the same gates as any task: a live rule starts it,
+otherwise it waits for the owner. Owner-only steps ("Owner: …"), paused/done and busy projects are skipped; HQ is plan-only;
+build needs the project on the build list and a folder. Limits: ≤2 per scan, ≤4 per day, 8:00-22:00, not repeated for
+7 days (30 after a reject). Tests: `docs/validation-2026-10-08/initiative-test.mjs` (8).
+Next: verify-before-done (build tasks run the project's checks, reports compared with the real diff), then a daily debrief.

@@ -29,6 +29,7 @@ import * as pcVoice from "./lib/pc-voice.ts";
 import * as accessLock from "./lib/access-lock.ts";
 import * as brainAudit from "./lib/brain-audit.ts";
 import * as autonomy from "./lib/autonomy.ts";
+import * as initiative from "./lib/initiative.ts";
 import * as updater from "./lib/updater.ts";
 import * as screen from "./lib/screen.ts";
 import * as history from "./lib/history.ts";
@@ -199,6 +200,9 @@ const routes: [string, RegExp, Handler][] = [
   ["DELETE", /^\/api\/autonomy\/rules\/([\w-]+)$/, m => autonomy.deleteRule(m[1])],
   ["POST", /^\/api\/autonomy\/build-projects$/, (_, b) => autonomy.setBuildProjects(b.projects)],
   ["POST", /^\/api\/autonomy\/suggestion$/, (_, b) => autonomy.answerSuggestion(String(b.key || ""), !!b.accept)],
+  ["GET", /^\/api\/initiative$/, () => initiative.status()],
+  ["POST", /^\/api\/initiative\/settings$/, (_, b) => { autonomy.setInitiative(b || {}); return initiative.status(); }],
+  ["POST", /^\/api\/initiative\/scan$/, () => orch.initiativeScan(true)],
 
   ["GET", /^\/api\/calendar$/, (_m, _b, url) => {
     const day = (v: string | null, d: Date) => /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? new Date(v + "T00:00") : d;

@@ -11,9 +11,18 @@
       "createdAt": "2026-10-07T22:23:26.218Z",
       "trialUntil": "2026-10-14T22:23:26.219Z",
       "state": "trial",
-      "matches": 0
+      "matches": 2,
+      "lastMatch": "2026-10-08T01:38:11.334Z"
     }
   ],
   "buildProjects": [],
-  "dismissed": {}
+  "dismissed": {},
+  "initiative": {
+    "enabled": true,
+    "everyHours": 4,
+    "maxPerScan": 2,
+    "maxPerDay": 4,
+    "fromHour": 8,
+    "toHour": 22
+  }
 }

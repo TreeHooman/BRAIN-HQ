@@ -18,6 +18,7 @@ import { notify } from "./notify.ts";
 import * as brain from "./brain.ts";
 import * as audit from "./brain-audit.ts";
 import * as autonomy from "./autonomy.ts";
+import * as initiative from "./initiative.ts";
 import * as handoff from "./handoff.ts";
 import * as transcripts from "./transcripts.ts";
 import * as outbox from "./outbox.ts";
@@ -42,7 +43,7 @@ export type Approval = {
   id: string; createdAt: string; title: string; detail: string; project?: string | null;
   fromRun?: string | null; status: "pending" | "approved" | "rejected";
   proposed?: { title: string; prompt: string; project?: string | null; tier?: string; permission?: string; extraAllow?: string[]; provider?: "claude" | "codex"; task?: boolean } | null;
-  brainOp?: { tool: string; args: any } | null; result?: string; kind?: "task" | null; trialRule?: string | null;
+  brainOp?: { tool: string; args: any } | null; result?: string; kind?: "task" | null; trialRule?: string | null; initiative?: string | null;
 };
 type State = {
   pausedUntil: string | null; pauseReason?: string; auth: "ok" | "needs-login" | "unknown"; authCheckedAt?: string;
@@ -162,6 +163,7 @@ export function decideApproval(id: string, approve: boolean): Approval {
   a.status = approve ? "approved" : "rejected";
   saveApprovals(all);
   activity(approve ? "approved" : "rejected", { approval: id, title: a.title });
+  if (!approve && a.initiative) initiative.rejected(a.initiative, a.id);
   if (a.kind === "task" && a.proposed) autonomy.recordDecision({ project: a.proposed.project || null, permission: a.proposed.permission || "plan", engine: a.proposed.provider || null, title: a.proposed.title }, approve, a.trialRule);
   if (approve && a.brainOp) {
     // A non-routine brain change a background run proposed: apply it exactly as shown, recorded for Undo.
@@ -273,6 +275,7 @@ async function tick() {
     scheduleMissions();
     resumeIfReady();
     advanceGoalWork();
+    if (initiative.due()) initiativeScan();
     manageAwake();
     runNext();
     autoCleanChats(!chatBusy && !active.size && !status().queued);
@@ -707,6 +710,37 @@ function advanceGoalWork() {
     }
   }
   if (changed) writeJson(GOAL_WORK, all);
+}
+
+// ---------------- initiative (src/lib/initiative.ts picks; this routes) ----------------
+/** Turns the brain's open work into tasks: a live rule starts one, otherwise it waits for the owner's OK.
+ *  The owner's "Look now" calls this directly (ignores the interval and hours; the daily cap and dedupe still apply). */
+export function initiativeScan(force = false) {
+  const busy = new Set<string>(), recent = Date.now() - 12 * 36e5;
+  for (const r of runCache.values()) if (r.project && (OPEN.has(r.status) || (r.taskId === r.id && Date.parse(r.createdAt) > recent))) busy.add(r.project);
+  for (const a of approvals()) if (a.status === "pending" && a.project) busy.add(a.project);
+  const goalSteps = new Set(goalWork().filter(w => w.active).flatMap(w => Object.keys(w.steps).map(s => `${w.goalId}:${s}`)));
+  const picks = initiative.pick({ busy, goalSteps });
+  let started = 0, asked = 0;
+  for (const c of picks) {
+    const auto = autonomy.match({ project: c.project, permission: c.permission, engine: null, title: c.title });
+    if (auto?.live) {
+      const run = enqueue({ title: c.title, prompt: initiative.prompt(c), project: c.project, tier: "balanced", permission: c.permission, priority: 2, taskId: "self", autoRule: auto.rule.id }, "initiative");
+      initiative.record(c, "started", run.id); activity("auto-approved", { rule: auto.rule.id, title: c.title }); started++;
+    } else {
+      const all = approvals(), id = uid("ap");
+      all.unshift({ id, createdAt: new Date().toISOString(), title: `Start task: ${c.title}`, detail: `Why now: ${c.why}.\n\n${c.job}${auto ? `\n\n(Trial rule "${auto.rule.title}" would have started this on its own. Rejecting it keeps that rule on trial.)` : ""}`,
+        project: c.project, fromRun: "initiative", status: "pending", kind: "task", trialRule: auto?.rule.id || null, initiative: c.key,
+        proposed: { title: c.title, prompt: initiative.prompt(c), project: c.project, tier: "balanced", permission: c.permission, task: true } });
+      saveApprovals(all); initiative.record(c, "asked", id); activity("approval-requested", { title: c.title, from: "initiative" }); asked++;
+    }
+  }
+  activity("initiative-scan", { picks: picks.length, started, asked, force });
+  if (picks.length) notify({ title: started && !asked ? "LUTHUR started work on its own" : "LUTHUR has ideas for you",
+    body: ([started ? `Started ${started}` : "", asked ? `${asked} waiting for your OK` : ""].filter(Boolean).join(", ") + ": " + picks.map(c => c.title.replace(/^Initiative · /, "")).join("; ")).slice(0, 360),
+    priority: asked ? 3 : 2, tags: "bulb", phone: !!asked });
+  if (started) kick();
+  return { picks: picks.map(c => ({ title: c.title, why: c.why, permission: c.permission })), started, asked, ...initiative.status() };
 }
 
 // ---------------- chat (the dashboard assistant) ----------------
