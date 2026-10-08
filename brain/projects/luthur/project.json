@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Evening debrief is built (src/lib/debrief.ts). Next: ask the owner which LUTHUR upgrade comes next; the Jarvis plan's remaining phase is self-improvement through tested proposals (docs/AUTONOMY-DESIGN.md).",
+  "nextStep": "Owner: restart LUTHUR, try the Level 4 checks in plan.md, then decide: switch on l4.plans/retries/projectState in config/hq.json, and whether research may use WebSearch/WebFetch (config/permissions.json).",
   "updated": "2026-10-08",
   "paths": [],
   "repos": [],

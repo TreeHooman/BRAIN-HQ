@@ -85,16 +85,6 @@
     "createdAt": "2026-10-07T10:51:37.281Z"
   },
   {
-    "id": "rmuz5240w38jf",
-    "title": "Log in",
-    "due": "2026-10-08T11:00",
-    "project": "genbot",
-    "repeat": null,
-    "done": false,
-    "notifiedAt": null,
-    "createdAt": "2026-10-08T06:11:32.960Z"
-  },
-  {
     "id": "rmuynlehyn8jy",
     "title": "12:00 discord 0002 req",
     "due": "2026-10-08T12:00",

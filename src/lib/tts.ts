@@ -64,6 +64,15 @@ function clip(t: string): string {
   return end > MAX_CHARS * .4 ? cut.slice(0, end + 1) : cut.slice(0, cut.lastIndexOf(" ")) + "…";
 }
 
+// Audio already being made for a sentence (prefetch): a request for the same words waits for it instead of starting over.
+const inflight = new Map<string, Promise<Buffer>>();
+/** Normalised exactly like the dashboard does before it asks for audio (voice-stream.js earlySpeak), so the keys match. */
+export const spokenText = (t: string) => String(t || "").replace(/[#*_`>|]/g, "").replace(/\s+/g, " ").trim();
+/** Start making the audio as soon as the spoken sentence is complete in the stream (before the dashboard asks). */
+export function prefetch(text: string, speed: unknown): void {
+  try { if (!status().enabled || status().outOfCredits) return; void speak(spokenText(text), speed).catch(() => {}); } catch {}
+}
+
 /** Returns MP3 audio for the text in the chosen voice. */
 export async function speak(text: unknown, speed: unknown): Promise<Buffer> {
   const c = conf(), s = status();
@@ -74,6 +83,12 @@ export async function speak(text: unknown, speed: unknown): Promise<Buffer> {
   const sp = Math.max(.7, Math.min(1.2, Number(speed) || 1));
   const key = `${c.voiceId}|${s.model}|${s.stability}|${s.style}|${sp}|${t}`;
   const hit = cache.get(key); if (hit) return hit;
+  const wait = inflight.get(key); if (wait) return wait;
+  const p = synth(c, s, t, sp, key).finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
+}
+async function synth(c: any, s: ReturnType<typeof status>, t: string, sp: number, key: string): Promise<Buffer> {
   const r = await call(`/text-to-speech/${encodeURIComponent(c.voiceId)}?output_format=mp3_44100_128`, {
     method: "POST", headers: { "Content-Type": "application/json", Accept: "audio/mpeg" },
     body: JSON.stringify({ text: t, model_id: s.model, voice_settings: { stability: s.stability, similarity_boost: .8, style: s.style, use_speaker_boost: true, speed: sp } }),

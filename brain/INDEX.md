@@ -1,6 +1,6 @@
 # HQ index
 
-_Auto-generated 2026-10-07 23:27. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-08 01:25. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
@@ -13,7 +13,7 @@ _Auto-generated 2026-10-07 23:27. Don't edit; change project.json files instead.
 | frontier-plan | strategy | planned | unknown | Collect scaling ideas here as they come up; review after the mid-Feb 2027 decision. | 2026-10-05 |
 | ai-hockey | product | live | good | Check HANDOFF.md in the repo for what's left; confirm the hosting PC auto-update is healthy. | 2026-10-05 |
 | blueprint-estimator | product | paused | unknown | Owner: is this still active? Last work was pre-calibration prep (4 Jul). | 2026-10-05 |
-| luthur | tool | building | good | Evening debrief is built (src/lib/debrief.ts). Next: ask the owner which LUTHUR upgrade comes next; the Jarvis plan's remaining phase is self-improvement through tested proposals (docs/AUTONOMY-DESIGN.md). | 2026-10-08 |
+| luthur | tool | building | good | Owner: restart LUTHUR, try the Level 4 checks in plan.md, then decide: switch on l4.plans/retries/projectState in config/hq.json, and whether research may use WebSearch/WebFetch (config/permissions.json). | 2026-10-08 |
 
 ## Due in the next 14 days
 - 2026-10-07 18:00 Phase 0 housekeeping is due tomorrow: check what's left [loancentral]

@@ -79,13 +79,41 @@ export type RunOptions = {
   mode?: "safe" | "auto" | "bypass" | null;
   /** Saved to the History page (and brain/history/) after the run. Omit to keep the run out of history. */
   history?: { title: string; ask?: string; project?: string | null; kind?: string; format?: (text: string) => string };
+  /** Background work: run the agent at below-normal CPU priority so the live conversation stays quick. */
+  lowPriority?: boolean;
+  /** Stall watchdog: stop the run if it prints nothing for this long (a long tool call also prints nothing, so keep it generous). */
+  stallMs?: number;
+  /** Called as soon as the session id is known (stream start), so a run cut off by a restart can resume its own session. */
+  onSession?: (id: string) => void;
+  /** Called after each state-changing tool call (count so far). Lets HQ tell "safe to retry" from "outcome uncertain". */
+  onWriteTool?: (writes: number) => void;
 };
+/** Offsets in ms from the call's start. tools/toolMs: tool calls seen and their summed wall time. writes: state-changing tool calls. */
+export type RunTiming = { spawnMs?: number; firstOutMs?: number; initMs?: number; firstTextMs?: number; tools: number; toolMs: number; writes: number };
 export type RunStats = { context: number; contextKnown?:boolean; window: number | null; output: number; cost: number | null; rate: { status?: string; type?: string; resetsAt?: number | null; utilization?: number | null; utilizationUnit?:string; at?:string } | null };
 export type RunResult = {
   ok: boolean; text: string; sessionId: string | null; durationMs: number;
   kind: "ok" | "error" | "limit" | "auth" | "timeout" | "missing";
   resetAt?: number | null; turns?: number; stats?: RunStats | null;
+  timing?: RunTiming; stalled?: boolean;
 };
+/** Tools that change state (files, the brain, queued work, drafts). Used to tell "safe to retry" from "outcome uncertain". */
+export const WRITE_TOOL = /^(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell)$|^mcp__hq-brain__(project_(update|write|log|create)|decision_log|reminder_(add|done)|milestone_add|goal_(save|step_done)|inbox_(add|remove)|brief_write|queue_followup|request_approval|email_draft|calendar_draft|today_update|routine_(save|complete)|ask_owner|brief_update|brief_start)$/;
+/** Reads one stream-json line into timing marks. Shared by the Claude runner and the tests. */
+export function timingFeed(t: RunTiming & { open?: Map<string, number> }, line: string, at: number) {
+  if (!line.startsWith("{")) return;
+  let j: any; try { j = JSON.parse(line); } catch { return; }
+  t.open ||= new Map();
+  if (j.type === "system" && j.subtype === "init") t.initMs ??= at;
+  const e = j.type === "stream_event" ? j.event : null;
+  if (e?.type === "content_block_delta" && e.delta?.type === "text_delta" && String(e.delta.text || "").trim()) t.firstTextMs ??= at;
+  if (j.type === "assistant") for (const b of j.message?.content || []) {
+    if (b?.type === "text" && String(b.text || "").trim()) t.firstTextMs ??= at;
+    if (b?.type === "tool_use") { t.tools++; t.open.set(String(b.id), at); if (WRITE_TOOL.test(String(b.name || ""))) t.writes++; }
+  }
+  if (j.type === "user") for (const b of j.message?.content || []) if (b?.type === "tool_result") { const s = t.open.get(String(b.tool_use_id)); if (s != null) { t.toolMs += at - s; t.open.delete(String(b.tool_use_id)); } }
+  if (j.type === "result" && typeof j.result === "string" && j.result.trim()) t.firstTextMs ??= at;
+}
 
 export const EFFORTS = ["low", "medium", "high"];
 /** Only known levels, and not for Haiku (it has no effort setting). */
@@ -155,14 +183,24 @@ function runClaudeInner(o: RunOptions): Promise<RunResult> {
     const env: Record<string, string | undefined> = { ...process.env, HQ_BACKGROUND: "1" };
     for (const k of Object.keys(env)) if (/^(CLAUDECODE|CLAUDE_CODE_|CLAUDE_AGENT_SDK|CLAUDE_PID|CLAUDE_EFFORT|ANTHROPIC_BASE_URL)/.test(k)) delete env[k];
     const args = buildArgs(o);
+    const timing: RunTiming & { open?: Map<string, number> } = { tools: 0, toolMs: 0, writes: 0 };
     const child = spawn(bin, fake ? [fake, ...args] : args, { cwd: ROOT, windowsHide: true, env });
+    timing.spawnMs = Date.now() - started;
+    if (child.pid && o.lowPriority) try { os.setPriority(child.pid, os.constants.priority.PRIORITY_BELOW_NORMAL); } catch {}
     if (child.pid) { children.add(child.pid); child.on("exit", () => children.delete(child.pid!)); }
     if (child.pid && o.onSpawn) o.onSpawn(child.pid);
-    let out = "", err = "", timedOut = false;
+    let out = "", err = "", timedOut = false, stalled = false, lastOut = Date.now(), lineBuf = "";
     const narrator = o.onStep ? createNarrator(o.onStep) : null;
     let streamBuffer = "", draft = "";
     child.stdout.on("data", d => {
-      out += d; if (narrator) try { narrator.feed(String(d)); } catch {}
+      out += d; lastOut = Date.now(); timing.firstOutMs ??= lastOut - started; if (narrator) try { narrator.feed(String(d)); } catch {}
+      lineBuf += String(d); let nl;
+      while ((nl = lineBuf.indexOf("\n")) >= 0) {
+        const line = lineBuf.slice(0, nl).trim(); lineBuf = lineBuf.slice(nl + 1);
+        const w = timing.writes; timingFeed(timing, line, Date.now() - started);
+        if (timing.writes > w) try { o.onWriteTool?.(timing.writes); } catch {}
+        if (o.onSession && line.includes('"init"')) try { const j = JSON.parse(line); if (j.type === "system" && j.subtype === "init" && j.session_id) o.onSession(String(j.session_id)); } catch {}
+      }
       if (!o.onText) return;
       streamBuffer += String(d); let newline;
       while ((newline = streamBuffer.indexOf("\n")) >= 0) {
@@ -178,18 +216,112 @@ function runClaudeInner(o: RunOptions): Promise<RunResult> {
     child.stderr.on("data", d => { err += d; });
     child.stdin.end(o.prompt);
     const timer = setTimeout(() => { timedOut = true; killTree(child.pid); }, o.timeoutMs);
-    child.on("error", e => { clearTimeout(timer); resolve({ ok: false, kind: "error", text: String(e), sessionId: null, durationMs: Date.now() - started }); });
+    // A process that already printed its final result but hasn't exited is finished, not stalled: stop it and keep the result.
+    const stallTimer = o.stallMs && o.stallMs > 0 ? setInterval(() => {
+      if (Date.now() - lastOut <= o.stallMs!) return;
+      if (!/"type":"result"/.test(out.slice(-20000))) stalled = timedOut = true;
+      killTree(child.pid);
+    }, Math.min(30e3, Math.max(1e3, o.stallMs / 4))) : null;
+    const done = () => { clearTimeout(timer); if (stallTimer) clearInterval(stallTimer); };
+    child.on("error", e => { done(); resolve({ ok: false, kind: "error", text: String(e), sessionId: null, durationMs: Date.now() - started, timing }); });
     child.on("close", () => {
-      clearTimeout(timer);
+      done();
+      if (lineBuf.trim()) timingFeed(timing, lineBuf.trim(), Date.now() - started);
+      delete timing.open;
       try { fs.unlinkSync(path.join(DATA, "mcp", `${o.runId || "adhoc"}.json`)); } catch {}
-      resolve(interpret(out, err, timedOut, Date.now() - started));
+      const r = interpret(out, err, timedOut, Date.now() - started);
+      r.timing = timing; if (stalled) { r.stalled = true; r.text = (r.text ? r.text + "\n\n" : "") + `Stopped: no output for ${Math.round(o.stallMs! / 60e3)} minutes (stalled).`; }
+      resolve(r);
     });
   });
 }
 
 // Every agent process HQ starts, so they can be stopped with HQ (never left running on their own).
 const children = new Set<number>();
-export function killAll() { for (const pid of children) killTree(pid); children.clear(); }
+export function killAll() { stopPersistent(); for (const pid of children) killTree(pid); children.clear(); }
+
+// ---------------- persistent chat process (config chat.persistent) ----------------
+// Starting the CLI costs ~1 s on every call (measured 2026-10-09: spawn → first output ≈ 1.0 s inside HQ). For the live
+// chat, one process can take turn after turn (--input-format stream-json), so later turns skip that start-up.
+// Isolation: the process is reused ONLY while every argument (model, permission level, tools, deny lists, system
+// prompt, MCP config, effort) is identical to the turn's own arguments, and only for the same session. Anything else
+// stops it and starts a fresh one (resuming the session), so a turn never has different permissions than a fresh run.
+// It is stopped when idle (10 min), on cancel, new chat, force stop, errors and HQ shutdown.
+type Persist = { key: string; pid: number; child: import("node:child_process").ChildProcess; sessionId: string | null; busy: boolean; idle?: NodeJS.Timeout; onLine?: (line: string) => void; onExit?: () => void; mcpFile: string };
+let persist: Persist | null = null;
+export function stopPersistent() {
+  const p = persist; persist = null; if (!p) return;
+  if (p.idle) clearTimeout(p.idle);
+  try { p.child.stdin?.end(); } catch {}
+  killTree(p.pid); children.delete(p.pid);
+  try { fs.unlinkSync(p.mcpFile); } catch {}
+}
+export function persistentInfo() { return persist ? { pid: persist.pid, sessionId: persist.sessionId, busy: persist.busy } : null; }
+/** One chat turn in the persistent process (falls back to a normal run when it can't be used). */
+export function runClaudeTurn(o: RunOptions): Promise<RunResult> {
+  if (process.env.HQ_FAKE_CLAUDE && !process.env.HQ_FAKE_PERSIST) return runClaude(o);
+  return guarded(o.runId, o.level, () => turnInner(o)).then(r => { for (const fn of resultListeners) { try { fn(r, o); } catch {} } return r; });
+}
+function turnInner(o: RunOptions): Promise<RunResult> {
+  const fake = process.env.HQ_FAKE_CLAUDE;
+  const bin = fake ? process.execPath : findClaude();
+  if (!bin) return Promise.resolve({ ok: false, kind: "missing", text: "Claude CLI not found.", sessionId: null, durationMs: 0 });
+  const base = buildArgs({ ...o, resume: null }).filter(a => a !== "--include-partial-messages");
+  const key = JSON.stringify(base);
+  const started = Date.now();
+  const reuse = !!persist && !persist.busy && persist.key === key && !!o.resume && persist.sessionId === o.resume;
+  if (!reuse) stopPersistent();
+  if (!persist) {
+    const args = [...base, "--include-partial-messages", "--input-format", "stream-json", ...(o.resume ? ["--resume", o.resume] : [])];
+    const env: Record<string, string | undefined> = { ...process.env, HQ_BACKGROUND: "1" };
+    for (const k of Object.keys(env)) if (/^(CLAUDECODE|CLAUDE_CODE_|CLAUDE_AGENT_SDK|CLAUDE_PID|CLAUDE_EFFORT|ANTHROPIC_BASE_URL)/.test(k)) delete env[k];
+    const child = spawn(bin, fake ? [fake, ...args] : args, { cwd: ROOT, windowsHide: true, env });
+    if (!child.pid) return Promise.resolve({ ok: false, kind: "error", text: "Could not start Claude.", sessionId: null, durationMs: 0 });
+    const p: Persist = { key, pid: child.pid, child, sessionId: o.resume || null, busy: false, mcpFile: path.join(DATA, "mcp", `${o.runId || "adhoc"}.json`) };
+    children.add(child.pid); persist = p;
+    let buf = "";
+    child.stdout!.on("data", d => { buf += String(d); let nl; while ((nl = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1); if (line) p.onLine?.(line); } });
+    child.stderr!.on("data", () => {});
+    child.on("exit", () => { children.delete(p.pid); if (persist === p) persist = null; p.onExit?.(); });
+    child.on("error", () => { if (persist === p) persist = null; p.onExit?.(); });
+  }
+  const p = persist!;
+  if (p.idle) clearTimeout(p.idle);
+  p.busy = true;
+  o.onSpawn?.(p.pid);
+  return new Promise(resolve => {
+    const timing: RunTiming & { open?: Map<string, number> } = { tools: 0, toolMs: 0, writes: 0, spawnMs: reuse ? 0 : Date.now() - started };
+    const narrator = o.onStep ? createNarrator(o.onStep) : null;
+    let out = "", draft = "", done = false;
+    const finish = (r: RunResult) => {
+      if (done) return; done = true; clearTimeout(timer); p.onLine = undefined; p.onExit = undefined; p.busy = false;
+      delete timing.open; r.timing = timing;
+      if (r.sessionId) p.sessionId = r.sessionId;
+      // A turn that ended badly (error, limit, timeout) never leaves its process behind for the next turn.
+      if (!r.ok || persist !== p) stopPersistent();
+      else p.idle = setTimeout(() => { if (persist === p && !p.busy) stopPersistent(); }, 10 * 60e3);
+      resolve(r);
+    };
+    p.onLine = line => {
+      const at = Date.now() - started; out += line + "\n"; timing.firstOutMs ??= at;
+      if (narrator) try { narrator.feed(line + "\n"); } catch {}
+      const w = timing.writes; timingFeed(timing, line, at); if (timing.writes > w) try { o.onWriteTool?.(timing.writes); } catch {}
+      let j: any; try { j = JSON.parse(line); } catch { return; }
+      if (j.type === "system" && j.subtype === "init" && j.session_id) { timing.initMs ??= at; o.onSession?.(String(j.session_id)); }
+      if (o.onText) {
+        const e = j.type === "stream_event" ? j.event : null;
+        if (e?.type === "message_start") draft = "";
+        if (e?.type === "content_block_delta" && e.delta?.type === "text_delta") { draft = (draft + e.delta.text).slice(-60000); o.onText(draft); }
+        if (j.type === "assistant") { const t = (j.message?.content || []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n"); if (t) { draft = t; o.onText(t); } }
+      }
+      if (j.type === "result") finish(interpret(out, "", false, Date.now() - started));
+    };
+    p.onExit = () => finish(interpret(out, "", false, Date.now() - started));
+    const timer = setTimeout(() => { finish({ ...interpret(out, "", true, Date.now() - started), kind: "timeout", ok: false }); }, o.timeoutMs);
+    try { p.child.stdin!.write(JSON.stringify({ type: "user", message: { role: "user", content: [{ type: "text", text: o.prompt }] } }) + "\n"); }
+    catch (e) { finish({ ok: false, kind: "error", text: String(e), sessionId: null, durationMs: 0 }); }
+  });
+}
 
 /** At startup no run is active, so any agent process HQ started earlier (before a crash, update or forced
  *  stop) is an orphan: stop it. Matched by HQ's own per-run MCP config folder and hq-brain server path,

@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
 import { CONFIG, readJson, readText, writeJson } from "./store.ts";
+import { memo } from "./memo.ts";
 
 export const LEVELS = ["read", "plan", "build"] as const;
 export type Level = (typeof LEVELS)[number];
@@ -38,8 +39,9 @@ export function ensureLocalConfig(): void {
   if (changed || !fs.existsSync(LOCAL)) writeJson(LOCAL, local);
 }
 
+// Read on almost every request and run: cached until either file changes (a copy each time, so callers can't share edits).
 export function loadConfig(): any {
-  return deepMerge(readJson(path.join(CONFIG, "hq.json"), {}), readJson(LOCAL, {}));
+  return structuredClone(memo("config", [path.join(CONFIG, "hq.json"), LOCAL], () => deepMerge(readJson(path.join(CONFIG, "hq.json"), {}), readJson(LOCAL, {}))));
 }
 
 export function saveLocal(patch: any): void {
@@ -63,4 +65,4 @@ export function modelFor(tier: string): { model: string; fallback?: string } {
 
 export function loadPermissions(): any { return readJson(path.join(CONFIG, "permissions.json"), { levels: {} }); }
 export function loadMcpExtras(): any { return readJson(path.join(CONFIG, "mcp.json"), { mcpServers: {} }); }
-export function agentRules(): string { return readText(path.join(CONFIG, "agent-rules.md")); }
+export function agentRules(): string { const f = path.join(CONFIG, "agent-rules.md"); return memo("agent-rules", [f], () => readText(f)); }

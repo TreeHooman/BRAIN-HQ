@@ -42,6 +42,10 @@ import * as browser from "./lib/browser.ts";
 import { startPcControl } from "./lib/pc-control.ts";
 import * as desktop from "./lib/desktop-control.ts";
 import { killAll, sweepOrphans } from "./lib/claude.ts";
+import * as timing from "./lib/timing.ts";
+import * as intake from "./lib/intake.ts";
+import * as plans from "./lib/plans.ts";
+import * as signals from "./lib/signals.ts";
 
 ensureLocalConfig();
 const cfg = loadConfig();
@@ -249,6 +253,19 @@ const routes: [string, RegExp, Handler][] = [
   ["PUT", /^\/api\/canvas\/(cv-[a-z0-9]+)$/, (m, b) => canvas.save(m[1], b)],
   ["DELETE", /^\/api\/canvas\/(cv-[a-z0-9]+)$/, m => { canvas.remove(m[1]); return { ok: true }; }],
   ["GET", /^\/api\/tasks$/, () => ({ tasks: orch.tasks(), status: orch.status() })],
+  // Level 4: briefs, plans, questions, timings, signals
+  ["GET", /^\/api\/work$/, () => orch.work()],
+  ["POST", /^\/api\/briefs$/, async (_, b) => intake.view(await orch.draftBrief(String(b.text || ""), b.project || null))],
+  ["PATCH", /^\/api\/briefs\/(br[\w]+)$/, (m, b) => intake.view(intake.update(m[1], b || {}, "owner"))],
+  ["POST", /^\/api\/briefs\/(br[\w]+)\/go$/, async (m, b) => orch.startBrief(m[1], b.useDefaults === true)],
+  ["POST", /^\/api\/briefs\/(br[\w]+)\/cancel$/, m => intake.view(intake.cancel(m[1]))],
+  ["GET", /^\/api\/plans\/(pl[\w]+)$/, m => { const p = plans.get(m[1]); if (!p) throw Object.assign(new Error("Not found"), { code: 404 }); return { ...plans.view(p), journal: p.journal }; }],
+  ["POST", /^\/api\/plans\/(pl[\w]+)\/cancel$/, m => orch.cancelPlan(m[1])],
+  ["POST", /^\/api\/questions\/(qn[\w]+)\/answer$/, (m, b) => orch.answerQuestion(m[1], String(b.answer || ""), "owner")],
+  ["GET", /^\/api\/timing$/, (_m, _b, url) => timing.summary(url.searchParams.get("since") || undefined)],
+  ["POST", /^\/api\/timing$/, (_, b) => { timing.record({ ...b, kind: "voice" }); return { ok: true }; }],
+  ["GET", /^\/api\/signals$/, () => ({ signals: signals.journal(100) })],
+  ["POST", /^\/api\/chat\/cancel$/, () => orch.cancelChat()],
   ["POST", /^\/api\/tasks$/, (_, b) => orch.createTask(b)],
   ["POST", /^\/api\/tasks\/([\w-]+)\/reply$/, (m, b) => orch.replyTask(m[1], String(b.text || ""))],
   ["POST", /^\/api\/tasks\/([\w-]+)\/cancel$/, m => { orch.cancelTask(m[1]); return { ok: true }; }],
@@ -282,7 +299,7 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/chat\/cleanup$/, () => { const s = orch.status(); if (s.chatBusy || s.active.length) throw new Error("Wait for current work to finish before cleanup."); return chatMemory.cleanChats(); }],
   ["GET", /^\/api\/memory\/search$/, (_, __, u) => searchMemory(u.searchParams.get("q") || "", { project: u.searchParams.get("project") || undefined, source: u.searchParams.get("source") || undefined, limit: Number(u.searchParams.get("limit")) || 30 })],
   ["GET", /^\/api\/chat\/memories$/, (_, __, u) => chatMemory.memorySearch(u.searchParams.get("q") || "")],
-  ["POST", /^\/api\/chat$/, (_, b) => { checkStopped();if (orch.chat().busy) throw Object.assign(new Error("LUTHUR is still answering. Your follow-up can wait for this reply."), { code: 409 }); if (!String(b.text || "").trim()) throw new Error("Say what you want to discuss."); writeCheck(); validateChoice({...b,...explicitModel(String(b.text||""))}); void orch.sendChat(String(b.text || ""), { provider: b.provider, model: b.model, astraApproved: b.astraApproved === true, opusApproved: b.opusApproved === true, adaptive:b.adaptive!==false, project: b.project, tier: b.tier, effort: b.effort, voice: b.voice === true, context: chatContext(b.context), personality: b.personality, activeFile: b.context?.screen?.k === "file" && /^g-[a-f0-9]{10}$/.test(b.context.screen.acct || "") && /^[A-Za-z0-9_-]{10,200}$/.test(b.context.screen.id || "") ? { acct: b.context.screen.acct, id: b.context.screen.id } : undefined }).catch(() => {}); return { ok: true }; }],
+  ["POST", /^\/api\/chat$/, (_, b) => { checkStopped();if (orch.chat().busy) throw Object.assign(new Error("LUTHUR is still answering. Your follow-up can wait for this reply."), { code: 409 }); if (!String(b.text || "").trim()) throw new Error("Say what you want to discuss."); writeCheck(); validateChoice({...b,...explicitModel(String(b.text||""))}); void orch.sendChat(String(b.text || ""), { provider: b.provider, model: b.model, astraApproved: b.astraApproved === true, opusApproved: b.opusApproved === true, adaptive:b.adaptive!==false, project: b.project, tier: b.tier, effort: b.effort, voice: b.voice === true, speechRate: Number(b.speechRate) || undefined, context: chatContext(b.context), personality: b.personality, activeFile: b.context?.screen?.k === "file" && /^g-[a-f0-9]{10}$/.test(b.context.screen.acct || "") && /^[A-Za-z0-9_-]{10,200}$/.test(b.context.screen.id || "") ? { acct: b.context.screen.acct, id: b.context.screen.id } : undefined }).catch(() => {}); return { ok: true }; }],
   ["POST", /^\/api\/chat\/new$/, () => { orch.newChat(); return { ok: true }; }],
 
   ["GET", /^\/api\/tts$/, () => tts.status()],
@@ -395,6 +412,15 @@ const server = http.createServer(async (req, res) => {
         const b = await body(req), audio = await tts.speak(b.text, b.speed);
         res.writeHead(200, { "Content-Type": "audio/mpeg", "Content-Length": audio.length, "Cache-Control": "no-store" });
         return res.end(audio);
+      }
+      // Live reply text as it streams (Server-Sent Events): the dashboard speaks the first sentence without polling.
+      if (url.pathname === "/api/chat/stream" && req.method === "GET") {
+        res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-store", Connection: "keep-alive" });
+        res.write(": ok\n\n");
+        const off = orch.onChatEvent(e => res.write(`data: ${JSON.stringify(e)}\n\n`));
+        const ping = setInterval(() => res.write(": ping\n\n"), 25e3);
+        req.on("close", () => { off(); clearInterval(ping); });
+        return;
       }
       if(url.pathname==='/api/pc-voice'&&req.method==='PUT'){writeCheck();return send(res,200,pcVoice.setEnabled((await body(req)).enabled===true,PORT,String(req.headers.cookie||'')));}
       // Screen browser live view (MJPEG for an <img>). Same-site only: another site can't embed it.

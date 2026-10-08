@@ -85,3 +85,12 @@ failed runs), then partly done, finished, waiting for your OK, brain changes (Un
 milestones and reminders plus the overdue count. Once a day; a phone alert only when something happened. Shown on Today
 (until noon the next day). Tests: `docs/validation-2026-10-08/debrief-test.mjs` (5).
 Next: with the owner, pick the next Jarvis step (self-improvement through tested proposals is the last phase in the plan).
+
+## 8. Level 4 build (2026-10-08; details and status in `docs/L4-PROGRESS.md`)
+Outcome → brief → plan → verified result, or one question only the owner can answer. Switches: `config/hq.json` `l4`
+(unattended pieces off until validated). Modules: `timing.ts`, `fastpath.ts`, `memo.ts`, `intake.ts`, `plans.ts`,
+`evidence.ts`, `failures.ts`, `questions.ts`, `project-state.ts`, `signals.ts`; UI `web/l4.js`. Gates unchanged: plans
+never exceed the brief's permission (≤ project ceiling ≤ autonomy.maxLevel); workers can't start briefs or answer
+questions (chat-only tools, and brief_start checks the owner's own "go"); drafts stay in the Outbox; HQ only runs
+test/build commands for checks. Patterns borrowed from Alfred: `docs/ALFRED-PATTERNS.md`.
+Tests: `docs/validation-2026-10-09/l4-test.mjs` (31, fake CLI), `real-tasks.mjs` (real model), `latency-bench.mjs`.

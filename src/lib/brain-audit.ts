@@ -25,7 +25,8 @@ function walk(dir: string, out: Map<string, string>, top = true) {
     if (top && SKIP.has(e.name)) continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) walk(p, out, false);
-    else if (e.isFile() && !e.name.endsWith(".tmp")) {
+    // STATE.md is a generated projection (project-state.ts), not something an agent changed.
+    else if (e.isFile() && !e.name.endsWith(".tmp") && e.name !== "STATE.md") {
       try { if (fs.statSync(p).size <= MAX_FILE) out.set(path.relative(ROOT, p), hashOf(fs.readFileSync(p))); } catch {}
     }
   }

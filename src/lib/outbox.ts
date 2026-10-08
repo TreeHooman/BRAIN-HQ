@@ -16,6 +16,8 @@ export type OutItem = {
   id: string; kind: "email" | "calendar"; status: "draft" | "sending" | "sent" | "drafted" | "failed" | "discarded";
   createdAt: string; updatedAt?: string; by: string; project?: string | null; note?: string;
   payload: EmailPayload | CalPayload; result?: string; sentAt?: string;
+  /** Idempotency key (agent drafts): the same draft asked for twice (a retried or resumed run) is kept once. */
+  key?: string;
 };
 
 const FILE = path.join(DATA, "outbox.json");
@@ -69,9 +71,12 @@ export function validate(kind: string, p: any): EmailPayload | CalPayload {
   throw new Error("Unknown outbox kind.");
 }
 
-export function add(kind: string, payload: any, by: string, extra: { project?: string | null; note?: string } = {}): OutItem {
-  const item: OutItem = { id: uid("out"), kind: kind as OutItem["kind"], status: "draft", createdAt: new Date().toISOString(), by, project: extra.project || null, note: extra.note ? text(extra.note, 500) : undefined, payload: validate(kind, payload) };
-  const all = list(); all.unshift(item); save(all);
+export function add(kind: string, payload: any, by: string, extra: { project?: string | null; note?: string; key?: string } = {}): OutItem {
+  const item: OutItem = { id: uid("out"), kind: kind as OutItem["kind"], status: "draft", createdAt: new Date().toISOString(), by, project: extra.project || null, note: extra.note ? text(extra.note, 500) : undefined, payload: validate(kind, payload), ...(extra.key ? { key: extra.key } : {}) };
+  const all = list();
+  // Duplicate-send protection starts here: an identical draft that is waiting, sending, sent or failed is not added again (the owner can press Send again on a failed one).
+  if (extra.key) { const dup = all.find(x => x.key === extra.key && x.status !== "discarded" && Date.now() - Date.parse(x.createdAt) < 14 * 864e5); if (dup) { log("outbox-duplicate", { id: dup.id, kind, by }); return dup; } }
+  all.unshift(item); save(all);
   log("outbox-draft", { id: item.id, kind, by });
   if (by !== "you") notify({ title: `✉ ${kind === "email" ? "Email" : "Calendar change"} waiting for your OK`, body: summary(item), priority: 3, tags: "envelope" });
   return item;

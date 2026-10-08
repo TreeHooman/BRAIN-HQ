@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { BRAIN, writeText } from "./store.ts";
 import { validSlug } from "./brain.ts";
+import { memo } from "./memo.ts";
 
 export type Preference = { id: string; scope: "global" | "project" | "challenger"; project?: string; text: string };
 export type Suggestion = Preference & { reason: string };
@@ -89,6 +90,9 @@ export function review(id: string, accept: boolean): Preference | null {
 }
 /** Bounded text for an agent prompt; global + relevant project + optional Challenger. */
 export function context(project?: string, challenger = false): string {
+  return memo(`prefs:${project || ""}:${challenger}`, [PROFILE], () => buildContext(project, challenger));
+}
+function buildContext(project?: string, challenger = false): string {
   const chosen = list().filter(p => p.scope === "global" || (p.scope === "project" && p.project === project) || (challenger && p.scope === "challenger"))
     .map((p, i) => ({ p, i })).sort((a, b) => Number(isLearned(a.p)) - Number(isLearned(b.p)) || (isLearned(a.p) ? b.i - a.i : a.i - b.i)).map(x => x.p);
   // Explicit first in saved order, then learned newest first, so a full budget drops the stalest learned items.
