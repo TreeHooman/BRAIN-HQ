@@ -1,6 +1,6 @@
 # HQ index
 
-_Auto-generated 2026-10-07 20:14. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-07 20:21. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
@@ -13,7 +13,7 @@ _Auto-generated 2026-10-07 20:14. Don't edit; change project.json files instead.
 | frontier-plan | strategy | planned | unknown | Collect scaling ideas here as they come up; review after the mid-Feb 2027 decision. | 2026-10-05 |
 | ai-hockey | product | live | good | Check HANDOFF.md in the repo for what's left; confirm the hosting PC auto-update is healthy. | 2026-10-05 |
 | blueprint-estimator | product | paused | unknown | Owner: is this still active? Last work was pre-calibration prep (4 Jul). | 2026-10-05 |
-| luthur | tool | building | good | Build the evening debrief (owner agreed 2026-10-08): code-only, no model call. At 21:00 local (config debrief.hour, after 21:00 until midnight if HQ was off) build from data HQ already has: tasks reported today (done / partly / needs a look), scheduled missions that failed, approvals waiting, brain changes today (Undo-able), initiative picks today, reminders + milestones due tomorrow, overdue count. Save data/debriefs/<date>.md, one phone notification only if something happened (state.notified.debrief guards once a day), "Evening debrief" card on Today next to Morning brief, GET /api/debrief. Formatter in a new src/lib/debrief.ts, gathering in orchestrator (needs runCache/taskStatus). Test on a copy like verify-test.mjs. | 2026-10-08 |
+| luthur | tool | building | good | Evening debrief is built (src/lib/debrief.ts). Next: ask the owner which LUTHUR upgrade comes next; the Jarvis plan's remaining phase is self-improvement through tested proposals (docs/AUTONOMY-DESIGN.md). | 2026-10-08 |
 
 ## Due in the next 14 days
 - 2026-10-07 18:00 Phase 0 housekeeping is due tomorrow: check what's left [loancentral]

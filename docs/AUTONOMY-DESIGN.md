@@ -67,7 +67,6 @@ step, nextStep; risk/watch health ranks higher). Each pick goes through the same
 otherwise it waits for the owner. Owner-only steps ("Owner: …"), paused/done and busy projects are skipped; HQ is plan-only;
 build needs the project on the build list and a folder. Limits: ≤2 per scan, ≤4 per day, 8:00-22:00, not repeated for
 7 days (30 after a reject). Tests: `docs/validation-2026-10-08/initiative-test.mjs` (8).
-Next: a daily debrief.
 
 ## 6. Verify-before-done (built 2026-10-08)
 `src/lib/verify.ts`, called from `orchestrator.execute()`. The agent's word is not the check: for a build run on a project with
@@ -76,4 +75,13 @@ when files changed (owner list in config `verify.checks[slug]`, else `npm test` 
 "after" snapshot so their leftovers don't count) and compares the report with the real changes. A failed check, a claimed file
 that didn't change, code work with no change, or "tests pass" when they failed makes it "needs a look" (task status issue,
 ⚠ alert, red tile). A "Checked by HQ" block is added to the report; changes not named in it are noted. The latest check of a
-task counts. No model calls. Tests: `docs/validation-2026-10-08/verify-test.mjs` (10).
+task counts. A report saying "Result: Partly" shows as amber "partly done". No model calls. Tests:
+`docs/validation-2026-10-08/verify-test.mjs` (11).
+
+## 7. Evening debrief (built 2026-10-08)
+`src/lib/debrief.ts` + `orchestrator.debrief()`. Autonomy is only trustworthy if the owner can see it: at 21:00 (config
+`debrief.hour`) LUTHUR writes one report from what HQ already recorded, with no model call: problems first (needs a look,
+failed runs), then partly done, finished, waiting for your OK, brain changes (Undo-able), initiative picks, and tomorrow's
+milestones and reminders plus the overdue count. Once a day; a phone alert only when something happened. Shown on Today
+(until noon the next day). Tests: `docs/validation-2026-10-08/debrief-test.mjs` (5).
+Next: with the owner, pick the next Jarvis step (self-improvement through tested proposals is the last phase in the plan).

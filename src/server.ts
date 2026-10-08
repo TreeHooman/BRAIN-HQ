@@ -30,6 +30,7 @@ import * as accessLock from "./lib/access-lock.ts";
 import * as brainAudit from "./lib/brain-audit.ts";
 import * as autonomy from "./lib/autonomy.ts";
 import * as initiative from "./lib/initiative.ts";
+import * as debrief from "./lib/debrief.ts";
 import * as updater from "./lib/updater.ts";
 import * as screen from "./lib/screen.ts";
 import * as history from "./lib/history.ts";
@@ -130,6 +131,7 @@ function snapshot() {
     watch: watch.cards(),
     decisions: brain.recentDecisions(30),
     brief: brain.latestBrief(),
+    debrief: debrief.latest(),
     missions: orch.missions().map(m => ({ ...m, scheduleText: describe(m.schedule) })),
     runs: orch.runs(60).map(r => ({ ...r, output: r.output?.slice(0, 4000), prompt: r.prompt.slice(0, 2000) })),
     approvals: orch.approvals().slice(0, 50),
@@ -203,6 +205,7 @@ const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/initiative$/, () => initiative.status()],
   ["POST", /^\/api\/initiative\/settings$/, (_, b) => { autonomy.setInitiative(b || {}); return initiative.status(); }],
   ["POST", /^\/api\/initiative\/scan$/, () => orch.initiativeScan(true)],
+  ["GET", /^\/api\/debrief$/, () => ({ latest: debrief.latest(), now: orch.debrief() })],
 
   ["GET", /^\/api\/calendar$/, (_m, _b, url) => {
     const day = (v: string | null, d: Date) => /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? new Date(v + "T00:00") : d;

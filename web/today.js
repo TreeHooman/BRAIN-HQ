@@ -63,6 +63,15 @@ function tdSync() {
   return `<ul class="td-sync">${ev.map(a => `<li><span class="when">${esc(ago(a.at))}</span><div>${a.event === "brain-sync" ? `Updated <b>${esc(projName(a.project))}</b> from ${String(a.session || "").startsWith("ext-") ? "your Claude Code session" : "a Code session"}<small>${esc(what(a.changed))}</small>` : `Goal done: <b>${esc(a.title || "")}</b><small>${a.by === "sync" ? "ticked by Claude from your session" : a.by === "luthur" ? "ticked by LUTHUR" : "by you"}</small>`}</div></li>`).join("")}</ul>`;
 }
 
+// Evening debrief (src/lib/debrief.ts): tonight's (or, until noon, last night's) report; "So far today" previews it.
+function tdDebrief() {
+  const d = S.debrief, now = new Date(), fresh = d && (d.date === ymd(now) || (d.date === ymd(new Date(now - 864e5)) && now.getHours() < 12));
+  const body = TD.debriefNow != null ? `<div class="md">${md(TD.debriefNow)}</div>` : fresh ? `<div class="md">${md(d.text.replace(/^# .*\n/, ""))}</div>`
+    : `<div class="empty small">Arrives at 21:00: what LUTHUR did today, what waits for you, and what's due tomorrow.</div>`;
+  const stamp = TD.debriefNow != null ? "so far today" : fresh ? d.date : "";
+  return `<section class="card nv-panel td-debrief" style="grid-column:1/-1"><div class="panel-title between"><span>Evening debrief ${stamp ? `<small>${esc(stamp)}</small>` : ""}</span><button type="button" class="btn sm ghost" data-tddeb>${TD.debriefNow != null ? "Hide" : "So far today"}</button></div>${body}</section>`;
+}
+
 function tdPaint(el) {
   const now = new Date(), h = now.getHours(), hello = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
   const st = S.status, pend = S.approvals.filter(a => a.status === "pending");
@@ -81,6 +90,7 @@ function tdPaint(el) {
     <div class="td-cols two">
       <section class="card nv-panel"><div class="panel-title">Kept in sync</div>${tdSync()}</section>
       <section class="card nv-panel"><div class="panel-title">Morning brief ${S.brief ? `<small>${esc(S.brief.date)}</small>` : ""}</div>${S.brief ? `<details class="td-brief"><summary>${esc(String(S.brief.text).replace(/[#*_>`]/g, "").trim().split("\n").find(Boolean)?.slice(0, 120) || "Read")}</summary><div class="md">${md(S.brief.text)}</div></details>` : `<div class="empty small">Written every day at 8:00.</div>`}</section>
+      ${tdDebrief()}
     </div></div>`;
 
   el.querySelector("#tdPlan").onclick = async e => {
@@ -100,6 +110,11 @@ function tdPaint(el) {
     if (typeof upOpen !== "function" || e.target.closest("form, [data-tdrem], [data-upopen]")) return;
     const row = e.target.closest("[data-tdopen]");
     upOpen(row ? { kind: "reminder", id: row.dataset.tdopen } : { kind: "schedule" });
+  };
+  el.querySelector("[data-tddeb]").onclick = async () => {
+    if (TD.debriefNow != null) TD.debriefNow = null;
+    else try { TD.debriefNow = (await api("/debrief")).now.text.replace(/^# .*\n/, ""); } catch (er) { return toast("⚠ " + er.message); }
+    tdPaint(el);
   };
   sched.onkeydown = e => { if (e.key === "Enter" && e.target.matches("[data-tdopen]")) e.target.click(); };
   el.querySelectorAll("[data-tdrem]").forEach(b => b.onclick = () => act(() => api(`/reminders/${b.dataset.tdrem}`, "PATCH", { complete: true }), "Done"));

@@ -20,6 +20,7 @@ import * as audit from "./brain-audit.ts";
 import * as autonomy from "./autonomy.ts";
 import * as initiative from "./initiative.ts";
 import * as verify from "./verify.ts";
+import * as debriefLib from "./debrief.ts";
 import { safeWriteDirs } from "./guard.ts";
 import * as handoff from "./handoff.ts";
 import * as transcripts from "./transcripts.ts";
@@ -273,6 +274,7 @@ async function tick() {
   try {
     ingestDrop();
     checkReminders();
+    maybeDebrief();
     handoff.refreshIfChanged();
     if(isStopped())return;
     scheduleMissions();
@@ -374,6 +376,43 @@ function ingestDrop() {
       notify({ title: d.title || "HQ", body: d.body || "", priority: d.priority });
     }
   }
+}
+
+// ---------------- evening debrief (src/lib/debrief.ts words it; this gathers) ----------------
+/** Today's facts from what HQ already recorded. No model call. */
+export function debrief(): debriefLib.Debrief {
+  const now = new Date(), today = localDate(now), tomorrow = localDate(new Date(now.getTime() + 864e5));
+  const isToday = (iso?: string | null) => !!iso && localDate(new Date(iso)) === today;
+  const all = [...runCache.values()];
+  const tasks = all.filter(r => r.taskId && r.taskId === r.id && !r.dismissed && isToday(r.reportedAt))
+    .map(r => { const rs = taskRuns(r.id); return { title: r.title, project: r.project, status: r.ownerDone ? "done" : taskStatus(rs) }; })
+    .filter(t => t.status !== "cancelled");
+  const missions = all.filter(r => !r.taskId && isToday(r.endedAt));
+  const reminders = brain.listReminders().filter(r => !r.done);
+  const hm = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return debriefLib.compose({
+    date: today, tasks,
+    missionsDone: missions.filter(r => r.status === "done").length,
+    missionsFailed: missions.filter(r => r.status === "failed" || r.status === "timeout").map(r => ({ title: r.title, status: r.status })),
+    waiting: approvals().filter(a => a.status === "pending"),
+    changes: audit.list(300).filter(c => isToday(c.at) && !c.undone),
+    picks: initiative.status().recent.filter(e => isToday(e.at)),
+    tomorrow: [
+      ...brain.listMilestones().filter(m => !m.done && m.date.slice(0, 10) === tomorrow).map(m => ({ title: m.title, kind: "milestone" as const, project: m.project })),
+      ...reminders.filter(r => localDate(brain.whenToDate(r.due)) === tomorrow).map(r => ({ title: r.title, when: hm(brain.whenToDate(r.due)), kind: "reminder" as const, project: r.project })),
+    ],
+    overdue: reminders.filter(r => brain.whenToDate(r.due) < now).length,
+    projectName: slug => brain.getProject(slug)?.name || slug,
+  });
+}
+/** Once a day from config debrief.hour (default 21:00) until midnight; a phone alert only when something happened. */
+function maybeDebrief() {
+  const cfg = loadConfig().debrief || {}, now = new Date(), today = localDate(now);
+  if (cfg.enabled === false || now.getHours() < Math.min(23, Math.max(0, Number(cfg.hour ?? 21))) || state().notified.debrief === today) return;
+  patchState(s => { s.notified.debrief = today; });
+  const b = debrief(); debriefLib.save(b);
+  activity("debrief", { date: today, empty: b.empty });
+  if (!b.empty) notify({ title: "🌙 Evening debrief", body: (b.headline + (b.text.includes("## Tomorrow") ? " Tomorrow: " + b.text.split("## Tomorrow\n")[1].split("\n").filter(Boolean).map(l => l.replace(/^- (📅 )?/, "")).join("; ") : "")).slice(0, 360), priority: 3, tags: "crescent_moon" });
 }
 
 function checkReminders() {

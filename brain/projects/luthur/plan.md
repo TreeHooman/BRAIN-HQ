@@ -10,6 +10,7 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 4. Later: Obsidian notes (see docs/BACKLOG.md). Guarded computer control: first version done 2026-10-07.
 
 ## Owner checks
+- Evening debrief: after a restart, open Today and press "So far today" on the Evening debrief card. At 21:00 one 🌙 alert should arrive (only if LUTHUR did something today) and the card shows it.
 - Tasks page: refresh (Ctrl+R); the cards and the agent lines no longer flicker. After a restart, a task whose report says "Partly done" shows an amber "partly done" label, not green "done".
 - Daily schedule: refresh, then click the 18:00 Phase 0 reminder (edit window opens), press "Open ↗" (Schedule popout: add a reminder, ○ marks done), and click the red "overdue" pill at the top.
 - Initiative picks: approve the 2 "Initiative ·" cards (LoanCentral Phase 0, Reddit recusal rule), read their reports; if useful press Go live now on the plan-level rule. Reject a weak pick later: it shows "you said no".
