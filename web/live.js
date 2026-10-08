@@ -547,7 +547,7 @@ const Wake = {
     else return;
     clearTimeout(this.t);
     const go = () => { const cmd = speechTidy(this.buf); this.turnId++;this.armed = 0; this.buf = ""; this.committed = ""; document.body.classList.remove("wake-heard"); if (cmd) voiceCommand(cmd); };
-    this.t = setTimeout(() => { if (this.buf) go(); else { this.armed = Date.now(); } }, this.buf ? turnPauseFor(this.buf, window.hqConversation ? Math.max(1200,Math.min(3200,Number(localStorage.getItem("hq-turn-pause")||1800))) : 3200) : 1600);
+    this.t = setTimeout(() => { if (this.buf) go(); else { this.armed = Date.now(); } }, this.buf ? turnPauseFor(this.buf, turnPauseBase()) : 1600);
   },
 };
 /** Joins recognizer chunks. Chrome sometimes repeats the end of one chunk at the start of the next ("give me a briefing" + "briefing"), and a mic restart carries the turn so far: drop that overlap. */
@@ -572,6 +572,8 @@ function speechNoise(text, confidence = 0) {
 function speechTidy(text) { return String(text || "").trim().replace(/\b(\w+)(?:[\s,]+\1)+([.!?]*)$/i, "$1$2"); }
 /** Silence before a voice turn is sent. Trailing off on "and", "so", "um", a comma… means the owner is mid-thought: wait longer. */
 const TRAILING=/(?:,|\b(?:and|but|or|so|because|cause|like|um+|uh+|er+|hmm+|the|a|an|to|of|with|for|if|then|which|that|my|your|is|are|was|i|we|maybe|also|plus|just|actually))\s*$/i;
+/** Silence that ends a spoken turn (Settings → Voice). Was 1.8 s, and 3.2 s after "Hey LUTHUR": most of the wait before a reply. */
+function turnPauseBase(){return Math.max(700,Math.min(2400,Number(localStorage.getItem("hq-turn-pause2")||1000)));}
 function turnPauseFor(buf,base){return TRAILING.test(String(buf||'').trim())?Math.min(6000,Math.max(base*2,base+2000)):base;}
 /** What a hands-free sentence does: navigation, briefing, or a message to JARVIS (big jobs it delegates as Tasks). */
 function voiceCommand(cmd) {

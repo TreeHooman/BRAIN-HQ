@@ -58,11 +58,12 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Local branch `luthur-work` tracks that remote branch under a different name, so a plain `git push` refuses: use `git push origin HEAD:claude/relaxed-turing-tnsbre`.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-08 03:21 UTC)
+## Current state (auto, 2026-10-08 03:33 UTC)
 - Stage: building · health: good
 - Next step: Evening debrief is built (src/lib/debrief.ts). Next: ask the owner which LUTHUR upgrade comes next; the Jarvis plan's remaining phase is self-improvement through tested proposals (docs/AUTONOMY-DESIGN.md).
 
 ### Waiting on the owner
+- Voice: after a restart, say "Hey LUTHUR, what time is it". After he answers, talk normally: he should NOT respond. Say "Hey LUTHUR" again: he should. Say "Luther, stop listening": he goes back to wai…
 - Evening debrief: after a restart, open Today and press "So far today" on the Evening debrief card. At 21:00 one 🌙 alert should arrive (only if LUTHUR did something today) and the card shows it.
 - Tasks page: refresh (Ctrl+R); the cards and the agent lines no longer flicker. After a restart, a task whose report says "Partly done" shows an amber "partly done" label, not green "done".
 - Daily schedule: refresh, then click the 18:00 Phase 0 reminder (edit window opens), press "Open ↗" (Schedule popout: add a reminder, ○ marks done), and click the red "overdue" pill at the top.
@@ -85,6 +86,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-08 06:20 · claude**: Voice fixes (owner: "listens when I'm not talking to him", "5 s of silence"). Chat history showed room noise sent as turns ("a", "s", "has", "UNITA a bad") and "Luther stop listening" sent as a question. (1) Name required: after a request is answered LUTHUR goes straight back to "Hey LUTHUR" (0.7 s, was a 5 s open fol…
 - **2026-10-08 05:40 · claude**: Built the evening debrief (owner chose 21:00). New src/lib/debrief.ts words it; orchestrator.debrief() gathers today's reported tasks (done / partly / needs a look), background runs and failures, approvals waiting, brain changes, initiative picks, tomorrow's milestones and reminders, overdue count. No model call. Writ…
 - **2026-10-08 05:00 · claude**: Owner approved both initiative picks; both reports were useful (Reddit recusal rule drafted into the brain, nothing posted; LoanCentral Phase 0 consolidated into an 8-item owner checklist, honestly "Partly done"). Fixes: (1) Tasks page flicker: lists compared with box.innerHTML, which the browser re-serializes, so eve…
 - **2026-10-08 04:25 · claude**: Owner check passed: after the restart, a build task on GenBot ("Add a line saying verify test to LUTHUR-TEST.md") ended with "Checked by HQ: ✓ matches the report · 1 file changed", Changed: GenBot/LUTHUR-TEST.md, no project checks found. Verify-before-done works live.
@@ -92,6 +94,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-07 19:55 · claude**: Daily schedule is clickable (owner ask). Clicking a reminder row on Daily → Schedule opens its edit window (title, due, Complete, Delete). Clicking anywhere else on the card, or the new "Open ↗" button, opens a new "Schedule" popout (upgrade.js kind "schedule"): add a reminder (title, date/time, project), plus Overdue…
 - **2026-10-07 19:50 · claude**: Initiative went live after the restart: first scheduled look at 18:38 picked LoanCentral Phase 0 (milestone due 10-08) and the Reddit recusal-rule reminder (prep only, posting stays with the owner); both wait as approvals, plan rule matched 2x on trial. Fixed the card's next-look label (it said 22:38, past the 22:00 c…
 - **2026-10-07 18:36 · claude**: Initiative loop built (Jarvis step 1). New src/lib/initiative.ts: every 4 h (8:00-22:00) a code-only pass reads each project's deadlines (≤14 d), reminders (≤3 d), next open goal step and nextStep and picks up to 2 jobs (4/day), one per project; owner-only steps, paused/done and busy projects are skipped. orchestrator…
-- **2026-10-08 03:30 · claude**: Owner check passed: Codex task "GenBot: append line to LUTHUR-TEST.md" (after restart) showed on the live Code tile as Changed steps with red/green lines, including Codex fixing its own first write (joined onto the existing line, then split it). Shell-made changes now visible; tile total +3 −2. Codex write path + live…
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.

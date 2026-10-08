@@ -19,13 +19,17 @@ class PcWake {
         var wakeRequest=new Grammar(requestBuilder);wakeRequest.Name="wake-request";
         engine.LoadGrammar(wake);
         engine.LoadGrammar(wakeRequest);
+        // Open dictation competes with the name: without it, a closed grammar forces any speech (TV, other people)
+        // onto the nearest "luther" phrase, which woke LUTHUR at random. Speech it wins is ignored.
+        var other=new DictationGrammar();other.Name="other";engine.LoadGrammar(other);
         if(check){Console.WriteLine("Wake grammar loaded. Microphone was not opened.");return 0;}
         engine.SetInputToDefaultAudioDevice();
         string url="http://127.0.0.1:"+port;
         http.Headers["Cookie"]=Environment.GetEnvironmentVariable("HQ_PC_VOICE_COOKIE")??"";
         for(;;){
           var call=engine.Recognize(TimeSpan.FromSeconds(10));
-          if(call==null||call.Confidence<(call.Grammar.Name=="wake"?.7:.55))continue;
+          if(call==null||call.Grammar.Name=="other"||call.Confidence<(call.Grammar.Name=="wake"?.8:.65))continue;
+          if(!Regex.IsMatch(call.Text,@"^(?:hey\s+)?(?:luthur|luther|luthor)\b",RegexOptions.IgnoreCase))continue;
           try {
             http.Headers["X-HQ"]="1";http.Headers["Content-Type"]="application/json";
             var text=Regex.Replace(call.Text,@"^(?:hey\s+)?(?:luthur|luther|luthor)\b[\s,.!?]*","",RegexOptions.IgnoreCase).Trim();

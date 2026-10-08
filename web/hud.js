@@ -677,7 +677,7 @@ function cmdPollStart() {
     // spoken question → spoken answer (even with voice replies off); typed → the normal setting
     if (was && last?.role === "hq") speakChatReply(c, Date.now() - (window.hqVoiceTurn || 0) < 10 * 60e3);
     refresh();
-  }, 500);
+  }, Cmd.waiting ? 250 : 500); // faster while a reply is coming, so the first spoken sentence starts sooner
 }
 function onChatOpDone() { if (Cmd.waiting) cmdPollStart(); }
 function cmdFill(quiet) {

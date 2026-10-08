@@ -1,16 +1,43 @@
 "use strict";
 // Give the owner a follow-up window, measured after playback and echo cooldown.
-const WakeIdle={active:false,last:0,speaking:false,delay:5000};
+const WakeIdle={active:false,last:0,speaking:false,delay:5000,sent:false,named:0};
 function wakeIdleTouch(){WakeIdle.last=Date.now();}
+const followUpsOn=()=>localStorage.getItem('hq-followup')==='1';
 const idleConversation=upConversation;
 upConversation=function(on){
   const result=idleConversation(on);
   WakeIdle.active=!!on&&!WAKE_PHONE;
-  WakeIdle.speaking=false;wakeIdleTouch();
+  WakeIdle.speaking=false;WakeIdle.sent=false;wakeIdleTouch();
   return result;
+};
+// Every spoken turn passes here first (this file loads after the other voiceCommand wrappers).
+// - Fragments the mic picked up from the room ("a", "s", "has") are dropped: one word only counts if it's a real reply.
+// - "Stop listening", "go to sleep", "that's all", "never mind", "goodbye" end the conversation and go back to the name.
+const SHORT_REPLY=/^(yes|yeah|yep|yup|no|nope|nah|sure|okay|ok|thanks|thank you|stop|continue|go|done|cancel|repeat|again|next|why|what|how|when|where|who|both|neither|later|now)$/;
+const END_TALK=/\b(stop listening|go to sleep|that'?s all|that is all|never ?mind|good ?bye|bye bye|you can go|i'?m done|we'?re done)\b/;
+const idleVoiceCommand=voiceCommand;
+voiceCommand=function(text){
+  const t=String(text||'').toLowerCase().replace(/[.,!?]+/g,' ').replace(/\s+/g,' ').trim(), words=t.match(/[a-z0-9']+/g)||[];
+  if(END_TALK.test(t)&&words.length<=8){speechClearTurn();if(UPG.conversation)upConversation(false);speechStatus('wake');return;}
+  if(words.length<2&&!SHORT_REPLY.test(t))return;
+  // After the first request, more speech only counts if it used the name (or interrupted LUTHUR mid-sentence,
+  // which voice-stream.js marks just before calling this).
+  const barge=Date.now()-(window.hqVoiceTurn||0)<400;
+  if(WakeIdle.sent&&!followUpsOn()&&!barge&&Date.now()-WakeIdle.named>15000)return;
+  WakeIdle.sent=true;
+  return idleVoiceCommand(text);
+};
+// Settings → Voice: let the owner turn follow-ups back on.
+const idleSettings=vSettings;
+vSettings=function(el){
+  const r=idleSettings(el),box=document.getElementById('pcWakeStatus');
+  if(box&&!document.getElementById('followUps')){box.insertAdjacentHTML('afterend',`<label><input id="followUps" type="checkbox" ${followUpsOn()?'checked':''}> Follow-up questions without the name · after an answer, listen 5 seconds for more (off = always say “Hey LUTHUR”)</label>`);
+    document.getElementById('followUps').onchange=e=>localStorage.setItem('hq-followup',e.target.checked?'1':'0');}
+  return r;
 };
 const idleHeard=Wake.heard;
 Wake.heard=function(text,final,snapshot=false){
+  if(/^\s*(?:hey|hi|ok|okay)?\s*(?:luthur|luther|luthor|lutha|lothar|jarvis)\b/i.test(String(text||'')))WakeIdle.named=Date.now();
   const result=idleHeard.call(this,text,final,snapshot);
   if(!speechPlaybackBlocked()&&this.on&&!this.paused&&(this.armed||this.buf)){
     WakeIdle.active=true;wakeIdleTouch();
@@ -45,7 +72,10 @@ function wakeIdleCheck(){
     WakeIdle.speaking||Wake.buf?.trim()||SpeechUI.editing||SpeechUI.failed){
     wakeIdleTouch();return;
   }
-  if(Date.now()-WakeIdle.last<WakeIdle.delay)return;
+  // Name required (owner ask, 2026-10-08): once a request was sent and answered, go straight back to "Hey LUTHUR"
+  // instead of keeping the mic open for follow-ups. Settings → "Follow-up questions without the name" restores it.
+  const delay=WakeIdle.sent&&!followUpsOn()?700:WakeIdle.delay;
+  if(Date.now()-WakeIdle.last<delay)return;
   WakeIdle.active=false;WakeIdle.speaking=false;
   const nativeReturn=pcVoiceReturn;
   speechClearTurn();
