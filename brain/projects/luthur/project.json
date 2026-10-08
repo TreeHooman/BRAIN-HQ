@@ -4,7 +4,7 @@
   "stage": "building",
   "health": "good",
   "summary": "Personal assistant, War Room and project work hub.",
-  "nextStep": "Restart LUTHUR (scripts/RESTART-LUTHUR.cmd) so the Codex write fix, shell-change diffs on the Code page, memory search and the chat fixes go live. Then give Codex one small build task and check its Code tile shows the changed lines, and ask LUTHUR in chat about the discord interest rate to test memory search.",
+  "nextStep": "Approve the queued Codex build task and check its Code tile shows the changed lines (shell-made changes). Memory search in chat is confirmed.",
   "updated": "2026-10-08",
   "paths": [],
   "repos": [],

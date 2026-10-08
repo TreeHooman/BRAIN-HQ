@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-08 03:10 · claude
+Owner check passed: after the restart, LUTHUR answered "what did we decide about the discord interest rate?" in chat from memory (status open, options, Oct 10 deadline). Removed that owner check. Still to check: a Codex build task showing shell-made changes on its Code tile (task queued, waiting for approval).
+
 ## 2026-10-08 02:50 · claude
 Codex shell changes now show on the Code page. narrate.WorkspaceWatch records a Codex build run's workspace at start (size+mtime of up to 4000 files, text of small files, skipping .git/node_modules/dist/build etc.) and rescans after each command or file edit; new/changed/deleted files appear as a "Changed" step with -/+ lines and counts. Secret-looking files (.env etc.) show by name only. Unit-checked (new file, edited lines, .env hidden, node_modules ignored, no-op command adds nothing); suites 15/15, 8/8, 13/13, 6/6 on a copy. Pushed to GitHub with all of 2026-10-07/08's work.
 

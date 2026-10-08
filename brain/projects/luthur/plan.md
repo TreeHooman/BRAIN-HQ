@@ -11,7 +11,6 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 
 ## Owner checks
 - Chat: open LUTHUR → Conversation; it starts on the newest message and stays there after you send. The Claude and Codex usage lines above it don't overlap.
-- Memory search in chat: ask LUTHUR "what did we decide about the discord interest rate?" in the Message box; it should answer from memory. (History → Search all confirmed 2026-10-07.)
 - ElevenLabs: Settings → Voice → paste the sk_ key, Save, Preview: LUTHUR speaks in the "LUTHUR" voice. With no credits it falls back to a British device voice.
 - Voice noise: talk with fans/wind going; when you stop, LUTHUR shows "Say Hey LUTHUR" after ~5 s and ignores everything until you say the name.
 - War Room conversation panel: opens on the newest message and stays there as replies arrive.

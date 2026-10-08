@@ -55,13 +55,12 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Local branch `luthur-work` tracks that remote branch under a different name, so a plain `git push` refuses: use `git push origin HEAD:claude/relaxed-turing-tnsbre`.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-08 01:17 UTC)
+## Current state (auto, 2026-10-08 01:20 UTC)
 - Stage: building · health: good
-- Next step: Restart LUTHUR (scripts/RESTART-LUTHUR.cmd) so the Codex write fix, shell-change diffs on the Code page, memory search and the chat fixes go live. Then give Codex one small build task and check its Code tile shows the changed lines, and ask LUTHUR in chat about the discord interest rate to test mem…
+- Next step: Approve the queued Codex build task and check its Code tile shows the changed lines (shell-made changes). Memory search in chat is confirmed.
 
 ### Waiting on the owner
 - Chat: open LUTHUR → Conversation; it starts on the newest message and stays there after you send. The Claude and Codex usage lines above it don't overlap.
-- Memory search in chat: ask LUTHUR "what did we decide about the discord interest rate?" in the Message box; it should answer from memory. (History → Search all confirmed 2026-10-07.)
 - ElevenLabs: Settings → Voice → paste the sk_ key, Save, Preview: LUTHUR speaks in the "LUTHUR" voice. With no credits it falls back to a British device voice.
 - Voice noise: talk with fans/wind going; when you stop, LUTHUR shows "Say Hey LUTHUR" after ~5 s and ignores everything until you say the name.
 - War Room conversation panel: opens on the newest message and stays there as replies arrive.
@@ -77,6 +76,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-08 03:10 · claude**: Owner check passed: after the restart, LUTHUR answered "what did we decide about the discord interest rate?" in chat from memory (status open, options, Oct 10 deadline). Removed that owner check. Still to check: a Codex build task showing shell-made changes on its Code tile (task queued, waiting for approval).
 - **2026-10-08 02:50 · claude**: Codex shell changes now show on the Code page. narrate.WorkspaceWatch records a Codex build run's workspace at start (size+mtime of up to 4000 files, text of small files, skipping .git/node_modules/dist/build etc.) and rescans after each command or file edit; new/changed/deleted files appear as a "Changed" step with -…
 - **2026-10-08 02:35 · claude**: Owner check passed: Codex created GenBot/LUTHUR-TEST.md on a build task (first real Codex write from HQ), the live Code tile streamed its steps, nothing in data/guard. Gap: Codex wrote the file with a PowerShell command, not its file-edit tool, so the tile showed +0 −0 and no lines. Fixed in the next entry.
 - **2026-10-08 02:20 · claude**: Codex could never write files. Its session log showed sandbox_policy read-only on every build run: Codex 0.160 on Windows downgrades workspace-write to read-only unless `windows.sandbox` is set, and HQ starts it with --ignore-user-config. codex.ts now adds `-c windows.sandbox="unelevated"` to build runs on Windows (no…
@@ -84,6 +84,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-08 01:30 · claude**: Live code view + chat fixes (owner asks). New web/live-builds.js: build-level background tasks/missions (Claude or Codex) show as live tiles at the top of the Code page ("Background code changes · live"); clicking one opens a drawer that streams every step with the changed lines (green/red) and stays open when the tas…
 - **2026-10-08 00:45 · claude**: Memory search (next build) + two run fixes. New src/lib/memory-search.ts: one ranked, code-only search (BM25 with light stemming, phrase and recency boosts; ~30 ms first call, ~5 ms cached, rebuilt only when a file changes) over project SUMMARY/plan/log/project.json, decisions, preferences, goals, milestones, reminder…
 - **2026-10-08 00:15 · claude**: Queue stall fixed: since ~08:00 on 10-07 every 30 s tick crashed ("all.some is not a function"), so no queued run started (Morning brief sat 9 h). Cause: forceStop() wrote data/goal-work.json as {} when the file was missing. forceStop now uses goalWork(), and goalWork() treats a non-list file as empty. File reset to […
-- **2026-10-07 23:40 · claude**: History tabs fix (owner report): in the War Room screen panel, Answers / Memory & cleanup (and the filters) did nothing because they called render(), which redraws the main page. web/history.js now redraws its own panel there; the main History page is unchanged. Also: dropdown lists (Inbox "All inboxes", Upcoming "Eve…
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.
