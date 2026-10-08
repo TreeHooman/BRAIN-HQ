@@ -495,7 +495,7 @@ const WAKE_PHONE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (mat
 const Wake = {
   rec: null, ready:false, on: false, paused: false, armed: 0, buf: "", committed: "", t: 0, fails: 0, turnId:0,
   supported: () => !!SR,
-  init() { this.on = !WAKE_PHONE && hstore.get("hq-wake", "0") === "1" && !!SR; this.btn(); if (this.on) this.start(); document.addEventListener("visibilitychange", () => { if (document.hidden) this.stop(true); else if (this.on) this.start(); }); },
+  init() { this.on = !WAKE_PHONE && hstore.get("hq-wake", "1") === "1" && !!SR; this.btn(); if (this.on) this.start(); document.addEventListener("visibilitychange", () => { if (document.hidden) this.stop(true); else if (this.on) this.start(); }); },
   toggle() {
     if (!SR) { toast("Hands-free needs Safari, Chrome or Edge."); return; }
     if (WAKE_PHONE) { // one sentence per tap: no restart loop, so no repeated beeps
@@ -574,7 +574,21 @@ function speechTidy(text) { return String(text || "").trim().replace(/\b(\w+)(?:
 const TRAILING=/(?:,|\b(?:and|but|or|so|because|cause|like|um+|uh+|er+|hmm+|the|a|an|to|of|with|for|if|then|which|that|my|your|is|are|was|i|we|maybe|also|plus|just|actually))\s*$/i;
 /** Silence that ends a spoken turn (Settings → Voice). Was 1.8 s, and 3.2 s after "Hey LUTHUR": most of the wait before a reply. */
 function turnPauseBase(){return Math.max(700,Math.min(2400,Number(localStorage.getItem("hq-turn-pause2")||1000)));}
-function turnPauseFor(buf,base){return TRAILING.test(String(buf||'').trim())?Math.min(6000,Math.max(base*2,base+2000)):base;}
+// Context clues for "is the owner done?" (owner ask, 2026-10-08), judged from the words so far, no model call:
+// - unfinished: ends on a joining/filler word (TRAILING), or on a phrase that needs more ("remind me to", "can you",
+//   "set an alarm for", "I want", "what about"), or is just a name/one word → wait long (base + 2 s, up to 6 s)
+// - finished: a full question or request that ends on a natural closer (please, thanks, now, today, tomorrow, a time,
+//   a number) or a complete "what time is it" style question → answer sooner (70% of base, at least 0.6 s)
+const NEEDS_MORE=/\b(?:can you|could you|would you|will you|can we|i want|i need|i'?d like|let'?s|remind me|tell me|show me|set (?:an? |the )?(?:alarm|reminder|timer)|what about|how about|what if|in|on|at|about|from|into|than|as|when|where|while|until|before|after|and then|not|don'?t|didn'?t|isn'?t|it'?s|there'?s|i'?m|you'?re|we'?re|gonna|wanna|going to|want to|need to|have to|kind of|sort of)\s*$/i;
+const CLOSES=/\b(?:please|thanks|thank you|now|today|tonight|tomorrow|yesterday|this week|next week|right now|for me|o'?clock|am|pm|a\.m\.|p\.m\.|\d+)\s*$/i;
+const FULL_Q=/^(?:hey |ok |okay )?(?:luth\w* )?(?:what|what'?s|when|where|who|why|how|which|is|are|do|does|did|can|could|should|will|would)\b.{8,}$/i;
+function turnPauseFor(buf,base){
+  const t=String(buf||'').trim().replace(/[.!?]+$/,''),words=t.split(/\s+/).filter(Boolean).length;
+  if(/^(?:yes|yeah|yep|no|nope|nah|okay|ok|sure|thanks|thank you|stop|cancel|done|go ahead|do it)$/i.test(t))return Math.max(600,Math.round(base*0.7));
+  if(TRAILING.test(t)||NEEDS_MORE.test(t)||words<=1)return Math.min(6000,Math.max(base*2,base+2000));
+  if(words>=3&&(CLOSES.test(t)||FULL_Q.test(t)))return Math.max(600,Math.round(base*0.7));
+  return base;
+}
 /** What a hands-free sentence does: navigation, briefing, or a message to JARVIS (big jobs it delegates as Tasks). */
 function voiceCommand(cmd) {
   const c = cmd.toLowerCase().replace(/[.!?]+$/, "").trim();

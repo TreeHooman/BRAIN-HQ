@@ -24,7 +24,7 @@ vSettings=function(el){
   document.getElementById('voiceDeep').onchange=e=>localStorage.setItem('hq-voice-deep',e.target.checked?'1':'0');
   document.getElementById('pcWake').disabled=true;
   api('/pc-voice').then(pcVoicePaint).catch(pcVoiceUnavailable);
-  document.getElementById('pcWake').onchange=async e=>{try{pcVoiceReturn=false;SpeechPlayback.rearmPc=false;const state=await api('/pc-voice','PUT',{enabled:e.target.checked});pcVoicePaint(state);if(state.running){upConversation(false);Wake.pause();pcVoiceWasOn=true;}else{pcVoiceWasOn=false;Wake.resume();}}catch(err){e.target.checked=false;toast(err.message);}};
+  document.getElementById('pcWake').onchange=async e=>{localStorage.setItem('hq-pcwake',e.target.checked?'1':'0');try{pcVoiceReturn=false;SpeechPlayback.rearmPc=false;const state=await api('/pc-voice','PUT',{enabled:e.target.checked});pcVoicePaint(state);if(state.running){upConversation(false);Wake.pause();pcVoiceWasOn=true;}else{pcVoiceWasOn=false;Wake.resume();}}catch(err){e.target.checked=false;toast(err.message);}};
   for(const [id,key]of[['voiceChoice','hq-voice-id'],['voiceRate','hq-voice-rate'],['voicePitch','hq-voice-pitch'],['voicePause','hq-turn-pause2']])document.getElementById(id).oninput=e=>localStorage.setItem(key,e.target.value);
   document.getElementById('voiceFast').onchange=e=>localStorage.setItem('hq-voice-fast',e.target.checked?'1':'0');
   document.getElementById('voiceSettings').onsubmit=e=>e.preventDefault();
@@ -62,7 +62,7 @@ function pcVoiceUnavailable(error){
   if(checkbox)checkbox.disabled=true;
   if(note)note.textContent=/unlock/i.test(error?.message||'')?'Unlock LUTHUR with your PIN, then this switch will become available.':/No such endpoint/i.test(error?.message||'')?'Server restart needed. Run RESTART-LUTHUR.cmd from the LUTHUR scripts folder. Closing the app window alone does not restart the server.':'Waiting for the local server. This switch will become available automatically when it reconnects.';
 }
-let pcVoiceLast=0,pcVoiceWasOn=false,pcVoicePolling=false,pcVoiceReturn=false;
+let pcVoiceLast=0,pcVoiceWasOn=false,pcVoicePolling=false,pcVoiceReturn=false,pcAutoAt=0;
 async function pcVoicePoll(){
   if(pcVoicePolling)return;pcVoicePolling=true;
   try{
@@ -73,6 +73,13 @@ async function pcVoicePoll(){
     if(state.running&&!pcVoiceWasOn){upConversation(false);Wake.pause();}
     if(!state.running&&pcVoiceWasOn)Wake.resume();
     pcVoiceWasOn=state.running;
+    // "Hey LUTHUR" stays on (owner ask, 2026-10-08): a restart or unlock forgets the PC listener, so the main window
+    // turns it back on whenever nothing else is using the mic. Unticking it in Settings is remembered (hq-pcwake=0).
+    if(!state.running&&!state.event&&!state.error&&!window.hqOverlay&&localStorage.getItem('hq-pcwake')!=='0'&&!UPG.conversation&&!pcVoiceReturn&&
+      !(typeof ForceStop!=='undefined'&&ForceStop.stopped)&&!(typeof Access!=='undefined'&&Access.locked)&&!speechPlaybackBlocked()&&!Cmd.waiting&&Date.now()-pcAutoAt>8000){
+      pcAutoAt=Date.now();const on=await api('/pc-voice','PUT',{enabled:true}).catch(()=>null);
+      if(on?.running){pcVoiceWasOn=true;Wake.pause();pcVoicePaint(on);}
+    }
     // Only claim the wake word while this window is the one in use: a window hidden behind others still counts as
     // "visible", which sent "Hey LUTHUR" to it instead of popping up the side panel.
     if(state.running&&!window.hqOverlay&&document.visibilityState==='visible'&&document.hasFocus())api('/desktop-overlay','POST',{action:'main-visible'}).catch(()=>{});

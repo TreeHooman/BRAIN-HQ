@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-08 06:20 · claude
+(1) Context clues for end of turn (web/live.js turnPauseFor): unfinished phrases ("remind me to", "can you", "set an alarm for", "I want", joining words, a lone name) wait base+2 s; finished-sounding ones (full questions, endings like please/now/today/tomorrow/a time or number, yes/no/ok) answer at 70% of base (0.7 s at the default 1 s). (2) "Hey LUTHUR" stays on: the PC listener is forgotten on every restart/unlock (needs a session cookie), so the main window now turns it back on itself whenever the mic is free (web/voice.js pcVoicePoll); unticking it in Settings is remembered (localStorage hq-pcwake=0). In-app hands-free now defaults on (hq-wake).
+
 ## 2026-10-08 06:05 · claude
 Owner: "very slow still; when I talk I want it to stop talking and let me finish (Jarvis is more of a listener); sometimes it doesn't pick up words". (1) Barge-in (web/voice-stream.js): goes quiet on the first 2 non-echo words (was 3) and no longer sends on the first final chunk: keeps listening across pauses and sends after the normal turn silence (turnPauseFor, longer after "and/um"). (2) Spoken requests with work words (check, plan, update, fix…) no longer switch to Deep + high effort by default (Settings → Voice "Use Deep thinking for spoken work requests" is now opt-in, hq-voice-deep=1). (3) Chat timing in activity.jsonl: event "chat" now has model, effort, firstMs (first text), spokenMs (the <spoken> sentence complete), totalMs. Next: read those numbers after real use to see where the remaining seconds go; recognition misses come from Chrome's Web Speech (a local Whisper engine would be the bigger fix).
 
