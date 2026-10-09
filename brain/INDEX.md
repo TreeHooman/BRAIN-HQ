@@ -1,6 +1,6 @@
 # HQ index
 
-_Auto-generated 2026-10-08 02:14. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-09 13:48. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
@@ -13,7 +13,7 @@ _Auto-generated 2026-10-08 02:14. Don't edit; change project.json files instead.
 | frontier-plan | strategy | planned | unknown | Collect scaling ideas here as they come up; review after the mid-Feb 2027 decision. | 2026-10-05 |
 | ai-hockey | product | live | good | Check HANDOFF.md in the repo for what's left; confirm the hosting PC auto-update is healthy. | 2026-10-05 |
 | blueprint-estimator | product | paused | unknown | Owner: is this still active? Last work was pre-calibration prep (4 Jul). | 2026-10-05 |
-| luthur | tool | building | good | Owner: test Away mode from the phone (plan.md Owner checks) and keep the Level 4 trial going (rate each result 👍/👎); before a long trip do the docs/AWAY-MODE.md checklist + a 3-5 day dry run. | 2026-10-08 |
+| luthur | tool | building | good | Owner: do the 6 away-mode steps in brain/projects/luthur/away-setup.md (phone test first), keep the Level 4 trial going and rate each result 👍/👎. | 2026-10-08 |
 
 ## Due in the next 14 days
 - 2026-10-07 18:00 Phase 0 housekeeping is due tomorrow: check what's left [loancentral]
@@ -26,12 +26,12 @@ _Auto-generated 2026-10-08 02:14. Don't edit; change project.json files instead.
 - 2026-10-15 19:00 LUTHUR Level 4 review: check the trial scorecard, decide signals + web research, mark the daily trial reminder done [luthur]
 
 ## Next milestones
-- 2026-10-08 Phase 0 housekeeping done [loancentral]
 - 2026-10-31 Last day Reddit accepts new API access requests [reddit]
 - 2026-10-31 Dashboard v1 (Phase 1) done [loancentral]
 - 2026-11-13 Reddit RSS feeds end [reddit]
 - 2026-11-30 Reddit migration bounty deadline [reddit]
 - 2027-01-12 Unregistered Reddit apps lose access (we're registered) [reddit]
+- 2027-02-15 Decide: keep the bot or switch to no-bot mode [loancentral]
 
 ## Goals (Mission Planner)
 - Survive the Reddit API shutdown [loancentral]: 0/7 steps, due 2027-03-31

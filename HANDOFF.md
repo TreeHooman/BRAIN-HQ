@@ -60,14 +60,14 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Local branch `luthur-work` tracks that remote branch under a different name, so a plain `git push` refuses: use `git push origin HEAD:claude/relaxed-turing-tnsbre`.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-08 09:14 UTC)
+## Current state (auto, 2026-10-08 09:38 UTC)
 - Stage: building · health: good
-- Next step: Owner: test Away mode from the phone (plan.md Owner checks) and keep the Level 4 trial going (rate each result 👍/👎); before a long trip do the docs/AWAY-MODE.md checklist + a 3-5 day dry run.
+- Next step: Owner: do the 6 away-mode steps in brain/projects/luthur/away-setup.md (phone test first), keep the Level 4 trial going and rate each result 👍/👎.
 
 ### Waiting on the owner
 - Away mode: on your phone (Tailscale on) open https://desktop-aklj0fo.tail2bfce5.ts.net/, unlock, Add to Home Screen; talk to LUTHUR from there. On the PC: Today → Away mode card shows phone access on…
 - Away mode: rate a finished task 👎 with a note ("always…"); give a similar task: its report should follow the lesson. Or say "that last task was wrong because …".
-- Away mode: before a long trip do the checklist in docs/AWAY-MODE.md (keepAwake always, BIOS power-on, auto sign-in, dead-man ping, remote desktop) and a 3-5 day phone-only dry run.
+- Away mode setup: do the 6 steps in brain/projects/luthur/away-setup.md (phone test, Tailscale key expiry, dead-man ping, Chrome Remote Desktop, auto sign-in, BIOS power-on). Re-check with scripts/AWA…
 - Level 4 speed: after a restart ask "what time is it", "what's next on LUTHUR" and "is anything waiting for me": answers should be instant (no thinking pause). Open /api/timing to see the numbers.
 - Level 4 intake: tell LUTHUR a multi-step job by voice (e.g. "work out what it would take to move my project notes into a database and plan it"). A Task brief appears bottom-right (Work panel) with at…
 - Level 4 interrupt: ask something long, talk over the answer: the answer stops AND the model stops generating (no late reply).
@@ -98,6 +98,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-08 03:40 · claude**: Owner: "set keep awake always and do as much as you can for me to manually do tomorrow". keepAwake = always (hq.json + the local override that said busy). New scripts/AWAY-CHECK.cmd (read-only readiness check). Already OK: Windows sleep/hibernate never on mains, startup, watchdog, Tailscale connected + automatic + ser…
 - **2026-10-08 03:00 · claude**: Away mode built overnight (owner: "talk and get shit done… away for months, back and forth with LUTHUR while he controls usage and does work"). docs/AWAY-MODE.md. - Phone access: Tailscale was already installed, the iPhone is on the tailnet and `tailscale serve` already serves LUTHUR at https://desktop-aklj0fo.tail2bf…
 - **2026-10-08 08:32 · claude**: Owner said go: switched on l4.plans, l4.retries, l4.projectState in config/hq.json (signals, web research, chat.persistent stay off). Trial week 8-15 Oct: checklist + scorecard in brain/projects/luthur/l4-trial.md; daily 19:00 reminder "LUTHUR trial" and a 15 Oct 19:00 review reminder. Restarted LUTHUR so it is live.
 - **2026-10-08 01:25 · claude**: Level 4 build (docs/L4-PROGRESS.md). Outcome → brief → plan of checked steps → verified result, or one question only the owner can answer. Built: speed (timing.ts stage timings, fastpath.ts no-model answers, memo.ts cache, per-turn brain facts, SSE /api/chat/stream, TTS prefetch, /api/chat/cancel, background runs belo…
@@ -105,6 +106,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-08 06:55 · claude**: Calendar day Cancel rework (owner: "has a confirm button at the bottom, built badly, doesn't delete some"). Causes: the shared confirm box landed under the Add form with "Confirm/Cancel" buttons; the calendar shows duplicate reminders (same title+time) once, so Cancel removed only one copy; Google events only went to …
 - **2026-10-08 06:35 · claude**: Calendar day pop-up (click a day on Calendar) has Cancel on every item (web/app.js dayModal): reminders and milestones are deleted from HQ after a confirm; a Google Calendar event becomes a "delete" draft in the Outbox and is only removed when the owner presses Send there.
 - **2026-10-08 06:20 · claude**: (1) Context clues for end of turn (web/live.js turnPauseFor): unfinished phrases ("remind me to", "can you", "set an alarm for", "I want", joining words, a lone name) wait base+2 s; finished-sounding ones (full questions, endings like please/now/today/tomorrow/a time or number, yes/no/ok) answer at 70% of base (0.7 s …
-- **2026-10-08 06:05 · claude**: Owner: "very slow still; when I talk I want it to stop talking and let me finish (Jarvis is more of a listener); sometimes it doesn't pick up words". (1) Barge-in (web/voice-stream.js): goes quiet on the first 2 non-echo words (was 3) and no longer sends on the first final chunk: keeps listening across pauses and send…
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.

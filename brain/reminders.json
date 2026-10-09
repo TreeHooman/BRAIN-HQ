@@ -81,7 +81,7 @@
     "project": "loancentral",
     "repeat": null,
     "done": false,
-    "notifiedAt": null,
+    "notifiedAt": "2026-10-09T20:48:13.593Z",
     "createdAt": "2026-10-07T10:51:37.281Z"
   },
   {
@@ -90,7 +90,7 @@
     "due": "2026-10-08T12:00",
     "repeat": null,
     "done": false,
-    "notifiedAt": null,
+    "notifiedAt": "2026-10-09T20:48:13.812Z",
     "createdAt": "2026-10-07T22:02:39.910Z"
   },
   {
@@ -100,7 +100,7 @@
     "project": "reddit",
     "repeat": null,
     "done": false,
-    "notifiedAt": null,
+    "notifiedAt": "2026-10-09T20:48:13.832Z",
     "createdAt": "2026-10-07T22:02:40.503Z"
   },
   {
@@ -137,7 +137,7 @@
     "project": "luthur",
     "repeat": "daily",
     "done": false,
-    "notifiedAt": null,
+    "notifiedAt": "2026-10-09T20:48:14.298Z",
     "createdAt": "2026-10-08T08:31:39.664Z"
   },
   {
@@ -161,6 +161,16 @@
     "createdAt": "2026-10-05T12:00:00Z"
   },
   {
+    "id": "rmuza2ap1re1b",
+    "title": "LUTHUR Level 4 review: check the trial scorecard, decide signals + web research, mark the daily trial reminder done",
+    "due": "2026-10-15T19:00",
+    "project": "luthur",
+    "repeat": null,
+    "done": false,
+    "notifiedAt": null,
+    "createdAt": "2026-10-08T08:31:39.685Z"
+  },
+  {
     "id": "r-seed-5",
     "title": "Send the Reddit Data Access Request resubmission (deadline 31 Oct)",
     "due": "2026-10-24T10:00",
@@ -179,15 +189,5 @@
     "done": false,
     "notifiedAt": null,
     "createdAt": "2026-10-05T12:00:00Z"
-  },
-  {
-    "id": "rmuza2ap1re1b",
-    "title": "LUTHUR Level 4 review: check the trial scorecard, decide signals + web research, mark the daily trial reminder done",
-    "due": "2026-10-15T19:00",
-    "project": "luthur",
-    "repeat": null,
-    "done": false,
-    "notifiedAt": null,
-    "createdAt": "2026-10-08T08:31:39.685Z"
   }
 ]
