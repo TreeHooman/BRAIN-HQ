@@ -83,7 +83,10 @@ function netUpdate(box, scope) {
     if (nd.project) el.style.setProperty("--pc", projColor(nd.project)); else el.style.removeProperty("--pc");
     const stat = nd.run ? `<span class="s run">⋮ ${nd.steps} · ${fmtDur(nd.t)}</span>` : nd.st === "done" ? `<span class="s ok">✓ done</span>` : nd.st === "failed" ? `<span class="s bad">✕ failed</span>` : nd.st === "queued" ? `<span class="s">◌ queued</span>` : `<span class="s">○ idle</span>`;
     el.innerHTML = `<div class="h"><i>✱</i><b>${esc(nd.name)}</b></div><div class="b"><span class="sub">${esc(nd.sub)}</span>${stat}</div><div class="a">${esc(nd.act)}</div>`;
-    el.onclick = nd.session ? () => codeOpen(nd.session) : nd.kind === "code" ? () => { const s = (Live.code?.sessions || []).find(x => x.opId === nd.id); if (s) codeOpen(s.id); } : null;
+    // LUTHUR's own box opens his workroom; any agent without one (workers, the review, missions) opens a live window of its steps.
+    const inspect = /^(idle|q)-/.test(nd.id) || typeof upOpen !== "function" ? null : () => upOpen({ kind: "operation", id: nd.id });
+    el.onclick = nd.session ? () => codeOpen(nd.session) : nd.kind === "code" ? () => { const s = (Live.code?.sessions || []).find(x => x.opId === nd.id); if (s) codeOpen(s.id); else inspect?.(); } : inspect;
+    if (el.onclick) { el.tabIndex = 0; el.setAttribute("role", "button"); el.title = nd.session || nd.parent == null && nd.kind === "code" ? "Open workroom" : "Watch what this agent is doing"; el.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); el.onclick(); } }; }
     let x, y;
     if (!tree && scope === "code") {
       // octagon: up to 8 slots around the orchestrator, like a terminal agent map
