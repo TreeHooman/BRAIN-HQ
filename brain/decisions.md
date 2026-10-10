@@ -21,3 +21,4 @@ Newest first. What was decided, and why.
 - **2026-10-01** [loancentral] Goal order: survive, then grow, then make money. Lawyer first. _Why:_ the API closes March 2027.
 - **2026-10-01** [loancentral] US and Canada only; new loans in USD/CAD.
 - **2026-10-01** [loancentral] Devvit ruled out for lending (LoanLedger rejection).
+- **2026-10-09** [loancentral-discord] Discord bot is a tracker, not a facilitator (Reddit style): keep request tickets, only Verified Lenders lend, everything in the ticket chat (no DMs). Strictly one loan per borrower (one open request or one live loan). No published interest rate; the bot never collects ID/paystubs. _Why:_ owner wants quick, transparent lending without the server arranging loans.

@@ -6,7 +6,7 @@
     "lending"
   ],
   "paths": [
-    "C:/Users/antho/OneDrive/Project Secrets/LoanBot/discord-bot"
+    "C:/Users/antho/OneDrive/Project Secrets/LoanBot/discord-bot-next"
   ],
   "repos": [],
   "phases": [
@@ -30,6 +30,6 @@
   "health": "good",
   "order": 2,
   "summary": "LoanBot 3.0 on Discord: ticket-based loan requests, data kept separate from Reddit.",
-  "nextStep": "Decide interest/ID policy (recommend option A: no published rate, no ID/paystubs; see log 2026-10-09), then do the lender-claim test on REQ-0002.",
-  "notes": "The bot is live in the MAIN server in preview mode. Code changes need the STOP then START bats, which the owner runs."
+  "nextStep": "Overnight: LUTHUR builds Lending upgrade v3.1 in discord-bot-next (plan.md). Then owner reads CHANGES.md, swaps it in and tests with an alt.",
+  "notes": "Live bot runs from LoanBot/discord-bot (owner restarts it with the STOP/START bats). Builds happen ONLY in LoanBot/discord-bot-next (copy, no token, no live db); the owner swaps changes in. Put paths back to discord-bot only if the owner says so."
 }

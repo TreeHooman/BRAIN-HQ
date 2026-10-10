@@ -102,7 +102,8 @@ export function normalizeSteps(raw: unknown, o: { permission: Level; hasDirs: bo
 export function create(o: { briefId: string | null; title: string; project: string | null; permission: Level; brief: string; budget?: Partial<Budget>; steps: Step[]; notes?: string[] }): Plan {
   const now = new Date().toISOString();
   const p: Plan = { id: uid("pl"), briefId: o.briefId, title: o.title, project: o.project, permission: o.permission, brief: o.brief, createdAt: now, updatedAt: now, status: "running",
-    budget: { ...DEFAULT_BUDGET, ...(o.budget || {}) }, steps: o.steps, usage: { minutes: 0, cost: 0, runs: 0 }, journal: [] };
+    // The usage cap grows with the time the owner gave the plan ($15 per 2 hours), so a long overnight plan isn't cut short by the default.
+    budget: { ...DEFAULT_BUDGET, ...(o.budget || {}), maxCost: o.budget?.maxCost ?? Math.max(DEFAULT_BUDGET.maxCost, Math.round((o.budget?.minutes || DEFAULT_BUDGET.minutes) / 120 * DEFAULT_BUDGET.maxCost)) }, steps: o.steps, usage: { minutes: 0, cost: 0, runs: 0 }, journal: [] };
   if (!p.steps.length) throw new Error("A plan needs at least one step.");
   log(p, "created", undefined, `${p.steps.length} step(s)`); for (const n of o.notes || []) log(p, "note", undefined, n);
   save(p); return p;
