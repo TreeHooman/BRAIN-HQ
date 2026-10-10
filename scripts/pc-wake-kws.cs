@@ -1,8 +1,7 @@
 // sherpa-onnx keyword spotting for LUTHUR's wake word (owner ask, 2026-10-09: the browser/Windows recognizers woke at
 // random and missed the name; Picovoice needed a company email). Runs fully on this PC: no account, no key. Listens on
 // the default microphone for the phrases in the keywords file (written by src/lib/wake-engine.ts from the owner's
-// wake phrase). On a detection it records the rest of the sentence until a pause, turns it into text with Windows
-// dictation (as pc-wake.exe did), hands it to the dashboard and exits; HQ starts it again later.
+// wake phrase). On a detection it hands over to the dashboard at once and exits; HQ starts it again later.
 // Inputs: HQ_KWS_KEYWORDS (keywords file), HQ_KWS_THRESHOLD, HQ_KWS_SCORE, HQ_PC_VOICE_COOKIE. Library + model: scripts\sherpa.
 // --check: load the model only. --check <file.wav>: also run that 16 kHz mono wav through and print what was heard.
 // Exit codes: 0 handed over / check ok, 1 microphone or HQ problem, 2 the spotter could not start.
@@ -12,7 +11,6 @@ using System.Net;
 using System.Threading;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Speech.Recognition;
 using System.Speech.AudioFormat;
 using System.Web.Script.Serialization;
 using System.Text.RegularExpressions;
@@ -109,21 +107,6 @@ class PcWakeKws {
     return hit;
   }
 
-  /** What the owner says after the name, until a pause: Windows dictation over the recorded audio. */
-  static string Transcribe(List<short> pcm, int rate) {
-    if (pcm.Count < rate / 4) return "";
-    var bytes = new byte[pcm.Count * 2]; Buffer.BlockCopy(pcm.ToArray(), 0, bytes, 0, bytes.Length);
-    try {
-      using (var engine = new SpeechRecognitionEngine(new System.Globalization.CultureInfo("en-US"))) {
-        engine.LoadGrammar(new DictationGrammar());
-        engine.SetInputToAudioStream(new MemoryStream(bytes), new SpeechAudioFormatInfo(rate, AudioBitsPerSample.Sixteen, AudioChannel.Mono));
-        var parts = new List<string>(); RecognitionResult r;
-        while ((r = engine.Recognize()) != null) if (r.Confidence >= .3) parts.Add(r.Text);
-        return string.Join(" ", parts).Trim();
-      }
-    } catch { return ""; }
-  }
-
   // One line per event to HQ_KWS_LOG (data/wake/kws.log): start, mic level every 30 s, detections, hand-over. No audio or words.
   static void Log(string line) { var f = Environment.GetEnvironmentVariable("HQ_KWS_LOG"); if (string.IsNullOrEmpty(f)) return; try { File.AppendAllText(f, DateTime.Now.ToString("HH:mm:ss.f") + " " + line + Environment.NewLine); } catch {} }
   static float Env(string name, float d) { float v; return float.TryParse(Environment.GetEnvironmentVariable(name) ?? "", System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v) ? v : d; }
@@ -179,22 +162,16 @@ class PcWakeKws {
           peak = Math.Max(peak, e); if (++n % 300 == 0) { Log("mic floor=" + (int)floor + " peak=" + (int)peak); peak = 0; }
           string hit = Spot(kws, stream, f, rate); if (hit == null) continue;
           Log("heard " + hit);
-          // Name heard: keep the sentence that follows ("Hey LUTHUR, what time is it") until ~0.7 s of quiet, max 10 s.
-          var said = new List<short>(); int quiet = 0, chunks = 0; bool talking = false; double gate = Math.Max(floor * 3, 350);
-          while (chunks++ < 100) {
-            var g = mic.Read(1600); said.AddRange(g);
-            if (Rms(g) > gate) { talking = true; quiet = 0; } else quiet++;
-            if (talking ? quiet >= 7 : quiet >= 15) break;
-          }
-          string text = talking ? Transcribe(said, rate) : "";
-          text = Regex.Replace(text, @"^(?:hey\s+)?(?:luthur|luther|luthor)\b[\s,.!?]*", "", RegexOptions.IgnoreCase).Trim();
+          // Hand over at once (owner, 2026-10-09: recording the rest of the sentence added ~1.5 s and Windows dictation
+          // caught nothing). In the LUTHUR window the browser listener has the whole sentence; elsewhere the side panel listens next.
+          string text = "";
           for (int tries = 0; ; tries++) {
             try {
               using (var http = new WebClient()) {
                 http.Headers["Cookie"] = Environment.GetEnvironmentVariable("HQ_PC_VOICE_COOKIE") ?? ""; http.Headers["X-HQ"] = "1"; http.Headers["Content-Type"] = "application/json";
                 http.UploadString("http://127.0.0.1:" + port + "/api/pc-voice/event", new JavaScriptSerializer().Serialize(new { kind = "wake", text = text }));
               }
-              Log("handed over" + (text.Length > 0 ? " with " + text.Split(' ').Length + " words" : " (no words after the name)"));
+              Log("handed over");
               return 0; // the dashboard takes over the conversation in the chosen voice
             } catch { if (tries >= 3) { Console.Error.WriteLine("Could not hand the wake word to LUTHUR. Unlock and open the app."); return 1; } Thread.Sleep(1500); }
           }

@@ -88,6 +88,7 @@ async function pcVoicePoll(){
     if(event&&event.at>pcVoiceLast){pcVoiceLast=event.at;if(Date.now()-event.at<20000&&(await api('/pc-voice/claim','POST',{at:event.at})).event){
       const wlog=line=>api('/wake-engine/log','POST',{line}).catch(()=>{});
       if(typeof speechPlaybackBlocked==='function'&&(speechPlaybackBlocked()||event.at<=SpeechPlayback.ignorePcBefore)){wlog('page dropped it: LUTHUR was speaking');return;}
+      if(event.kind==='wake'&&typeof wakeBrowserHas==='function'&&await wakeBrowserHas()){wlog('browser listener already had it');return;}
       wlog(`page starts conversation (${route.view}, words: ${event.text?.trim()?event.text.trim().split(/\s+/).length:0})`);
       window.hqVoiceAt=Date.now();
       if(route.view!=='command'){location.hash='command';await new Promise(resolve=>setTimeout(resolve,400));}

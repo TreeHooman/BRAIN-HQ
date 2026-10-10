@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 19:45 · claude
+Owner test of the new wake word: "takes a long time, I have to say Hey LUTHUR, wait, then talk; and 'what time is it' is slow". Log showed: detector hears the name fine, but recording the rest of the sentence added ~1.5 s and Windows dictation caught nothing, so the page opened a conversation and waited for a second sentence. Timing showed "what time is it" went to Haiku (2.9-4.6 s to first audio): the page sends its model-console pick with every turn and fastpath skipped any turn with a model. Fixes: fastpath now only skips when the words ask for a model (adaptive:false) → instant answer again; detector hands over the moment it hears the name; while LUTHUR's window is in use the browser listener runs too and handles "Hey LUTHUR, …" in one sentence (web/wake-handoff.js), the detector's wake-up is dropped unless the browser missed the name; minimized → detector opens the side panel (then speak). Needs Update/restart.
+
 ## 2026-10-09 19:20 · claude
 Owner: new wake word "not picking it up in the War Room". The detector had restarted once (so it likely detected and handed over), so added a hand-off trail in data/wake/kws.log: helper (start, mic level every 30 s, keyword heard, words caught after the name, hand-over), server (event → main/overlay, claim) and page (conversation started / dropped because LUTHUR was speaking) via POST /api/wake-engine/log. New helper build committed straight into git (the running exe was locked); Update installs it. Next: owner tests, Claude reads the log.
 

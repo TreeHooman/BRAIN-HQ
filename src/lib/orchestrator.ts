@@ -1317,8 +1317,10 @@ export async function sendChat(text: string, opts: ModelChoice & { project?: str
   if (opts.project !== undefined) c.project = opts.project || null;
   if (opts.personality === "challenger" || opts.personality === "normal") c.personality = opts.personality;
   writeJson(F.chat, c);
-  // Simple app questions are answered from HQ's own data with no model call (fastpath.ts). Explicit model picks skip it.
-  const fast = l4().fastpath && !opts.model ? fastpath.answer(text, fastCtx()) : null;
+  // Simple app questions are answered from HQ's own data with no model call (fastpath.ts). Only a model asked for in the
+  // words ("use opus …", adaptive:false) skips it: the page sends its model-console pick with every turn, which made
+  // "what time is it" take 3-4 s through Haiku (owner, 2026-10-09).
+  const fast = l4().fastpath && (!opts.model || opts.adaptive !== false) ? fastpath.answer(text, fastCtx()) : null;
   if (fast) {
     let reply = fast.text, speech = fast.speech;
     if (fast.action?.kind === "brief-go") {
