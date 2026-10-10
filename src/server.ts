@@ -259,8 +259,8 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/code\/import$/, (_, b) => code.importSession(String(b.project || ""), String(b.session || ""), b.name)],
   ["GET", /^\/api\/code\/([a-z0-9-]+)$/, m => code.get(m[1])],
   ["POST", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => { const imgs = uploads.resolve(b.images), text = withImageText(b.text, imgs); return { ok: true, ...code.submit(m[1], text, imgs, { tier: b.tier, effort: b.effort || null, readOnly: b.readOnly === true, mode: typeof b.mode === "string" ? b.mode : null }) }; }],
-  ["DELETE", /^/api/code/([a-z0-9-]+)/queue/([a-z0-9-]+)$/, m => { code.unqueue(m[1], m[2]); return { ok: true }; }],
-  ["POST", /^/api/code/([a-z0-9-]+)/queue/([a-z0-9-]+)/run$/, m => { code.runQueued(m[1], m[2]); return { ok: true }; }],
+  ["DELETE", /^\/api\/code\/([a-z0-9-]+)\/queue\/([a-z0-9-]+)$/, m => { code.unqueue(m[1], m[2]); return { ok: true }; }],
+  ["POST", /^\/api\/code\/([a-z0-9-]+)\/queue\/([a-z0-9-]+)\/run$/, m => { code.runQueued(m[1], m[2]); return { ok: true }; }],
   // Attached images (paste/drop/pick in the chat and Code boxes) and unsent drafts (memory only, cleared on restart).
   ["POST", /^\/api\/uploads$/, (_, b) => uploads.save(b.dataUrl)],
   ["GET", /^\/api\/drafts\/([a-z:0-9-]+)$/, m => drafts.get(m[1])],
