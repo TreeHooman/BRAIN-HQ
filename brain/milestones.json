@@ -16,14 +16,6 @@
     "done": true
   },
   {
-    "id": "m-3",
-    "date": "2026-10-08",
-    "title": "Phase 0 housekeeping done",
-    "project": "loancentral",
-    "kind": "deadline",
-    "done": false
-  },
-  {
     "id": "m-4",
     "date": "2026-10-31",
     "title": "Last day Reddit accepts new API access requests",

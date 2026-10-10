@@ -12,7 +12,8 @@
       "trialUntil": "2026-10-14T22:23:26.219Z",
       "state": "trial",
       "matches": 4,
-      "lastMatch": "2026-10-09T20:48:15.006Z"
+      "lastMatch": "2026-10-09T20:48:15.006Z",
+      "trialFailed": "you rejected \"Initiative · LUTHUR: Prepare for the owner's reminder \"LUTHUR trial: give it 1 r\" on 2026-10-09"
     }
   ],
   "buildProjects": [],

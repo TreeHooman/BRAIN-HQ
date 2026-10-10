@@ -61,9 +61,8 @@ body.up-hud-hidden .top:focus-within { opacity:1; transform:none; pointer-events
 #cdWorkroom { max-height:260px; overflow:auto; scrollbar-width:thin; overflow-wrap:anywhere; }
 #cmdReply .up-chat-log { max-height:min(62dvh,680px); overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; overflow-wrap:anywhere; overscroll-behavior:contain; }
 body:not(.hologram-mode) #cmdReply > .cmd-md { max-height:min(26dvh,240px); overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; overflow-wrap:anywhere; overscroll-behavior:contain; }
-#cmdReply .up-chat-log .cmd-md { max-height:none; overflow:visible; }
-#cmdReply .up-chat-log .you-said { white-space:normal; }
-#cmdReply .up-chat-log > div { margin-top:12px; }
+#cmdReply .up-chat-log { flex:none; margin-top:10px; padding:4px 4px 8px; }
+#cmdReply .up-chat-log .msg { max-width:88%; }
 #nvScreen { min-width:0; }
 @media(max-width:760px) {
   .up-window { left:12px !important; top:62px !important; width:calc(100vw - 24px); height:calc(100dvh - 140px); resize:none; }

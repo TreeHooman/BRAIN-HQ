@@ -1,5 +1,11 @@
 # Log
 
+## 2026-10-09 14:30 · claude
+Owner checks batch 1: chat, Tasks, Daily schedule, initiative card OK. Fixed (1) War Room conversation now renders like the LUTHUR tab (bubbles, timestamps, last 60 messages) and picks up messages sent from the LUTHUR tab/phone every 4 s (web/upgrade.js, upgrade.css; refresh to see). (2) Outbox: deleting a calendar event that is already gone now counts as done ("DONE already gone") instead of failing forever (src/lib/outbox.ts; needs restart). The stuck "test test luthur test" card was a duplicate: the event was really deleted 2026-10-08 06:24; settled it as done.
+
+## 2026-10-09 14:00 · claude
+Owner: phone access over Tailscale has worked for days; Tailscale key expiry disabled. Owner dropped the rest of the away setup (dead-man ping, Chrome Remote Desktop, Autologon, BIOS power-on): removed from Owner checks; away-setup.md kept for reference. Now going through the remaining owner checks, then back to the Level 4 trial.
+
 ## 2026-10-08 03:40 · claude
 Owner: "set keep awake always and do as much as you can for me to manually do tomorrow". keepAwake = always (hq.json + the local override that said busy). New scripts/AWAY-CHECK.cmd (read-only readiness check). Already OK: Windows sleep/hibernate never on mains, startup, watchdog, Tailscale connected + automatic + serving, iPhone on tailnet, ntfy. Left for the owner (brain/projects/luthur/away-setup.md): phone test, disable Tailscale key expiry (both expire 3 Apr 2027), dead-man ping (now pasteable on the Away card, stored in hq.local.json, never sent to the page), Chrome Remote Desktop, Autologon, BIOS power-on. away-test 18/18.
 
