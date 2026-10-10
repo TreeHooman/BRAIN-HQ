@@ -19,6 +19,12 @@ class PcWakeKws {
   const string LIB = "sherpa-onnx-c-api.dll";
   [DllImport("kernel32", CharSet=CharSet.Unicode, SetLastError=true)] static extern bool SetDllDirectoryW(string dir);
   [DllImport("kernel32", CharSet=CharSet.Unicode, SetLastError=true)] static extern IntPtr LoadLibraryW(string path);
+  [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] static extern bool IsIconic(IntPtr w);
+  [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowTextW(IntPtr w, System.Text.StringBuilder s, int n);
+  /** Is LUTHUR's main window the one in front right now? (owner, 2026-10-09: the page's own "I'm on screen" report
+   *  sent wake-ups to a minimized War Room instead of the side panel.) */
+  static bool MainInFront() { IntPtr w = GetForegroundWindow(); if (w == IntPtr.Zero || IsIconic(w)) return false; var t = new System.Text.StringBuilder(256); GetWindowTextW(w, t, 256); return t.ToString() == "LUTHUR"; }
 
   // Mirrors sherpa-onnx v1.13.8 c-api.h (sequential, natural alignment).
   [StructLayout(LayoutKind.Sequential)] struct FeatureConfig { public int sample_rate, feature_dim; }
@@ -169,7 +175,7 @@ class PcWakeKws {
             try {
               using (var http = new WebClient()) {
                 http.Headers["Cookie"] = Environment.GetEnvironmentVariable("HQ_PC_VOICE_COOKIE") ?? ""; http.Headers["X-HQ"] = "1"; http.Headers["Content-Type"] = "application/json";
-                http.UploadString("http://127.0.0.1:" + port + "/api/pc-voice/event", new JavaScriptSerializer().Serialize(new { kind = "wake", text = text }));
+                http.UploadString("http://127.0.0.1:" + port + "/api/pc-voice/event", new JavaScriptSerializer().Serialize(new { kind = "wake", text = text, front = MainInFront() }));
               }
               Log("handed over");
               return 0; // the dashboard takes over the conversation in the chosen voice

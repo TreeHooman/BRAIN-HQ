@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 20:55 · claude
+Owner: with LUTHUR minimized, "Hey LUTHUR" was answered by the War Room, not the side panel. Log: server routed to main because the page had reported "visible and focused" <1 s before. Fix: the detector now asks Windows which window is in front when it hears the name (GetForegroundWindow title == "LUTHUR" and not minimized) and sends front=true/false; the server routes on that (page report only as fallback). Needs Update.
+
 ## 2026-10-09 20:40 · claude
 "Switch to Luther mode" didn't work: recognition added words in front ("hit wait switch to hey Luther mode", "Swisher hey Luther mode"). Now a short sentence (≤9 words) that ends with "<Luther|Luthor|wake word> mode" or "always listening (mode)" switches; "Hey Luther mode" alone (arrives as "mode") too. Retested 13 phrases, no false switches ("switch to dark mode", "turn on airplane mode", "I always listen to music"). Note: in Always listening, nearby conversation was sent as requests (02:10 chat) — expected in that mode.
 

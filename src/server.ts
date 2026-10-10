@@ -303,7 +303,7 @@ const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/chat$/, () => orch.chat()],
   ["GET", /^\/api\/pc-voice$/, () => pcVoice.status()],
   ["PUT", /^\/api\/pc-voice$/, (_, b) => { writeCheck(); return pcVoice.setEnabled(b.enabled === true, PORT); }],
-  ["POST", /^\/api\/pc-voice\/event$/, (_, b) => { writeCheck(); return pcVoice.receive(b.text,b.kind,PORT); }],
+  ["POST", /^\/api\/pc-voice\/event$/, (_, b) => { writeCheck(); return pcVoice.receive(b.text,b.kind,PORT,typeof b.front==='boolean'?b.front:undefined); }],
   ["POST", /^\/api\/desktop-overlay$/, (_, b) => { writeCheck(); return pcVoice.desktop(String(b.action||'open'),PORT); }],
   ["GET", /^\/api\/wake-engine$/, () => wakeEngine.status()],
   ["PUT", /^\/api\/wake-engine$/, (_, b) => { writeCheck(); return wakeEngine.save(b); }],
