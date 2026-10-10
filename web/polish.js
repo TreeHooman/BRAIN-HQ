@@ -145,6 +145,9 @@ function polishCode(el) {
     const text = ta.value.trim(); if (!text) return;
     const btn = form.querySelector("button"); btn.disabled = true;
     try {
+      // A project named in the request wins over the dropdown (longest name first, so "LoanCentral Discord" beats "LoanCentral").
+      const low = text.toLowerCase(), named = projects.filter(x => x.name && new RegExp(`(^|[^a-z0-9])${x.name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(low)).sort((a, b) => b.name.length - a.name.length)[0];
+      if (named && named.slug !== form.elements.project.value) { form.elements.project.value = named.slug; hstore.set("hq-code-ask-project", named.slug); toast(`Using project ${named.name} (named in your request)`); }
       const slug = form.elements.project.value, p = projects.find(x => x.slug === slug);
       const { id } = await api("/code/workroom/start", "POST", { project: slug, folder: (p?.paths || [])[0] });
       await api('/drafts/code:'+id,'PUT',{text,images:[]});
