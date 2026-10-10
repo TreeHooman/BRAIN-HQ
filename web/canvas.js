@@ -215,10 +215,8 @@ function cvAgentBody(sid, key) {
   const tier = hstore.get("hq-cv-tier-" + sid, currentTier()), ro = hstore.get("hq-cv-ro-" + sid, "0") === "1";
   return `<div class="cv-b"><div class="cv-log" id="cvLog-${key}" data-sid="${esc(sid)}"><div class="cd-empty"><b>Loading…</b></div></div>
     <div class="cv-use" data-use></div>
-    <form class="cv-ask" data-ask="${esc(sid)}"><textarea rows="2" placeholder="Ask Claude…" aria-label="Message"></textarea>
-      <div class="cv-askrow"><select data-tier aria-label="Model">${["fast", "balanced", "deep"].map(k => `<option value="${k}" ${k === tier ? "selected" : ""}>${esc(cvModel(k))}</option>`).join("")}</select>
-        <select data-eff aria-label="Thinking" title="Thinking level (Haiku has none)">${[["auto", "think: auto"], ["low", "think: low"], ["medium", "think: med"], ["high", "think: high"]].map(([k, l]) => `<option value="${k}" ${k === hstore.get("hq-cv-eff-" + sid, currentEffort()) ? "selected" : ""}>${l}</option>`).join("")}</select>
-        <select data-mode aria-label="Permissions" title="Safe: only allow-listed commands. Auto: edits + any command except the blocked list. Bypass: Claude Code bypass mode. Push, deploy and secrets stay blocked in every mode.">${[["safe", "perms: safe"], ["auto", "perms: auto"], ["bypass", "perms: bypass"]].map(([k, l]) => `<option value="${k}" ${k === hstore.get("hq-cv-mode-" + sid, cvDefaultMode()) ? "selected" : ""}>${l}</option>`).join("")}</select>
+    <form class="cv-ask" data-ask="${esc(sid)}"><textarea rows="2" placeholder="Ask LUTHUR…" aria-label="Message"></textarea>
+      <div class="cv-askrow"><button type="button" class="btn sm" data-code-settings>Agent & limits</button>
         <button type="button" class="cv-lock ${ro ? "on" : ""}" data-lock aria-pressed="${ro}" title="${ro ? "Look only: it can't change files (click to allow edits)" : "Can edit files (click to make it look only)"}">${LOCK(ro)}<span>${ro ? "look only" : "can edit"}</span></button>
         <span class="cv-st" data-st></span><button type="button" class="cv-stop" data-stop hidden aria-label="Stop">■</button><button class="cv-send" aria-label="Send"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div></form></div>`;
 }
@@ -226,19 +224,13 @@ function cvBindAsk(root) {
   root.querySelectorAll("form[data-ask]").forEach(f => {
     if (f.dataset.bound) return; f.dataset.bound = "1";
     const sid = f.dataset.ask, ta = f.querySelector("textarea");
-    f.querySelector("[data-tier]").onchange = e => hstore.set("hq-cv-tier-" + sid, e.target.value);
-    const ef = f.querySelector("[data-eff]"), md = f.querySelector("[data-mode]");
-    const effSync = () => { const fast = f.querySelector("[data-tier]").value === "fast"; ef.disabled = fast; ef.title = fast ? "Haiku has no thinking levels. Pick Sonnet or Opus." : "Thinking level"; };
-    effSync(); f.querySelector("[data-tier]").addEventListener("change", effSync);
-    ef.onchange = () => hstore.set("hq-cv-eff-" + sid, ef.value);
-    md.onchange = async () => { if (md.value === "bypass" && !(await uiConfirm("Bypass mode lets this agent run any command and edit any file in the project folders without asking.\nPush, deploy, delete-repo and secrets stay blocked.\n\nTurn it on for this chat?"))) { md.value = hstore.get("hq-cv-mode-" + sid, cvDefaultMode()); return; } hstore.set("hq-cv-mode-" + sid, md.value); f.closest(".cv-card, .cv-fcol")?.classList.toggle("mode-bypass", md.value === "bypass"); };
-    f.closest(".cv-card, .cv-fcol")?.classList.toggle("mode-bypass", md.value === "bypass");
+    f.querySelector("[data-code-settings]").onclick = () => codeSettingsModal(sid);
     const lk = f.querySelector("[data-lock]");
     lk.onclick = () => { const on = hstore.get("hq-cv-ro-" + sid, "0") !== "1"; hstore.set("hq-cv-ro-" + sid, on ? "1" : "0"); lk.classList.toggle("on", on); lk.setAttribute("aria-pressed", String(on)); lk.innerHTML = `${LOCK(on)}<span>${on ? "look only" : "can edit"}</span>`; lk.title = on ? "Look only: it can't change files (click to allow edits)" : "Can edit files (click to make it look only)"; };
     f.querySelector("[data-stop]").onclick = () => api(`/code/${sid}/stop`, "POST").catch(x => toast(x.message));
     const go = async () => {
       const text = ta.value.trim(); if (!text) return;
-      try { await api(`/code/${sid}`, "POST", { text, tier: f.querySelector("[data-tier]").value, effort: ef.value === "auto" || ef.disabled ? null : ef.value, readOnly: hstore.get("hq-cv-ro-" + sid, "0") === "1", mode: md.value }); ta.value = ""; Snd.blip(980, .06); CV.seen.delete(sid); setTimeout(cvPoll, 300); }
+      try { await api(`/code/${sid}`, "POST", { text, readOnly: hstore.get("hq-cv-ro-" + sid, "0") === "1" }); ta.value = ""; Snd.blip(980, .06); CV.seen.delete(sid); setTimeout(cvPoll, 300); }
       catch (e) { toast(e.message, 5000); }
     };
     f.onsubmit = e => { e.preventDefault(); go(); };

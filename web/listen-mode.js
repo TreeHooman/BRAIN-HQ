@@ -8,7 +8,7 @@ const listenAlways=()=>localStorage.getItem('hq-listen-mode')==='always';
 function listenModeSet(mode,say){
   try{localStorage.setItem('hq-listen-mode',mode);}catch{}
   listenModePaint();
-  if(mode==='always'){WakeIdle.muted=false;listenModeTick(true);}
+  if(mode==='always'){Wake.denied=false;WakeIdle.muted=false;listenModeTick(true);}
   else if(UPG.conversation)upConversation(false);
   toast(say||(mode==='always'?'Always listening · just talk. Say “switch to LUTHUR mode” to go back to the name.':'Hey LUTHUR mode · say his name to start.'));
 }
@@ -18,7 +18,7 @@ function listenModePaint(){
 }
 let listenModeBusy=false;
 async function listenModeTick(now){
-  if(listenModeBusy||!listenAlways()||WAKE_PHONE)return;
+  if(listenModeBusy||Wake.denied||!listenAlways()||WAKE_PHONE)return;
   if(typeof ForceStop!=='undefined'&&(ForceStop.stopped||ForceStop.busy))return;
   listenModeBusy=true;
   try{

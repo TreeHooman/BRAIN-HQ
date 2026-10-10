@@ -250,13 +250,15 @@ const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/connectors$/, (_m, _b, url) => outbox.discover(url.searchParams.get("force") === "1")],
   ["POST", /^\/api\/connectors$/, (_, b) => { for (const k of ["email", "calendar"] as const) if (k in b) outbox.setConnector(k, b[k] ? String(b[k]).slice(0, 100) : null); return outbox.discover(); }],
 
+  ["PUT", /^\/api\/code\/([a-z0-9-]+)\/settings$/, (m,b) => code.configure(m[1],b)],
+  ["PUT", /^\/api\/code\/([a-z0-9-]+)\/notes\/(brief|status|plan|report|handoff)$/, (m,b) => code.editNote(m[1],m[2],b.text)],
   ["GET", /^\/api\/code$/, () => code.list()],
   ["POST", /^\/api\/code\/workroom\/start$/, (_,b) => code.manager(String(b.project||''),b.folder)],
   ["POST", /^\/api\/code$/, (_, b) => code.create(String(b.project || ""), b.name, b.folder)],
   ["GET", /^\/api\/code\/external\/([a-z0-9-]+)$/, m => code.external(m[1])],
   ["POST", /^\/api\/code\/import$/, (_, b) => code.importSession(String(b.project || ""), String(b.session || ""), b.name)],
   ["GET", /^\/api\/code\/([a-z0-9-]+)$/, m => code.get(m[1])],
-  ["POST", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => { const imgs = uploads.resolve(b.images), text = withImageText(b.text, imgs); code.check(m[1], text); validateChoice({...b,...explicitModel(text)}); void code.send(m[1], text, b.tier, b.effort || null, b.readOnly === true, b.voice === true && loadConfig().assistant?.voiceFull !== false ? "bypass" : typeof b.mode === "string" ? b.mode : null, b, imgs).catch(() => {}); return { ok: true }; }],
+  ["POST", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => { const imgs = uploads.resolve(b.images), text = withImageText(b.text, imgs); code.check(m[1], text); code.requestSettings(m[1]); void code.send(m[1], text, b.tier, b.effort || null, b.readOnly === true, typeof b.mode === "string" ? b.mode : null, b, imgs).catch(() => {}); return { ok: true }; }],
   // Attached images (paste/drop/pick in the chat and Code boxes) and unsent drafts (memory only, cleared on restart).
   ["POST", /^\/api\/uploads$/, (_, b) => uploads.save(b.dataUrl)],
   ["GET", /^\/api\/drafts\/([a-z:0-9-]+)$/, m => drafts.get(m[1])],

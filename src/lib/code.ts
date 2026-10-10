@@ -1,6 +1,7 @@
 // Code screen: signed-in Claude/Codex sessions within the project's permission ceiling.
 // LUTHUR coordinates bounded workers using concise Markdown handoffs and fresh CLI context.
-import { resolveModel, validateChoice, explicitModel, type ModelChoice } from "./model-policy.ts";
+import { codeSettings, type CodeSettings } from './code-settings.ts';
+import { resolveModel, validateChoice, type ModelChoice } from "./model-policy.ts";
 import { runCodex } from "./codex.ts";
 import {sessionContext} from './codex-usage.ts';
 import {checkStopped} from './stop-control.ts';
@@ -18,7 +19,7 @@ import type { Image } from "./uploads.ts";
 
 type Agent = { role: string; engine: "claude" | "codex"; model: string; effort?: string; ok?: boolean };
 type Msg = { role: "you" | "hq"; text: string; images?: string[]; agents?: Agent[]; at: string; error?: boolean; steps?: Step[]; added?: number; removed?: number; ms?: number; ctx?: number; win?: number | null; cost?: number | null; mode?: string };
-type Session = { id: string; project: string; folder?: string; name?: string; sessionId: string | null; createdAt?: string; updatedAt?: string; importedFrom?: string; usage?: { cost: number; turns: number; ctx: number|null; win: number | null; rate: any; at: string }; messages: Msg[] };
+type Session = { id: string; project: string; folder?: string; name?: string; sessionId: string | null; createdAt?: string; updatedAt?: string; importedFrom?: string; usage?: { cost: number; turns: number; ctx: number|null; win: number | null; rate: any; at: string }; messages: Msg[]; settings?: CodeSettings };
 
 const DIR = path.join(DATA, "code");
 const ID = /^[a-z0-9-]{1,60}$/;
@@ -92,10 +93,23 @@ export function manager(slug:string,folder?:string){
 export function get(key: string) {
   const s = load(key);
   const { p, dirs, level } = access(s.project, s.folder);
+  const settings = codeSettings(s.settings);
   const sameProject = [...busy.keys()].filter(k => k !== key && readJson<Session | null>(path.join(DIR, `${k}.json`), null)?.project === s.project).length;
-  return { id: key, project: s.project, name: s.name || p.name, folders: p.paths || [], found: dirs, level, busy: busy.has(key), opId: busy.get(key)?.opId || null, sameProject, usage: s.usage || null, messages: s.messages.slice(-60),manager:true,workroom:workroom(key) };
+  return { id: key, project: s.project, name: s.name || p.name, folders: p.paths || [], found: dirs, level, busy: busy.has(key), opId: busy.get(key)?.opId || null, sameProject, usage: s.usage || null, messages: s.messages.slice(-60),manager:true,settings,effectiveLevel:minLevel(["read","plan"].includes(settings.permission)?settings.permission:"build",level),effectiveMinutes:Math.min(settings.maxMinutes,loadConfig().code?.maxMinutes||120),workroom:workroom(key) };
 }
 
+export function configure(key: string, patch: Partial<CodeSettings>) {
+  if (busy.has(key)) throw new Error('Stop the running request before changing its settings.');
+  const s = load(key); s.settings = codeSettings({...s.settings, ...patch}); save(key, s); return s.settings;
+}
+export function editNote(key: string, kind: string, text: string) {
+  load(key);
+  if (busy.has(key)) throw new Error('Stop the running request before editing notes.');
+  if (!['brief','status','plan','report','handoff'].includes(kind) || typeof text !== 'string' || text.length > 20000) throw new Error('Invalid note. Maximum 20,000 characters.');
+  const target = path.join(DIR, 'workrooms', key); fs.mkdirSync(target, {recursive:true});
+  fs.writeFileSync(path.join(target, kind.toUpperCase()+'.md'), text, 'utf8'); return {ok:true};
+}
+export function requestSettings(key: string) { return codeSettings(load(key).settings); }
 export function rename(key: string, name: string) {
   const s = load(key); s.name = String(name || "").trim().slice(0, 40) || s.name; save(key, s); return { ok: true };
 }
@@ -123,19 +137,21 @@ export function check(key: string, text: string) {
 }
 
 export async function send(key: string, text: string, tier = "balanced", effort: string | null = null, readOnly = false, mode: string | null = null, choice: ModelChoice = {}, images: Image[] = []): Promise<void> {
-  choice={...choice,...explicitModel(text)};
+  const settings = requestSettings(key);
+  choice={...settings, astraApproved:settings.model==='gpt-6-astra', opusApproved:settings.model==='opus'};
+  mode=settings.permission;
+  readOnly=readOnly || mode==='read';
   validateChoice(choice);
   check(key, text);
   text = String(text || "").trim().slice(0, 20000);
   const s = load(key);
   const { p, dirs, level: max } = access(s.project, s.folder);
-  const level = readOnly ? "read" : max; // the lock in the chat box: look only, no edits
+  const level = minLevel(readOnly ? "read" : mode === "plan" ? "plan" : "build", max); // the lock in the chat box: look only, no edits
   s.messages.push({ role: "you", text, ...(images.length ? { images: images.map(i => i.id) } : {}), at: new Date().toISOString() });
   save(key, s);
   const cfg = loadConfig();
-  mode = mode || cfg.code?.defaultMode || "safe"; // boxes without a Perms choice (new workroom, Talk to LUTHUR) use the owner's default
   const provider = choice.provider === "codex" ? "codex" : "claude";
-  const selected = resolveModel(provider, text, choice, codeWork(text));
+  const selected = resolveModel(provider, '', choice, codeWork(text));
   const model = selected.model, fallback = undefined; effort = selected.effort;
   s.sessionId = null;
   const opId = `code-${key}-${s.messages.length}`;
@@ -149,8 +165,9 @@ export async function send(key: string, text: string, tier = "balanced", effort:
   try {
     const base = {
       prompt: text, model, fallbackModel: fallback, effort, level, mode: level === "build" && (mode === "auto" || mode === "bypass") ? mode : "safe", resume:null, runId: `code-${key}`, addDirs: dirs, images,
-      timeoutMs: (cfg.code?.maxMinutes || 20) * 60e3, onStep, onSpawn: pid => { const b = busy.get(key); if (b) {b.pid = pid;if(b.cancelled)killTree(pid);} },
+      timeoutMs: Math.min(settings.maxMinutes, cfg.code?.maxMinutes || 120) * 60e3, onStep, onSpawn: pid => { const b = busy.get(key); if (b) {b.pid = pid;if(b.cancelled)killTree(pid);} },
       system: [
+        settings.instructions,
         `You're LUTHUR, managing work with the owner live in HQ's Code screen on project "${p.name}" (workroom "${name}").`,
         `Project folders: ${dirs.join("; ")}. Work only there; for shell commands, cd into the folder first.`,
         "Other sessions may be editing the same folders at the same time: re-read a file right before you edit it.",
@@ -160,7 +177,7 @@ export async function send(key: string, text: string, tier = "balanced", effort:
       ].join("\n"),
     };
     const agents: Agent[] = [];
-    const res=await manageCode({key,project:p.name,text,edited:cfg.code?.reviewSolo===false?undefined:()=>edited,history:s.messages.slice(-7,-1).map(m=>`${m.role}: ${m.text.slice(0,400)}`).join('\n'),provider,choice,system:base.system,timeoutMs:base.timeoutMs,cancelled:()=>!!busy.get(key)?.cancelled,run:async spec=>{
+    const res=await manageCode({settings,key,project:p.name,text,edited:settings.reviewSolo?()=>edited:undefined,history:s.messages.slice(-7,-1).map(m=>`${m.role}: ${m.text.slice(0,400)}`).join('\n'),provider,choice,system:base.system,timeoutMs:base.timeoutMs,cancelled:()=>!!busy.get(key)?.cancelled,run:async spec=>{
       const childId=`${opId}-worker-${spec.index}`;
       const child=spec.index===1||spec.index===2?opStart({id:childId,kind:'code',title:spec.role,project:s.project,model:spec.model,level,agent:spec.role,parent:opId}):null;
       let result;

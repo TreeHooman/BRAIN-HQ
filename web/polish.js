@@ -127,9 +127,9 @@ function polishCode(el) {
   const form = document.createElement("form"); form.className = "cm-ask card"; form.autocomplete = "off";
   const pick = projects.some(p => p.slug === activeProject()) ? activeProject() : projects[0]?.slug;
   form.innerHTML = projects.length
-    ? `<label class="cm-ask-l" for="cmAskText"><b>Talk to LUTHUR</b><span>He plans the work and starts focused agents only when that's cheaper or faster. Use + Workroom to create one yourself.</span></label>
+    ? `<label class="cm-ask-l" for="cmAskText"><b>Talk to LUTHUR</b><span>Choose the model, permissions and limits before running. Your request opens as an editable draft.</span></label>
        <div class="cm-ask-row"><select name="project" aria-label="Project">${projects.map(p => `<option value="${esc(p.slug)}" ${p.slug === pick ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select>
-       <textarea id="cmAskText" name="text" rows="1" placeholder="What should LUTHUR build, fix or check?" required></textarea><button class="btn primary">Send</button></div>`
+       <textarea id="cmAskText" name="text" rows="1" placeholder="What should LUTHUR build, fix or check?" required></textarea><button class="btn primary">Set up workroom</button></div>`
     : `<label class="cm-ask-l"><b>Talk to LUTHUR</b><span>Add a repository folder to a project (Project → Setup) and LUTHUR can manage coding work there.</span></label>`;
   head.after(form);
   const ta = form.querySelector("textarea");
@@ -144,9 +144,10 @@ function polishCode(el) {
     try {
       const slug = form.elements.project.value, p = projects.find(x => x.slug === slug);
       const { id } = await api("/code/workroom/start", "POST", { project: slug, folder: (p?.paths || [])[0] });
-      await api(`/code/${id}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort(), mode: hstore.get("hq-cv-mode-" + id, cvDefaultMode()) });
+      await api('/drafts/code:'+id,'PUT',{text,images:[]});
+      if(typeof Att!=='undefined'){Att.state.set('code:'+id,{text,images:[]});Att.loaded.add('code:'+id);}hstore.set('hq-code-draft-'+id,text);
       ta.value = ""; ta.style.height = "";
-      Live.code = await api("/code").catch(() => Live.code); codeGrid(); codeOpen(id); liveKick();
+      Live.code = await api("/code").catch(() => Live.code); codeGrid(); codeOpen(id); liveKick();await codeSettingsModal(id);
     } catch (x) { toast(x.message); } finally { btn.disabled = false; }
   };
   const hub = el.querySelector(".lv-hub");

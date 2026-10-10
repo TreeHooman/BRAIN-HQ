@@ -224,7 +224,7 @@ function splitRender() {
     wrap.innerHTML = ids.map(id => { const s = sess(id); return `<section class="sp-col" data-sp="${esc(id)}" style="--pc:${projColor(s.project)}">
         <header><i></i><b>${esc(s.name)}</b><span>${esc(s.projectName)}</span><button type="button" class="x" data-sp-open="${esc(id)}" title="Open full" aria-label="Open full">⤢</button><button type="button" class="x" data-sp-drop="${esc(id)}" title="Remove from side by side" aria-label="Remove">✕</button></header>
         <div class="sp-log" id="spLog-${esc(id)}"><div class="cd-empty"><b>Loading…</b></div></div>
-        <form class="sp-in" data-sp-form="${esc(id)}"><textarea rows="2" placeholder="Ask ${esc(s.name)}… (Ctrl+Enter)"></textarea><div class="sp-row"><span class="sp-st" id="spSt-${esc(id)}"></span><button type="button" class="btn sm" data-sp-stop="${esc(id)}" hidden>■ Stop</button><button class="btn sm primary">Run</button></div></form></section>`; }).join("")
+        <form class="sp-in" data-sp-form="${esc(id)}"><textarea rows="2" placeholder="Ask ${esc(s.name)}… (Ctrl+Enter)"></textarea><div class="sp-row"><span class="sp-st" id="spSt-${esc(id)}"></span><button type="button" class="btn sm" onclick="codeSettingsModal('${id}')">Agent & limits</button><button type="button" class="btn sm" data-sp-stop="${esc(id)}" hidden>■ Stop</button><button class="btn sm primary">Run</button></div></form></section>`; }).join("")
       + (ids.length < 3 && others.length ? `<div class="sp-add"><span>Add a session</span>${others.slice(0, 8).map(o => `<button type="button" data-sp-add="${esc(o.id)}" style="--pc:${projColor(o.project)}"><i></i>${esc(o.name)}</button>`).join("")}</div>` : "");
     wrap.querySelectorAll("[data-sp-drop]").forEach(b => b.onclick = () => splitDrop(b.dataset.spDrop));
     wrap.querySelectorAll("[data-sp-open]").forEach(b => b.onclick = () => codeOpen(b.dataset.spOpen));
@@ -316,7 +316,7 @@ function codeOpen(id) {
 }
 function codeClose() {
   const d = document.getElementById("lvDrawer"); if (!d) return;
-  d.classList.remove("on"); setTimeout(() => { d.hidden = true; }, 300); clearTimeout(Code.poll); Code.slug = null;
+  d.classList.remove("on"); setTimeout(() => { if (!d.classList.contains("on")) d.hidden = true; }, 300); clearTimeout(Code.poll); Code.slug = null;
   history.replaceState(null, "", "#code"); route.arg = null;
 }
 // The session pane (inside the drawer). Same chat as before, keyed by session id.
@@ -328,27 +328,29 @@ async function codeLoad(full) {
   Code.data = d;
   const main = document.getElementById("cdMain"); if (!main) return;
   if (d.error) { main.innerHTML = `<div class="cd-empty"><b>Can't open</b>${esc(d.error)}<button class="btn" type="button" onclick="codeClose()">Close</button></div>`; return; }
+  if(!d.settings){main.innerHTML=`<div class="cd-empty"><b>Restart LUTHUR to activate Code settings</b><p>Run RESTART-LUTHUR, then refresh this window.</p><button class="btn" onclick="codeClose()">Close</button></div>`;return;}
   if (full || !main.querySelector(".cd-log")) {
-    const ro = d.level !== "build";
+    const ro = d.effectiveLevel !== "build";
     main.innerHTML = `<div class="cd-bar"><button class="btn sm ghost" type="button" id="cdBack" aria-label="Back">←</button><b>LUTHUR · ${esc(d.name)}</b><span class="pill ${ro ? "amber" : "green"}">${ro ? "read-only" : "can edit"}</span><span class="path" title="${esc(d.folders.join("; "))}">${esc(d.found.join(" · ") || "folder not found on this PC")}</span>
-        ${tierSwitch()}${ro ? "" : `<select class="cd-mode" id="cdMode" aria-label="Permissions" title="Safe: allow-listed commands only. Auto: edits + any command except the blocked list. Bypass: Claude Code bypass mode. Push, deploy and secrets stay blocked in every mode.">${[["safe", "Perms: safe"], ["auto", "Perms: auto"], ["bypass", "Perms: bypass"]].map(([k, l]) => `<option value="${k}" ${k === hstore.get("hq-cv-mode-" + id, cvDefaultMode()) ? "selected" : ""}>${l}</option>`).join("")}</select>`}${phone() ? "" : `<button class="btn sm" id="cdSide" type="button" title="Show next to other sessions">Open side by side</button>`}<button class="btn sm" id="cdStop" type="button" ${d.busy ? "" : "hidden"}>■ Stop</button></div>
+        <button class="btn sm" id="cdSettings" type="button">Agent & limits</button>${phone() ? "" : `<button class="btn sm" id="cdSide" type="button" title="Show next to other sessions">Open side by side</button>`}<button class="btn sm" id="cdStop" type="button" ${d.busy ? "" : "hidden"}>■ Stop</button></div>
       ${d.sameProject ? `<div class="cd-warn">${d.sameProject} other session${d.sameProject > 1 ? "s are" : " is"} working in this project right now. Keep their jobs on different files.</div>` : ""}
-      <details class="code-workroom"><summary>LUTHUR · workroom notes</summary><div id="cdWorkroom"></div></details>
+      <div class="code-settings-summary">${esc(d.settings.provider)} · ${esc(d.settings.model)} · ${esc(d.settings.permission)} · ${esc(d.settings.orchestration)} · ${d.effectiveMinutes} min · ${d.settings.maxCalls} calls · ceiling: ${esc(d.level)}</div><details class="code-workroom"><summary>LUTHUR · workroom notes</summary><div id="cdWorkroom"></div></details>
       <div class="cv-use cd-use" id="cdUse"></div>
       <div class="cd-log" id="cdLog"></div>
       <form class="cd-in" id="cdForm"><textarea id="cdText" rows="2" placeholder="${ro ? "Talk to LUTHUR about the code (read-only here)…" : "Tell LUTHUR what to build or fix… (Ctrl+Enter)"}"></textarea><button class="btn primary" id="cdSend">Send to LUTHUR</button></form>`;
-    bindTierSwitch(main);
+    document.getElementById("cdSettings").onclick = () => codeSettingsModal(id);
+    codeComposerRestore(id);
     const ta = document.getElementById("cdText");
     ta.oninput = () => { ta.style.height = "auto"; ta.style.height = Math.min(220, ta.scrollHeight) + "px"; };
     ta.onkeydown = e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); codeSend(); } };
     document.getElementById("cdForm").onsubmit = e => { e.preventDefault(); codeSend(); };
     document.getElementById("cdStop").onclick = () => api(`/code/${id}/stop`, "POST").catch(x => toast(x.message));
     document.getElementById("cdBack").onclick = codeClose;
-    document.getElementById("cdMode")?.addEventListener("change", async e => { if (e.target.value === "bypass" && !(await uiConfirm("Bypass mode lets this session run any command and edit any file in the project folders without asking.\nPush, deploy, delete-repo and secrets stay blocked.\n\nTurn it on?"))) { e.target.value = hstore.get("hq-cv-mode-" + id, cvDefaultMode()); return; } hstore.set("hq-cv-mode-" + id, e.target.value); });
+    document.getElementById("cdMode")?.addEventListener("change", async e => { if (e.target.value === "bypass" && !(await uiConfirm("Bypass mode lets this session run any command and edit any file in the project folders without asking.\nPush, deploy, delete-repo and secrets stay blocked.\n\nTurn it on?"))) { e.target.value = hstore.get("hq-cv-mode-" + id, "safe"); return; } hstore.set("hq-cv-mode-" + id, e.target.value); });
     document.getElementById("cdSide")?.addEventListener("click", () => { codeClose(); splitAdd(id); });
   }
   const cu = document.getElementById("cdUse"); if (cu && typeof usageHTML === "function") cu.innerHTML = usageHTML(d.usage);
-  const notes=document.getElementById('cdWorkroom');if(notes)notes.innerHTML=Object.entries(d.workroom||{}).filter(([,text])=>text).map(([kind,text])=>`<section><b>${esc(kind.toUpperCase())}.md</b><div class="md">${md(text)}</div></section>`).join('')||'Markdown notes appear after your first request.';
+  const notes=document.getElementById('cdWorkroom');if(notes)notes.innerHTML=Object.entries(d.workroom||{}).map(([kind,text])=>`<section><b>${esc(kind.toUpperCase())}.md</b> <button type="button" class="btn sm" onclick="codeNoteEdit('${kind}')" ${d.busy?'disabled':''}>Edit</button><div class="md">${md(text)}</div></section>`).join('')||'Markdown notes appear after your first request.';
   const log = document.getElementById("cdLog");
   const stick = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
   if (full || prevLen !== d.messages.length) {
@@ -370,8 +372,10 @@ async function codeLoad(full) {
 }
 async function codeSend() {
   const ta = document.getElementById("cdText"); const text = ta?.value.trim(); if (!text || Code.data?.busy) return;
-  try { await api(`/code/${Code.slug}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort(), mode: hstore.get("hq-cv-mode-" + Code.slug, cvDefaultMode()) }); }
-  catch (e) { toast("⚠ " + e.message, 5000); return; }
+  const sendButton=document.getElementById("cdSend"); if(sendButton?.disabled)return; if(sendButton)sendButton.disabled=true;
+  try { await api(`/code/${Code.slug}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort(), mode: hstore.get("hq-cv-mode-" + Code.slug, "safe") }); }
+  catch (e) { if(sendButton)sendButton.disabled=false;toast("⚠ " + e.message, 5000); return; }
+  hstore.set("hq-code-draft-"+Code.slug, "");
   ta.value = ""; ta.style.height = ""; Code.sentAt = Date.now(); Snd.blip(980, .06); corePing?.(); opsKick?.(); liveKick();
   codeLoad(false);
 }
@@ -503,14 +507,14 @@ const Wake = {
       return listen((t, done) => { if (done && t.trim()) { const m = t.match(/^\s*(?:hey|hi|ok|okay|yo)?\s*(?:jarvis|luthur|luther|luthor)\b[\s,.!?]*(.*)$/i); voiceCommand((m ? m[1] : t).trim() || t); } },
         on => { document.querySelectorAll(".wake-btn").forEach(b => b.classList.toggle("on", on)); try { coreState(); if (on) corePing(); } catch {} });
     }
-    this.on = !this.on; hstore.set("hq-wake", this.on ? "1" : "0"); this.btn();
+    this.denied=false; this.on = !this.on; hstore.set("hq-wake", this.on ? "1" : "0"); this.btn();
     if (this.on) { this.start(); toast(`Hands-free on. Say “Hey ${S.settings.assistantName || "LUTHUR"}” then what you need.`, 4500); } else { this.stop(true); toast("Hands-free off"); }
   },
   btn() { document.querySelectorAll(".wake-btn").forEach(b => { b.classList.toggle("on", this.on); b.setAttribute("aria-pressed", String(this.on)); b.title = this.on ? "Hands-free on: say “Hey JARVIS”" : "Turn on hands-free (“Hey JARVIS”)"; }); document.body.classList.toggle("wake-on", this.on); },
   pause() { this.paused = true; this.stop(true); },
   resume() { this.paused = false; if (this.on) setTimeout(() => this.start(), 400); },
   start() {
-    if (!SR || WAKE_PHONE || this.rec || this.paused || !this.on || document.hidden || (typeof speechPlaybackBlocked==='function'&&speechPlaybackBlocked())) return;
+    if (this.denied || !SR || WAKE_PHONE || this.rec || this.paused || !this.on || document.hidden || (typeof speechPlaybackBlocked==='function'&&speechPlaybackBlocked())) return;
     const r = new SR(); this.rec = r;
     const segments=new Map();let epoch=this.turnId,carry=this.buf.trim();
     r.lang = "en-US"; r.continuous = true; r.interimResults = true;
@@ -525,7 +529,7 @@ const Wake = {
     };
     r.onstart=()=>{if(this.rec!==r||this.paused)return;this.ready=true;if(typeof speechStatus==='function')speechStatus('listening');};
     // No "hearing" on onspeechstart: fans and wind fire it too. The status changes when real words arrive.
-    r.onerror = e => { if(this.rec!==r)return;if(!['no-speech','aborted'].includes(e.error))this.ready=false;if(typeof speechStatus==='function'&&!['no-speech','aborted'].includes(e.error))speechStatus('mic-error',e.error);if (e.error === "not-allowed" || e.error === "service-not-allowed") { this.on = false; hstore.set("hq-wake", "0"); this.btn(); toast("Mic blocked. Allow the microphone for this site, then turn hands-free on again.", 6000); } else if(!['no-speech','aborted'].includes(e.error))this.fails++; };
+    r.onerror = e => { if(this.rec!==r)return;if(!['no-speech','aborted'].includes(e.error))this.ready=false;if(typeof speechStatus==='function'&&!['no-speech','aborted'].includes(e.error))speechStatus('mic-error',e.error);if (e.error === "not-allowed" || e.error === "service-not-allowed") { this.denied = true; this.on = false; hstore.set("hq-wake", "0"); this.btn(); toast("Mic blocked. Allow the microphone for this site, then turn hands-free on again.", 6000); } else if(!['no-speech','aborted'].includes(e.error))this.fails++; };
     r.onend = () => { if(this.rec!==r)return;this.ready=false;this.rec = null; if (this.on && !this.paused && !document.hidden) setTimeout(() => this.start(), Math.min(4000, 250 + this.fails * 600)); };
     try { r.start(); this.fails = 0; } catch { this.ready=false;this.rec = null;if(typeof speechStatus==='function')speechStatus('mic-error','Microphone could not start. Press Retry mic.'); }
   },

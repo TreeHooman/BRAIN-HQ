@@ -33,7 +33,8 @@ cmdSend=function(text){const before=UPG.pending.length,choice=modelRequestChoice
 async function modelCheck(){if(ModelConsole.ready)return;if(!ModelConsole.checking)ModelConsole.checking=modelApi('/models').then(c=>{if(c.version!==3)throw new Error('Model controls need a local server restart.');ModelConsole.ready=true;document.querySelectorAll('[data-model-connection]').forEach(n=>n.textContent='');}).catch(e=>{document.querySelectorAll('[data-model-connection]').forEach(n=>n.textContent='Restart LUTHUR’s local server to activate these model controls.');throw new Error('Restart LUTHUR’s local server to activate model routing.');}).finally(()=>ModelConsole.checking=null);return ModelConsole.checking;}
 api=async function(path,method,body){
   const chat=path==='/chat'&&method==='POST',code=/^\/code\/[a-z0-9-]+$/.test(path)&&method==='POST';
-  if(!chat&&!code)return modelApi(path,method,body);
+  if(code){const session=await modelApi(path);if(!session.settings)throw new Error('Restart LUTHUR to activate workroom permissions before sending.');return modelApi(path,method,body);} // Per-workroom settings are authoritative.
+  if(!chat)return modelApi(path,method,body);
   const queued=window.hqQueuedModelChoice?.text===body?.text?window.hqQueuedModelChoice:null;
   if(queued)window.hqQueuedModelChoice=null;
   const choice=queued||modelRequestChoice(body?.text);

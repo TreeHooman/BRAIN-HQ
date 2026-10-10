@@ -921,9 +921,13 @@ export function replyTask(id: string, text: string): Run {
     taskId: id, parentRun: lead.id, depth: 0, sessionId: lead.sessionId || null, reply: !!lead.sessionId, priority: 1, effort: root.effort }, "task");
 }
 export function cancelTask(id: string) { for (const r of taskRuns(id)) if (OPEN.has(r.status)) cancelRun(r.id); }
-export function editTask(id: string, patch: { title?: string; done?: boolean }) {
+export function editTask(id: string, patch: { title?: string; done?: boolean; prompt?: string }) {
   const root = runCache.get(id); if (!root || root.taskId !== id || root.dismissed) throw Object.assign(new Error("Task not found"), { code: 404 });
   if (patch.done !== undefined && taskRuns(id).some(r => OPEN.has(r.status))) throw new Error("Stop the working task before marking it complete.");
+  if (patch.prompt !== undefined) {
+    if(root.status!=='queued'||root.startedAt||taskRuns(id).some(r=>r.startedAt))throw new Error('Only a task that has not started can have its instructions edited. Send a follow-up for completed work.');
+    const prompt=String(patch.prompt).trim();if(!prompt||prompt.length>8000)throw new Error('Task instructions must be 1–8,000 characters.');root.prompt=prompt;
+  }
   if (patch.title !== undefined) { const title = String(patch.title).trim().slice(0, 200); if (!title) throw new Error("A task needs a title."); root.title = title; }
   if (patch.done !== undefined) root.ownerDone = !!patch.done;
   saveRun(root); return { ok: true };
@@ -938,7 +942,7 @@ export function tasks(limit = 30) {
   const rated = outcomes.latest();
   return roots.map(root => {
     const rs = taskRuns(root.id);
-    return { id: root.id, title: root.title, prompt: root.prompt.slice(0, 2000), project: root.project, createdAt: root.createdAt, status: root.ownerDone && !rs.some(r => OPEN.has(r.status)) ? "done" : taskStatus(rs), reportedAt: root.reportedAt || null,
+    return { id: root.id, title: root.title, prompt: root.prompt, editablePrompt:root.status==="queued"&&!rs.some(r=>r.startedAt), project: root.project, createdAt: root.createdAt, status: root.ownerDone && !rs.some(r => OPEN.has(r.status)) ? "done" : taskStatus(rs), reportedAt: root.reportedAt || null,
       rating: (o => o ? { good: o.good, note: o.note } : null)(rated.get(root.id)),
       runs: rs.map(r => ({ id: r.id, title: r.title, status: r.status, parent: r.parentRun, depth: r.depth, reply: !!r.reply, prompt: r.reply ? r.prompt.slice(0, 600) : undefined, level: r.level || r.permission, model: r.model || r.tier,
         startedAt: r.startedAt, endedAt: r.endedAt, durationMs: r.durationMs, output: r.output?.slice(0, 6000), error: r.error?.slice(0, 800), verify: r.verify ? { ok: r.verify.ok, changed: r.verify.changed.length, checks: r.verify.checks.length, mismatches: r.verify.mismatches } : undefined })) };

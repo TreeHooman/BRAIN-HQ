@@ -108,7 +108,6 @@
     "maxParallel": 4,
     "maxMinutes": 120,
     "reviewSolo": true,
-    "defaultMode": "bypass",
     "comment": "Code screen: how many sessions may run at once, and the time limit per message (shared by LUTHUR, his workers and the review). reviewSolo: when LUTHUR changes files without workers, an independent reviewer still checks the work (false = skip)."
   },
 

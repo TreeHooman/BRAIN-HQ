@@ -780,7 +780,7 @@ function vSettings(el) {
           <label class="f">Default chat model<select id="chatTier">${opts(TIER_OPTS(), s.chatTier)}</select></label></div>
         <div class="small muted">${esc(s.budget)}: up to ${s.budgetNow.maxRunsPerDay} missions/day, ${s.budgetNow.maxMinutesPerRun} min each, ${s.budgetNow.maxFollowupsPerRun} follow-ups per run. Chat doesn't count.</div>
         <label class="row small"><input type="checkbox" id="taskApproval" ${s.taskApproval !== false ? "checked" : ""}> Ask me before LUTHUR starts a task on its own (unless I say “just do it”)</label>
-        <label class="row small"><input type="checkbox" id="voiceFull" ${s.voiceFull !== false ? "checked" : ""}> When I talk by voice, LUTHUR gets full permission (Code sessions run without asking). Typing stays on confirmations.</label>
+        <label class="row small"><input type="checkbox" id="voiceFull" ${s.voiceFull !== false ? "checked" : ""}> Let voice chat use the global permission ceiling. Code always uses its workroom settings.</label>
         <div class="small muted">Hard limits always apply: no pushing, deploying, posting publicly, sending email without the Outbox, or touching secrets.</div>
         <label class="f">Keep the PC awake<select id="keepAwake">${opts([["busy", "While missions are queued or running"], ["always", "Always while LUTHUR runs (multi-day autonomy)"], ["off", "Never"]], s.keepAwake)}</select></label>
         <div class="row end"><button class="btn primary" id="saveAuto">Save</button></div></div>
@@ -873,11 +873,16 @@ async function prefCardFill() {
 }
 
 // ---------------- modal ----------------
-function modal(html) { $("#modalBody").innerHTML = html; $("#modal").hidden = false; const f = $("#modal input, #modal textarea"); if (f) f.focus(); }
-function closeModal() { $("#modal").hidden = true; $("#modalBody").innerHTML = ""; }
+let modalReturnFocus=null;
+function modal(html) { if($("#modal").hidden)modalReturnFocus=document.activeElement; $("#modalBody").innerHTML = html; $("#modal").hidden = false; const f = $("#modal input, #modal textarea"); if (f) f.focus(); }
+function closeModal() { $("#modal").hidden = true; $("#modalBody").innerHTML = ""; if(modalReturnFocus?.isConnected)modalReturnFocus.focus({preventScroll:true}); }
 $("#modal").addEventListener("click", e => { if (e.target.id === "modal" || e.target.matches("[data-close]")) closeModal(); });
 document.addEventListener("keydown", e => {
-  if (e.key === "Escape" && !$("#modal").hidden) closeModal();
+  if (!$("#modal").hidden && e.key === "Tab") {
+    const items=[...$("#modal").querySelectorAll('button,input,select,textarea,a[href],[tabindex="0"]')].filter(el=>!el.disabled&&el.getClientRects().length);
+    if(items.length){const first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}
+  }
+  if (e.key === "Escape" && !$("#modal").hidden) {e.preventDefault();closeModal();}
   if (e.altKey && (e.key === "j" || e.key === "J")) { e.preventDefault(); if (route.view === "assistant") $("#micBtn")?.click(); else if (route.view === "command") $("#cmdMic")?.click(); else { sessionStorage.setItem("hq-listen", "1"); location.hash = "assistant"; } }
   if (e.key === "/" && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); (route.view === "command" ? $("#cmdText") : $("#captureText"))?.focus(); }
 });
