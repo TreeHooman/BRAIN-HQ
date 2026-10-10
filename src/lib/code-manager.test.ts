@@ -63,6 +63,10 @@ test('manageCode: workers get the full owner request; plan and report are writte
   assert.ok(prompts[1].prompt.includes(text),'worker saw the whole request');
   assert.match(fs.readFileSync(path.join(dir,'PLAN.md'),'utf8'),/## 1\. W1\npart one/);
   assert.match(fs.readFileSync(path.join(dir,'REPORT.md'),'utf8'),/review done/);
+  fs.writeFileSync(path.join(dir,'HANDOFF.md'),'# Durable handoff\n\n'+'old '.repeat(8000)+'NEWEST-ENTRY');
+  const again=flow(key,'Next',[ok('solo answer'),ok('review')]);await again.result;
+  assert.ok(again.prompts[0].prompt.includes('NEWEST-ENTRY'),'manager sees the newest handoff notes');
+  assert.match(fs.readFileSync(path.join(dir,'HANDOFF.md'),'utf8'),/NEWEST-ENTRY[\s\S]*Owner: Next/);
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
 test('manageCode: dropped workers are told in chat and recorded in PLAN.md',async()=>{
@@ -95,4 +99,16 @@ test('manageCode: unreadable plan finishes without workers',async()=>{
   assert.match(r.text,/not readable JSON/);
   assert.ok(!r.text.includes('luthur_tasks'));
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});
+test('delegation: the tag mentioned in prose is not a plan and the reply stays whole',()=>{
+ for(const prose of['I fixed how the `<luthur_tasks>` block is parsed, and more text after it.','Plans go in `<luthur_tasks>…</luthur_tasks>` blocks; the rest stays.'])
+  assert.deepEqual(delegation(prose),{reply:prose,jobs:[],notes:[]});
+ const r=delegation('The `<luthur_tasks>` tag is read below.\n<luthur_tasks>[{"title":"A","task":"go"}]</luthur_tasks>');
+ assert.equal(r.reply,'The `<luthur_tasks>` tag is read below.');assert.equal(r.jobs.length,1);
+ const two=delegation('Both `<luthur_tasks>` and `</luthur_tasks>` are tags.\n<luthur_tasks>[{"title":"A","task":"go"}]');
+ assert.equal(two.reply,'Both `<luthur_tasks>` and `</luthur_tasks>` are tags.');assert.equal(two.jobs.length,1);
+});
+test('delegation: a plan in direct mode says workers are off',()=>{
+ const r=delegation(tasks([{title:'A',task:'go'}]),0);
+ assert.deepEqual(r.jobs,[]);assert.match(r.notes.join(' '),/Workers are off/);
 });

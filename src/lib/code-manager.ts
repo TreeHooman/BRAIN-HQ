@@ -9,17 +9,20 @@ const folder=(key:string)=>{if(!/^[a-z0-9-]{1,60}$/.test(key))throw Error('Bad w
 const clip=(text:unknown,n:number)=>String(text??'').slice(0,n);
 export const codeWork=(text:string)=>heavyRequest(text)||/\b(add|change|update|remove|rename|create|make|improve|optimize|replace|continue|proceed)\b/i.test(text)||/^\s*(go ahead|do it|carry on|finish it)\b/i.test(text);
 function write(key:string,file:string,text:string){fs.mkdirSync(folder(key),{recursive:true});fs.writeFileSync(path.join(folder(key),file),text,'utf8');}
-function read(key:string,file:string,n=6000){try{return fs.readFileSync(path.join(folder(key),file),'utf8').slice(0,n);}catch{return '';}}
-export function workroom(key:string){folder(key);return {brief:read(key,'BRIEF.md',20000),status:read(key,'STATUS.md',20000),plan:read(key,'PLAN.md',20000),report:read(key,'REPORT.md',20000),handoff:read(key,'HANDOFF.md',20000)};}
+// n<0 reads the last |n| characters (newest notes), for files that grow at the end.
+function read(key:string,file:string,n=6000){try{const t=fs.readFileSync(path.join(folder(key),file),'utf8');return n<0?t.slice(n):t.slice(0,n);}catch{return '';}}
+export function workroom(key:string){folder(key);return {brief:read(key,'BRIEF.md',20000),status:read(key,'STATUS.md',20000),plan:read(key,'PLAN.md',20000),report:read(key,'REPORT.md',20000),handoff:read(key,'HANDOFF.md',-20000)};}
 type Job={title:string;task:string};
 export const MAX_WORKERS=6;
 // Forgiving on purpose (owner, 2026-10-10): a slightly malformed plan used to throw and discard the manager's whole
 // reply. Now blank entries are skipped, task length is uncapped, extra workers dropped, and unreadable JSON means "no workers".
 export function delegation(text:string,limit=MAX_WORKERS):{reply:string;jobs:Job[];notes:string[]}{
- const block=text.match(/<luthur_tasks>([\s\S]*?)(?:<\/luthur_tasks>|$)/);
+ // A plan is the last tag whose content starts like JSON (closed or not). A mention of either tag in prose is not a plan,
+ // so the reply around it stays whole.
+ const block=[...text.matchAll(/<luthur_tasks>(?=\s*(?:\[|\{|```))(?:((?:(?!<luthur_tasks>)[\s\S])*?)<\/luthur_tasks>|([\s\S]*$))/g)].at(-1);
  if(!block)return {reply:text,jobs:[],notes:[]};
- const reply=text.replace(block[0],'').trim(),notes:string[]=[];
- const raw=block[1].replace(/^\s*```(?:json)?\s*|\s*```\s*$/g,'');
+ const reply=(text.slice(0,block.index)+text.slice(block.index!+block[0].length)).trim(),notes:string[]=[];
+ const raw=(block[1]??block[2]).replace(/^\s*```(?:json)?\s*|\s*```\s*$/g,'');
  let value:any;
  try{value=JSON.parse(raw);}catch{const arr=raw.match(/\[[\s\S]*\]/);try{value=arr?JSON.parse(arr[0]):undefined;}catch{value=undefined;}}
  if(value&&!Array.isArray(value))value=Array.isArray(value.tasks)?value.tasks:[value];
@@ -31,7 +34,7 @@ export function delegation(text:string,limit=MAX_WORKERS):{reply:string;jobs:Job
  }).filter((j:Job)=>j.task);
  if(jobs.length<value.length)notes.push(`${value.length-jobs.length} empty assignment(s) skipped.`);
  const max=Math.max(0,limit);
- if(jobs.length>max){notes.push(`Plan had ${jobs.length} workers; only the first ${max} run (worker limit).`);jobs=jobs.slice(0,max);}
+ if(jobs.length>max){notes.push(max?`Plan had ${jobs.length} workers; only the first ${max} run (worker limit).`:'Workers are off for this workroom, so LUTHUR handled it alone.');jobs=jobs.slice(0,max);}
  return {reply,jobs,notes};
 }
 type Runner=(spec:{prompt:string;system:string;model:string;effort:string;role:string;index:number;timeoutMs:number})=>Promise<RunResult>;
@@ -48,7 +51,7 @@ export async function manageCode(o:{settings?:CodeSettings;key:string;project:st
  write(o.key,'PLAN.md','# Plan\n\nLUTHUR is deciding whether this needs focused workers.\n');
  write(o.key,'STATUS.md','# Status\n\nLUTHUR is handling the request. No workers started.\n');
  write(o.key,'REPORT.md','# Report\n\nCurrent request has not finished.\n');
- const compact=`Previous brief: ${clip(previous.brief,1600)}\nPrevious status: ${clip(previous.status,500)}\nPrevious plan: ${clip(previous.plan,1000)}\n\n${previous.handoff?clip(previous.handoff,5000):previous.report?clip(previous.report,3000):clip(o.history,2400)}`;
+ const compact=`Previous brief: ${clip(previous.brief,1600)}\nPrevious status: ${clip(previous.status,500)}\nPrevious plan: ${clip(previous.plan,1000)}\n\n${previous.handoff?previous.handoff.slice(-5000):previous.report?clip(previous.report,3000):clip(o.history,2400)}`;
  const remember=(report:string)=>write(o.key,'HANDOFF.md',`# Durable handoff\n\n${previous.handoff.replace(/^# Durable handoff\s*/,'').slice(-3500)}\n\n## ${new Date().toISOString()}\nOwner: ${o.text}\n${report}\n`);
  const managerSystem=`Worker limit for this request: ${workerLimit}. ${workerLimit===0?'Handle the request yourself. Do not emit luthur_tasks.':'Never exceed this limit.'}\n`+o.system+'\nYou are LUTHUR, the owner’s coding manager and single point of conversation. Handle simple work yourself. Use existing repo Markdown notes; inspect only relevant files. Durable workroom notes live at '+folder(o.key)+'. Use those notes instead of replaying full chat history. Never launch agents, CLI model processes, queue_followup or task_create yourself. If delegation saves meaningful work, finish your response with <luthur_tasks>[{"title":"focused role","task":"specific assignment, files/scope and verification"}]</luthur_tasks>. Never more workers than the worker limit above; they run one after another; no recursive delegation. Do not output this block for simple chat, questions, or work already completed. The server runs approved workers; you stay responsible for integration and verification. Keep published handoffs concise, no hidden reasoning. Workers inherit the owner’s engine, model authorization and permission ceiling.';
  const initialModel=resolveModel(o.provider,'',o.choice,codeWork(o.text));
