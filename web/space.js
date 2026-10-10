@@ -73,6 +73,7 @@ vSettings = function (el) {
     wrap.querySelector("#spEvery").onchange = e => { const p = spacePref(); p.every = Number(e.target.value); spaceSave(p); Space.start = performance.now(); };
     wrap.querySelector("#spWalls").onchange = e => { const p = spacePref(); p.walls = e.target.checked; spaceSave(p); spaceBuild(); spaceWall(); };
     wrap.querySelector("#spNext").onclick = () => spaceNext();
+    wrap.querySelector("#spNext").hidden = Space.list.length < 2; // with one view there is nothing to switch to
     const pw = wrap.querySelector("#spPow"); try { pw.value = localStorage.getItem("hq-power") || "auto"; } catch {}
     pw.onchange = () => { try { pw.value === "auto" ? localStorage.removeItem("hq-power") : localStorage.setItem("hq-power", pw.value); } catch {} Scene.scale = .6; sceneSize?.(); Stars.still = false; starsStart(); toast(pw.value === "saver" ? "Battery saver on" : "Saved"); };
   };

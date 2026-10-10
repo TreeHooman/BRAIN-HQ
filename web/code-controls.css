@@ -31,3 +31,4 @@
 }
 
 body:has(#modal:not([hidden])) #hudNotes { top:8px; bottom:auto; max-height:90px; overflow:hidden; pointer-events:none; }
+.code-presets { gap: 8px; flex-wrap: wrap; margin: 0 0 6px; }

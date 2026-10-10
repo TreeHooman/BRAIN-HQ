@@ -11,11 +11,13 @@ function codeManagerModal(){
 }
 
 // Workroom controls use server-persisted settings, independent of the chat model.
+function codeLastSettings(){try{const v=JSON.parse(hstore.get('hq-code-last-settings','')||'null');return v&&typeof v==='object'?v:null;}catch{return null;}}
 async function codeSettingsModal(id) {
  try {
   const d=await api('/code/'+id),s=d.settings;if(!s)throw new Error('Restart LUTHUR to activate Code settings.');
   modal(`<h2>Agent & limits</h2><p class="muted">Settings for ${esc(d.name)}. Changes apply to the next request, including voice.</p>${d.level!=='build'?`<p class="cd-warn"><b>This project allows at most: ${esc(d.level)}.</b> Safe, auto and bypass can't edit files here, whatever you pick below. Pick the right project, or raise its permission in the project's Setup tab.</p>`:''}
    <form id="codeSettingsForm" class="form code-settings">
+    <div class="row code-presets" role="group" aria-label="Presets"><button type="button" class="btn sm" data-preset="quick" title="Small fix: one agent, scoped edits, low thinking, 20 minutes">⚡ Quick fix</button><button type="button" class="btn sm" data-preset="full" title="Big job: orchestrator + 4 workers + review, bypass, high thinking, 120 minutes">🚀 Full autonomous job</button>${codeLastSettings()?'<button type="button" class="btn sm ghost" data-preset="last" title="The settings you saved most recently">↺ My last setup</button>':''}</div>
     <label class="f">Workroom name<input name="name" maxlength="40" value="${esc(d.name)}" required></label>
     <div class="code-setting-grid">
      <label class="f">Engine<select name="provider">${opts([['claude','Claude'],['codex','ChatGPT / Codex']],s.provider)}</select></label>
@@ -44,6 +46,13 @@ async function codeSettingsModal(id) {
   };
   const help=()=>{document.getElementById('codePermissionHelp').textContent=({read:'Inspect and explain; no code edits.',plan:'Read code and update workroom / project notes.',safe:e.provider.value==='codex'?'Codex is confined to writable workspace folders. Commands requiring escalation fail.':'Claude may edit and run allow-listed commands. Other commands are denied in this headless session.',auto:'Claude may edit and run commands except its configured deny list.',bypass:'Explicit opt-in: Claude bypasses permission prompts. Tool deny rules remain configured, but shell access is not a security sandbox.'})[e.permission.value];};
   e.provider.onchange=sync;e.permission.onchange=help;sync();
+  // Presets and "my last setup": one click instead of five fields. Model calls follow the worker count (workers + manager + review).
+  const fitCalls=()=>{if(e.orchestration.value==='managed'){const need=Math.min(8,Number(e.maxWorkers.value||0)+2);if(Number(e.maxCalls.value)<need)e.maxCalls.value=need;}};
+  const apply=p=>{if(!p)return;e.provider.value=p.provider||'claude';sync();for(const k of ['model','effort','permission','orchestration','maxWorkers','maxCalls','maxMinutes'])if(p[k]!=null&&e[k])e[k].value=p[k];if(p.reviewSolo!=null)e.reviewSolo.checked=!!p.reviewSolo;if(p.adaptive!=null)e.adaptive.checked=!!p.adaptive;if(typeof p.instructions==='string'&&p.instructions)e.instructions.value=p.instructions;fitCalls();help();};
+  const PRESETS={quick:{provider:'claude',model:'auto',effort:'low',permission:'safe',orchestration:'direct',maxWorkers:0,maxCalls:2,maxMinutes:20,reviewSolo:true},full:{provider:'claude',model:'auto',effort:'high',permission:'bypass',orchestration:'managed',maxWorkers:4,maxCalls:6,maxMinutes:120,reviewSolo:true}};
+  f.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{apply(b.dataset.preset==='last'?codeLastSettings():PRESETS[b.dataset.preset]);toast(`${b.textContent.trim()} filled in. Press Save settings.`);});
+  e.maxWorkers.oninput=fitCalls;e.orchestration.onchange=fitCalls;
+  if(!d.messages?.length)apply(codeLastSettings()); // a new workroom starts from what you used last time
   f.querySelector('[data-cancel]').onclick=closeModal;
   f.onsubmit=async event=>{
    event.preventDefault();const button=f.querySelector('button[type=submit],button:not([type])');button.disabled=true;
@@ -55,6 +64,7 @@ async function codeSettingsModal(id) {
     for(const key of ['maxWorkers','maxCalls','maxMinutes'])settings[key]=Number(settings[key]);
     settings.adaptive=e.adaptive.checked;settings.reviewSolo=e.reviewSolo.checked;
     await api('/code/'+id+'/settings','PUT',settings);
+    try{hstore.set('hq-code-last-settings',JSON.stringify(settings));}catch{}
     await api('/code/'+id,'PUT',{name:e.name.value});
     closeModal();if(route.view==='code'&&Code.slug===id)await codeLoad(true);toast('Workroom settings saved');
    }catch(error){f.querySelector('[role=alert]').textContent=error.message;}finally{button.disabled=false;}
