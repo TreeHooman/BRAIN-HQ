@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-10 02:44 · mission code-cs-mv27iscg78lj-0
+Code workroom plan fix verified: all 3 gaps from the fix-session report are closed. 3fed65a added the chat notice "_Plan adjusted…_" and 13 tests in src/lib/code-manager.test.ts (npm test 16/16 pass). docs/validation-2026-10-10/workroom-test.mjs runs a real server on an HQ copy with HQ_FAKE_CLAUDE: 5/5 pass (7.5k-character task kept whole, 8 workers planned and 6 run, call budget, bad JSON, direct mode). Not yet checked: a run against real Claude.
+
 ## 2026-10-10 00:54 · LUTHUR
 Code workroom LUTHUR · LUTHUR: I've finished and tested the fix, but it isn't in HQ yet. This session isn't allowed to edit `src/`, so it's saved as a patch waiting for your approval. **Why it's a patch:** the reviewer's earlier fix is no longer in the working tree. Some other process undid the uncommitted change. Your settings block this session from editing `src/`, and I didn't try to get around that. **What the patch fixes** (`docs/validation-2026-10-10/plan-parser-fix.patch`, only touching `src/lib/code-manager.ts` and it Files: lib/code-manager.ts, lib/code-manager.test.ts, src/server.ts. See workroom REPORT.md for verification.
 
