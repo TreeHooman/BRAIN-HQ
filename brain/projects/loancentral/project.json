@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-07",
+  "updated": "2026-10-09",
   "links": [
     {
       "label": "loancentral.net",
@@ -68,6 +68,6 @@
   "health": "watch",
   "order": 1,
   "summary": "r/LoanCentral (~7.5k members) + LoanBot 2.0 + loancentral.net: peer lending record-keeping.",
-  "nextStep": "Phase 0 by 8 Oct: owner does Reddit items (US/CA rule, close r/LoanCentralEU, ModSupport modmail, r/borrow + r/SimpleLoans mods, wiki), runs website updater, then tick milestone; see log 2026-10-07 checklist.",
+  "nextStep": "Phase 0 overdue (was 8 Oct): owner posts Reddit items in order: US/CA rule, close r/LoanCentralEU, send ModSupport modmail (draft A) and r/borrow + r/SimpleLoans message (draft B) from log 2026-10-09, wiki update, run website updater, then tick milestone.",
   "notes": "LoanCentral-Test (LoanBot 2.0) is READ-ONLY for agents. The live site runs from the hosting PC."
 }

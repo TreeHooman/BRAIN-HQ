@@ -414,8 +414,11 @@ codeMsgHTML = function (m) {
   const fold = steps.length ? `<details class="cm-fold"><summary><span class="cm-n">${steps.length} step${steps.length > 1 ? "s" : ""}</span><span class="cm-l">${sum}</span>${m.added || m.removed ? `<span class="cm-d"><span class="a">+${m.added || 0}</span> <span class="d">−${m.removed || 0}</span></span>` : ""}</summary><div class="cd-steps">${steps.map(x => stepLine(x)).join("")}</div></details>` : "";
   let txt = String(m.text || "");
   if (/^\s*[\[{]?\s*"?(type|role|content|usage|id)"?\s*:/.test(txt) || /[A-Za-z0-9+/=]{200,}/.test(txt)) txt = txt.replace(/[A-Za-z0-9+/=]{200,}/g, "[…]").replace(/\{"[\s\S]*$/, "").trim() || "_The run ended without an answer. Ask again, or say “continue”._";
-  return `<div class="cd-msg hq ${m.error ? "err" : ""}">${fold}<div class="md">${md(txt)}</div>${m.ms ? `<div class="cm-t">${fmtDur(m.ms)}</div>` : ""}</div>`;
+  return `<div class="cd-msg hq ${m.error ? "err" : ""}">${fold}<div class="md">${md(txt)}</div>${m.ms ? `<div class="cm-t">${fmtDur(m.ms)}</div>` : ""}${cmAgents(m.agents)}</div>`;
 };
+// Which model each agent of the turn used (manager, workers, review), from the model the CLI reported.
+const cmModel = id => { const x = String(id || "").replace(/^claude-/, ""), c = x.match(/^(haiku|sonnet|opus|fable)(?:-(\d+)-(\d+))?/i); return c ? c[1][0].toUpperCase() + c[1].slice(1).toLowerCase() + (c[2] ? ` ${c[2]}.${c[3]}` : "") : x; };
+const cmAgents = list => !(list || []).length ? "" : `<div class="cm-agents">${list.map(a => `<span class="${a.ok === false ? "bad" : ""}" title="${esc(a.engine)} · ${esc(a.model)}${a.effort ? " · effort " + esc(a.effort) : ""}"><b>${esc(a.role)}</b> ${esc(cmModel(a.model))}${a.effort ? ` <em>${esc(a.effort)}</em>` : ""}</span>`).join("")}</div>`;
 const cvFolder = sid => { const s = cvSess(sid), p = S.projects.find(x => x.slug === s?.project); const f = (p?.paths || [])[0] || ""; return f.split(/[\\/]/).filter(Boolean).pop() || s?.projectName || ""; };
 const cvModel = t => { const n = ({ fast: "Haiku", balanced: "Sonnet", deep: "Opus" })[t], m = String(tierModel(t) || ""); return m && m.toLowerCase() !== n.toLowerCase() ? `${n} · ${m}` : n; };
 const LOCK = on => `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="${on ? "M8 11V8a4 4 0 0 1 8 0v3" : "M8 11V8a4 4 0 0 1 7.5-2"}"/></svg>`;

@@ -90,7 +90,7 @@ export type RunOptions = {
 };
 /** Offsets in ms from the call's start. tools/toolMs: tool calls seen and their summed wall time. writes: state-changing tool calls. */
 export type RunTiming = { spawnMs?: number; firstOutMs?: number; initMs?: number; firstTextMs?: number; tools: number; toolMs: number; writes: number };
-export type RunStats = { context: number; contextKnown?:boolean; window: number | null; output: number; cost: number | null; rate: { status?: string; type?: string; resetsAt?: number | null; utilization?: number | null; utilizationUnit?:string; at?:string } | null };
+export type RunStats = { model?: string; context: number; contextKnown?:boolean; window: number | null; output: number; cost: number | null; rate: { status?: string; type?: string; resetsAt?: number | null; utilization?: number | null; utilizationUnit?:string; at?:string } | null };
 export type RunResult = {
   ok: boolean; text: string; sessionId: string | null; durationMs: number;
   kind: "ok" | "error" | "limit" | "auth" | "timeout" | "missing";
@@ -394,7 +394,7 @@ function runStats(linesNewestFirst: string[], result: any): RunStats | null {
   }
   const models=Object.entries(result?.modelUsage||{}),mu:any=models.find(([key])=>key===model)?.[1]||(models.length===1?models[0][1]:null);
   if (!known && !result && !rate) return null;
-  return { context: ctx,contextKnown:known, window: mu?.contextWindow || null, output: outT || result?.usage?.output_tokens || 0, cost: typeof result?.total_cost_usd === "number" ? result.total_cost_usd : null, rate };
+  return { model: model || models[0]?.[0] || undefined, context: ctx,contextKnown:known, window: mu?.contextWindow || null, output: outT || result?.usage?.output_tokens || 0, cost: typeof result?.total_cost_usd === "number" ? result.total_cost_usd : null, rate };
 }
 
 /** Reads a reset time out of a usage-limit message. Returns epoch ms or null. */

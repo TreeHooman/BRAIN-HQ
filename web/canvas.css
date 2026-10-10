@@ -176,3 +176,7 @@ body[data-view="canvas"] #ops { display: none !important; }
 .cu-ctx { display: inline-flex; align-items: center; gap: 6px; } .cu-ctx i { display: inline-block; width: 46px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--tint, #6ff2ff) var(--w), rgba(255, 255, 255, .1) var(--w)); }
 .cu-ctx.warm { color: #e0af68; } .cu-ctx.warm i { --tint: #e0af68; } .cu-ctx.hot, .cu-rate.hot { color: #f7768e; } .cu-ctx.hot i { --tint: #f7768e; }
 .cd-use { padding: 6px 14px 0; } .cd-mode { height: 32px; border-radius: 8px; background: rgba(150, 210, 255, .05); border: 1px solid var(--border2); color: var(--text2); font: 12px var(--mono); padding: 0 6px; }
+.cm-agents { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 4px; font: 10.5px var(--mono); color: #7a7e93; }
+.cm-agents b { color: #a9adc2; font-weight: 600; }
+.cm-agents em { font-style: normal; opacity: .7; }
+.cm-agents .bad b { color: #e07a7a; }

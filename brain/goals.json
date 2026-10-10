@@ -63,7 +63,7 @@
         "id": "s1",
         "title": "Draft the access request resubmission (single-sub mod + record-keeping tool, stored data and why, red flags removed)",
         "due": "2026-10-24",
-        "done": false
+        "done": true
       },
       {
         "id": "s2",
@@ -109,7 +109,8 @@
         "done": false
       }
     ],
-    "createdAt": "2026-10-05T17:35:01.267Z"
+    "createdAt": "2026-10-05T17:35:01.267Z",
+    "updated": "2026-10-10T02:22:04.741Z"
   },
   {
     "id": "seed-discord-launch",

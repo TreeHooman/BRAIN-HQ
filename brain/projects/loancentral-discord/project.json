@@ -1,5 +1,5 @@
 {
-  "updated": "2026-10-05",
+  "updated": "2026-10-09",
   "links": [],
   "tags": [
     "discord",
@@ -30,6 +30,6 @@
   "health": "good",
   "order": 2,
   "summary": "LoanBot 3.0 on Discord: ticket-based loan requests, data kept separate from Reddit.",
-  "nextStep": "Do the lender-claim test on test ticket REQ-0002 in the main server (preview).",
+  "nextStep": "Decide interest/ID policy (recommend option A: no published rate, no ID/paystubs; see log 2026-10-09), then do the lender-claim test on REQ-0002.",
   "notes": "The bot is live in the MAIN server in preview mode. Code changes need the STOP then START bats, which the owner runs."
 }

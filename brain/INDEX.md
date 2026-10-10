@@ -1,12 +1,12 @@
 # HQ index
 
-_Auto-generated 2026-10-09 19:15. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-09 19:22. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
-| loancentral | business | live | watch | Phase 0 by 8 Oct: owner does Reddit items (US/CA rule, close r/LoanCentralEU, ModSupport modmail, r/borrow + r/SimpleLoans mods, wiki), runs website updater, then tick milestone; see log 2026-10-07 checklist. | 2026-10-07 |
-| loancentral-discord | product | building | good | Do the lender-claim test on test ticket REQ-0002 in the main server (preview). | 2026-10-05 |
-| reddit | workstream | building | risk | Owner: review the recusal rule draft in plan.md, date it and post it in the r/LoanCentral wiki (reminder 8 Oct 12:00); then the resubmission draft. | 2026-10-07 |
+| loancentral | business | live | watch | Phase 0 overdue (was 8 Oct): owner posts Reddit items in order: US/CA rule, close r/LoanCentralEU, send ModSupport modmail (draft A) and r/borrow + r/SimpleLoans message (draft B) from log 2026-10-09, wiki update, run website updater, then tick milestone. | 2026-10-09 |
+| loancentral-discord | product | building | good | Decide interest/ID policy (recommend option A: no published rate, no ID/paystubs; see log 2026-10-09), then do the lender-claim test on REQ-0002. | 2026-10-09 |
+| reddit | workstream | building | risk | Owner: post the dated recusal rule in the wiki; then check the [CONFIRM] facts in the resubmission draft (plan.md), fill [FILL], send by 31 Oct (reminder 24 Oct). | 2026-10-09 |
 | neuroweb | product | idea | unknown | Owner: tell the assistant what NeuroWeb is (one or two lines) so it can fill this in. | 2026-10-05 |
 | genbot | product | paused | unknown | Owner: confirm GenBot = GenBets-P and say what it does. | 2026-10-07 |
 | borrow-fast | business | planned | unknown | Write the one-page concept: where it lives, who it's for, how it differs from LoanCentral. | 2026-10-05 |
@@ -35,7 +35,7 @@ _Auto-generated 2026-10-09 19:15. Don't edit; change project.json files instead.
 
 ## Goals (Mission Planner)
 - Survive the Reddit API shutdown [loancentral]: 0/7 steps, due 2027-03-31
-- Keep LoanCentral allowed on Reddit [reddit]: 0/8 steps, due 2027-03-31
+- Keep LoanCentral allowed on Reddit [reddit]: 1/8 steps, due 2027-03-31
 - Launch LoanBot 3.0 on Discord [loancentral-discord]: 0/6 steps, due 2026-11-15
 - Keep AI Hockey bookings running smoothly [ai-hockey]: 0/5 steps
 - Shape Borrow Fast [borrow-fast]: 0/5 steps

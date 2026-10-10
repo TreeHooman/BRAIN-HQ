@@ -15,7 +15,8 @@ import { opStart, opEnd, activity } from "./orchestrator.ts";
 import type { Step } from "./narrate.ts";
 import * as brain from "./brain.ts";
 
-type Msg = { role: "you" | "hq"; text: string; at: string; error?: boolean; steps?: Step[]; added?: number; removed?: number; ms?: number; ctx?: number; win?: number | null; cost?: number | null; mode?: string };
+type Agent = { role: string; engine: "claude" | "codex"; model: string; effort?: string; ok?: boolean };
+type Msg = { role: "you" | "hq"; text: string; agents?: Agent[]; at: string; error?: boolean; steps?: Step[]; added?: number; removed?: number; ms?: number; ctx?: number; win?: number | null; cost?: number | null; mode?: string };
 type Session = { id: string; project: string; folder?: string; name?: string; sessionId: string | null; createdAt?: string; updatedAt?: string; importedFrom?: string; usage?: { cost: number; turns: number; ctx: number|null; win: number | null; rate: any; at: string }; messages: Msg[] };
 
 const DIR = path.join(DATA, "code");
@@ -155,12 +156,13 @@ export async function send(key: string, text: string, tier = "balanced", effort:
         "Keep the final reply short: what you changed (files), how to try it, anything risky. Use code blocks for snippets.",
       ].join("\n"),
     };
+    const agents: Agent[] = [];
     const res=await manageCode({key,project:p.name,text,history:s.messages.slice(-7,-1).map(m=>`${m.role}: ${m.text.slice(0,400)}`).join('\n'),provider,choice,system:base.system,timeoutMs:base.timeoutMs,cancelled:()=>!!busy.get(key)?.cancelled,run:async spec=>{
       const childId=`${opId}-worker-${spec.index}`;
       const child=spec.index===1||spec.index===2?opStart({id:childId,kind:'code',title:spec.role,project:s.project,model:spec.model,level,agent:spec.role,parent:opId}):null;
       let result;
       try{result=await (provider==='codex'?runCodex:runClaude)({...base,prompt:spec.prompt,system:spec.system,model:spec.model,effort:spec.effort,timeoutMs:spec.timeoutMs,resume:null,runId:`code-${key}-${spec.index}`,noAgents:true,onStep:st=>{onStep(st);child?.(st);}});return result;}
-      finally{if(child)opEnd(childId,!!result?.ok,!!busy.get(key)?.cancelled);}
+      finally{agents.push({role:spec.role,engine:provider,model:result?.stats?.model||spec.model,effort:spec.effort,ok:!!result?.ok});if(child)opEnd(childId,!!result?.ok,!!busy.get(key)?.cancelled);}
     }});
     const b = busy.get(key);
     ok = res.ok && !b?.cancelled;
@@ -177,7 +179,7 @@ export async function send(key: string, text: string, tier = "balanced", effort:
     const tools = steps.filter(x => x.kind === "tool");
     const st = res.stats;
     {const u=latest.usage||{cost:0,turns:0};const context=provider==='codex'?sessionContext(res.sessionId||undefined):st?.contextKnown?{context:st.context,window:st.window}:null;latest.usage={cost:u.cost+(st?.cost||0),turns:u.turns+1,ctx:context?.context??null,win:context?.window||null,rate:provider==='claude'?st?.rate||null:null,at:new Date().toISOString()};}
-    latest.messages.push({ role: "hq", text: reply, at: new Date().toISOString(), error: !res.ok && !b?.cancelled, ms: res.durationMs, ctx: st?.context, win: st?.window, cost: st?.cost, mode: level === "build" ? (mode || "safe") : "read",
+    latest.messages.push({ role: "hq", text: reply, at: new Date().toISOString(), error: !res.ok && !b?.cancelled, ms: res.durationMs, ctx: st?.context, win: st?.window, cost: st?.cost, mode: level === "build" ? (mode || "safe") : "read", agents,
       steps: kept.slice(-50).map(x => ({ ...x, diff: x.diff?.slice(0, 12) })), added: tools.reduce((a, x) => a + (x.added || 0), 0), removed: tools.reduce((a, x) => a + (x.removed || 0), 0) });
     if (latest.messages.length > 200) latest.messages.splice(0, latest.messages.length - 200);
     save(key, latest);
