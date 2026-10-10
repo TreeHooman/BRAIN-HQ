@@ -44,15 +44,16 @@ vCommand=async function(el){
   box.querySelectorAll('button').forEach(b=>b.onclick=()=>listenModeSet(b.dataset.mode));
   listenModePaint();
 };
-// Spoken mode switches, checked before anything else: "switch to Luther mode" / "Hey Luther mode" / "wake word mode",
-// and "switch to always listening" / "always listen".
-const LISTEN_TO_WAKE=/^(?:(?:hey |ok |okay )?(?:luthur|luther|luthor|lutha|lothar) )?(?:please )?(?:(?:switch|change|go|put)(?: (?:it|yourself|back))?(?: (?:to|into|in|on))? )?(?:the )?(?:hey )?(?:luthur|luther|luthor|lutha|lothar|wake ?word|name)(?:'s)? mode(?: please)?$/;
-const LISTEN_TO_ALWAYS=/^(?:(?:hey |ok |okay )?(?:luthur|luther|luthor|lutha|lothar) )?(?:please )?(?:(?:switch|change|go|put)(?: (?:it|yourself|back))?(?: (?:to|into|in|on))? )?(?:the )?always(?: listen(?:ing)?)?(?: mode)?(?: please)?$/;
+// Spoken mode switches, checked before anything else. Speech recognition often adds words in front ("hit wait switch to
+// hey Luther mode", "Swisher hey Luther mode", owner 2026-10-09), so a short sentence that ENDS with the mode name counts.
+const LISTEN_TO_WAKE=/(?:^|\s)(?:hey |the )?(?:luthur|luther|luthor|lutha|lothar|wake ?word|name)(?:'s)? (?:mode|mod)(?: please)?$/;
+const LISTEN_TO_ALWAYS=/(?:^|\s)always (?:listening|listen)(?: (?:mode|mod))?(?: please)?$/;
 const listenModeVoice=voiceCommand;
 voiceCommand=function(text){
   const t=String(text||'').toLowerCase().replace(/[.,!?]+/g,' ').replace(/\s+/g,' ').trim();
-  if(t.split(' ').length<=8){
-    if(LISTEN_TO_WAKE.test(t)){window.speechSynthesis?.cancel();listenModeSet('wake','Hey LUTHUR mode. Say “Hey LUTHUR” when you need me.');return;}
+  if(t.split(' ').length<=9){
+    if(LISTEN_TO_WAKE.test(t)||/^(?:mode|mod)$/.test(t)){ // "Hey Luther mode" arrives as "mode" (the name is stripped first)
+     window.speechSynthesis?.cancel();listenModeSet('wake','Hey LUTHUR mode. Say “Hey LUTHUR” when you need me.');return;}
     if(LISTEN_TO_ALWAYS.test(t)){window.speechSynthesis?.cancel();listenModeSet('always');return;}
   }
   return listenModeVoice(text);

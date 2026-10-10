@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 20:40 · claude
+"Switch to Luther mode" didn't work: recognition added words in front ("hit wait switch to hey Luther mode", "Swisher hey Luther mode"). Now a short sentence (≤9 words) that ends with "<Luther|Luthor|wake word> mode" or "always listening (mode)" switches; "Hey Luther mode" alone (arrives as "mode") too. Retested 13 phrases, no false switches ("switch to dark mode", "turn on airplane mode", "I always listen to music"). Note: in Always listening, nearby conversation was sent as requests (02:10 chat) — expected in that mode.
+
 ## 2026-10-09 20:25 · claude
 Owner: in Always listening, "stop talking" should only stop him talking; switch modes only on "switch to Luther mode". Done (wake-idle.js stopTalking hushes only in always mode; listen-mode.js handles whole-utterance commands "switch to Luther/Luthor mode", "Hey Luther mode", "wake word mode" and "switch to always listening"/"always listening"; tested 15 phrases incl. "I always listen to music" and "switch to dark mode" → no switch).
 
