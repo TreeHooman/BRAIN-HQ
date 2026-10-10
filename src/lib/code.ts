@@ -133,6 +133,7 @@ export async function send(key: string, text: string, tier = "balanced", effort:
   s.messages.push({ role: "you", text, ...(images.length ? { images: images.map(i => i.id) } : {}), at: new Date().toISOString() });
   save(key, s);
   const cfg = loadConfig();
+  mode = mode || cfg.code?.defaultMode || "safe"; // boxes without a Perms choice (new workroom, Talk to LUTHUR) use the owner's default
   const provider = choice.provider === "codex" ? "codex" : "claude";
   const selected = resolveModel(provider, text, choice, codeWork(text));
   const model = selected.model, fallback = undefined; effort = selected.effort;

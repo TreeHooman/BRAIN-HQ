@@ -144,7 +144,7 @@ function polishCode(el) {
     try {
       const slug = form.elements.project.value, p = projects.find(x => x.slug === slug);
       const { id } = await api("/code/workroom/start", "POST", { project: slug, folder: (p?.paths || [])[0] });
-      await api(`/code/${id}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort(), mode: hstore.get("hq-cv-mode-" + id, "safe") });
+      await api(`/code/${id}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort(), mode: hstore.get("hq-cv-mode-" + id, cvDefaultMode()) });
       ta.value = ""; ta.style.height = "";
       Live.code = await api("/code").catch(() => Live.code); codeGrid(); codeOpen(id); liveKick();
     } catch (x) { toast(x.message); } finally { btn.disabled = false; }

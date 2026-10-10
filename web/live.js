@@ -234,7 +234,7 @@ function splitRender() {
       const id = f.dataset.spForm, ta = f.querySelector("textarea");
       const go = async () => {
         const text = ta.value.trim(); if (!text) return;
-        try { await api(`/code/${id}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort(), mode: hstore.get("hq-cv-mode-" + id, "safe") }); ta.value = ""; Split.seen.delete(id); Snd.blip(980, .06); liveKick(); splitLoad(id); }
+        try { await api(`/code/${id}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort(), mode: hstore.get("hq-cv-mode-" + id, cvDefaultMode()) }); ta.value = ""; Split.seen.delete(id); Snd.blip(980, .06); liveKick(); splitLoad(id); }
         catch (e) { toast(e.message, 5000); }
       };
       f.onsubmit = e => { e.preventDefault(); go(); };
@@ -331,7 +331,7 @@ async function codeLoad(full) {
   if (full || !main.querySelector(".cd-log")) {
     const ro = d.level !== "build";
     main.innerHTML = `<div class="cd-bar"><button class="btn sm ghost" type="button" id="cdBack" aria-label="Back">←</button><b>LUTHUR · ${esc(d.name)}</b><span class="pill ${ro ? "amber" : "green"}">${ro ? "read-only" : "can edit"}</span><span class="path" title="${esc(d.folders.join("; "))}">${esc(d.found.join(" · ") || "folder not found on this PC")}</span>
-        ${tierSwitch()}${ro ? "" : `<select class="cd-mode" id="cdMode" aria-label="Permissions" title="Safe: allow-listed commands only. Auto: edits + any command except the blocked list. Bypass: Claude Code bypass mode. Push, deploy and secrets stay blocked in every mode.">${[["safe", "Perms: safe"], ["auto", "Perms: auto"], ["bypass", "Perms: bypass"]].map(([k, l]) => `<option value="${k}" ${k === hstore.get("hq-cv-mode-" + id, "safe") ? "selected" : ""}>${l}</option>`).join("")}</select>`}${phone() ? "" : `<button class="btn sm" id="cdSide" type="button" title="Show next to other sessions">Open side by side</button>`}<button class="btn sm" id="cdStop" type="button" ${d.busy ? "" : "hidden"}>■ Stop</button></div>
+        ${tierSwitch()}${ro ? "" : `<select class="cd-mode" id="cdMode" aria-label="Permissions" title="Safe: allow-listed commands only. Auto: edits + any command except the blocked list. Bypass: Claude Code bypass mode. Push, deploy and secrets stay blocked in every mode.">${[["safe", "Perms: safe"], ["auto", "Perms: auto"], ["bypass", "Perms: bypass"]].map(([k, l]) => `<option value="${k}" ${k === hstore.get("hq-cv-mode-" + id, cvDefaultMode()) ? "selected" : ""}>${l}</option>`).join("")}</select>`}${phone() ? "" : `<button class="btn sm" id="cdSide" type="button" title="Show next to other sessions">Open side by side</button>`}<button class="btn sm" id="cdStop" type="button" ${d.busy ? "" : "hidden"}>■ Stop</button></div>
       ${d.sameProject ? `<div class="cd-warn">${d.sameProject} other session${d.sameProject > 1 ? "s are" : " is"} working in this project right now. Keep their jobs on different files.</div>` : ""}
       <details class="code-workroom"><summary>LUTHUR · workroom notes</summary><div id="cdWorkroom"></div></details>
       <div class="cv-use cd-use" id="cdUse"></div>
@@ -344,7 +344,7 @@ async function codeLoad(full) {
     document.getElementById("cdForm").onsubmit = e => { e.preventDefault(); codeSend(); };
     document.getElementById("cdStop").onclick = () => api(`/code/${id}/stop`, "POST").catch(x => toast(x.message));
     document.getElementById("cdBack").onclick = codeClose;
-    document.getElementById("cdMode")?.addEventListener("change", async e => { if (e.target.value === "bypass" && !(await uiConfirm("Bypass mode lets this session run any command and edit any file in the project folders without asking.\nPush, deploy, delete-repo and secrets stay blocked.\n\nTurn it on?"))) { e.target.value = hstore.get("hq-cv-mode-" + id, "safe"); return; } hstore.set("hq-cv-mode-" + id, e.target.value); });
+    document.getElementById("cdMode")?.addEventListener("change", async e => { if (e.target.value === "bypass" && !(await uiConfirm("Bypass mode lets this session run any command and edit any file in the project folders without asking.\nPush, deploy, delete-repo and secrets stay blocked.\n\nTurn it on?"))) { e.target.value = hstore.get("hq-cv-mode-" + id, cvDefaultMode()); return; } hstore.set("hq-cv-mode-" + id, e.target.value); });
     document.getElementById("cdSide")?.addEventListener("click", () => { codeClose(); splitAdd(id); });
   }
   const cu = document.getElementById("cdUse"); if (cu && typeof usageHTML === "function") cu.innerHTML = usageHTML(d.usage);
@@ -370,7 +370,7 @@ async function codeLoad(full) {
 }
 async function codeSend() {
   const ta = document.getElementById("cdText"); const text = ta?.value.trim(); if (!text || Code.data?.busy) return;
-  try { await api(`/code/${Code.slug}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort(), mode: hstore.get("hq-cv-mode-" + Code.slug, "safe") }); }
+  try { await api(`/code/${Code.slug}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort(), mode: hstore.get("hq-cv-mode-" + Code.slug, cvDefaultMode()) }); }
   catch (e) { toast("⚠ " + e.message, 5000); return; }
   ta.value = ""; ta.style.height = ""; Code.sentAt = Date.now(); Snd.blip(980, .06); corePing?.(); opsKick?.(); liveKick();
   codeLoad(false);

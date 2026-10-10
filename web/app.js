@@ -13,6 +13,8 @@ let projTab = "summary";
 let editing = null;      // "summary" | "plan" while editing a doc
 let projCache = {};      // slug -> /api/project/:slug
 
+// Code permission when a workroom has no Perms choice yet (config code.defaultMode; the server applies it too).
+const cvDefaultMode = () => (typeof S !== "undefined" && S?.settings?.codeMode) || "safe";
 // ---------------- api ----------------
 async function api(path, method = "GET", body) {
   if (method === "POST" && body && (path === "/chat" || /^\/code\/[a-z0-9-]+$/.test(path)) && Date.now() - (window.hqVoiceAt || 0) < 6000) { body = { ...body, voice: true }; window.hqVoiceAt = 0; window.hqVoiceTurn = Date.now(); }
