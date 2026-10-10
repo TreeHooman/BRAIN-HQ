@@ -296,3 +296,7 @@ body.has-ops:has(.ops.min) #view {padding-bottom:60px}
 .speech-feedback[data-voice-state="wake"] .speech-state {color:#9fb2cc}
 .speech-feedback[data-voice-state="paused"] .speech-state,.speech-feedback[data-voice-state="connecting"] .speech-state {color:#ffb066}
 .speech-feedback[data-voice-state="listening"] .speech-state i,.speech-feedback[data-voice-state="hearing"] .speech-state i {background:#79efb6;box-shadow:0 0 8px #79efb6}
+
+/* Settings → Voice → Wake word (wake-engine.js) */
+#wakeEngine .we-state { font:12px var(--mono); color:var(--text3); }
+#wakeEngine .we-state[data-on="1"] { color:#79efb6; }

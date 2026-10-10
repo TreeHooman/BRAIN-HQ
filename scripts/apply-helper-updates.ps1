@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-foreach ($helperName in @('pc-wake.exe', 'app-window.exe', 'pc-desktop.exe')) {
+foreach ($helperName in @('pc-wake.exe', 'pc-wake-pv.exe', 'app-window.exe', 'pc-desktop.exe')) {
     $stagedHelper = Join-Path $PSScriptRoot ($helperName + '.next')
     $installedHelper = Join-Path $PSScriptRoot $helperName
     if (Test-Path -LiteralPath $stagedHelper) {

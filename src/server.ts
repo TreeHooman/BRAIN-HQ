@@ -26,6 +26,7 @@ import * as explainer from "./lib/explain.ts";
 import * as usage from "./lib/usage.ts";
 import * as codexUsage from "./lib/codex-usage.ts";
 import * as pcVoice from "./lib/pc-voice.ts";
+import * as wakeEngine from "./lib/wake-engine.ts";
 import * as accessLock from "./lib/access-lock.ts";
 import * as brainAudit from "./lib/brain-audit.ts";
 import * as autonomy from "./lib/autonomy.ts";
@@ -304,6 +305,10 @@ const routes: [string, RegExp, Handler][] = [
   ["PUT", /^\/api\/pc-voice$/, (_, b) => { writeCheck(); return pcVoice.setEnabled(b.enabled === true, PORT); }],
   ["POST", /^\/api\/pc-voice\/event$/, (_, b) => { writeCheck(); return pcVoice.receive(b.text,b.kind,PORT); }],
   ["POST", /^\/api\/desktop-overlay$/, (_, b) => { writeCheck(); return pcVoice.desktop(String(b.action||'open'),PORT); }],
+  ["GET", /^\/api\/wake-engine$/, () => wakeEngine.status()],
+  ["PUT", /^\/api\/wake-engine$/, (_, b) => { writeCheck(); return wakeEngine.save(b); }],
+  ["POST", /^\/api\/wake-engine\/keyword$/, (_, b) => { writeCheck(); return wakeEngine.saveKeyword(b); }],
+  ["POST", /^\/api\/wake-engine\/check$/, () => { writeCheck(); return wakeEngine.check(); }],
   ["POST", /^\/api\/pc-voice\/claim$/, (_, b) => { writeCheck(); return pcVoice.claim(Number(b.at)); }],
   ["GET", /^\/api\/chat\/retention$/, () => chatMemory.retentionStatus()],
   ["PUT", /^\/api\/chat\/retention$/, (_, b) => chatMemory.setRetention(b)],

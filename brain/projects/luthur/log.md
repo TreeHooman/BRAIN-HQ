@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 16:45 · claude
+Owner said "do it" to a dedicated wake word (step 1 of 3: wake word now; speaker-ID "only my voice" and local Whisper after the L4 review). Built Picovoice Porcupine v4.0 support: scripts/pc-wake-pv.cs/.exe (C# + P/Invoke, winmm mic, no installs; after the name it records the sentence and uses Windows dictation like pc-wake.exe), src/lib/wake-engine.ts (AccessKey only in hq.local.json, keyword at data/wake/keyword.ppn, Test setup, falls back to the Windows listener if Picovoice fails to start), routes /api/wake-engine(+/keyword,/check), pc-voice.ts picks the engine, Settings → Voice → "Wake word · Picovoice" card (web/wake-engine.js). Waiting on: owner OK to download libpv_porcupine.dll + porcupine_params.pv (v4.0, Apache-2.0) into scripts/pv; owner Picovoice account, AccessKey and "Hey Luther" Windows .ppn.
+
 ## 2026-10-09 16:00 · claude
 Owner: "when I talk he completely stops and listens; going back and forth he won't wait for Hey LUTHUR". Reverses the 2026-10-08 name-required rule. Follow-ups without the name are now ON by default and the window after an answer is 8 s (was 5 s; Settings → Voice untick = name only again). Talking over him stops him on the first real word (was 2). Mic comes back ~1.2 s after he finishes (was ~2 s). "Hear only my voice": not built; browser speech recognition can't tell voices apart (options: headset, push-to-talk, a local speaker-ID model later).
 
