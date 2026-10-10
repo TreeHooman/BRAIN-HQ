@@ -48,6 +48,8 @@ async function codeSettingsModal(id) {
   f.onsubmit=async event=>{
    event.preventDefault();const button=f.querySelector('button[type=submit],button:not([type])');button.disabled=true;
    try {
+    // A capped project silently turned a bypass job read-only twice (2026-10-10): ask instead of a line that's easy to miss.
+    if(d.level!=='build'&&['safe','auto','bypass'].includes(e.permission.value)&&!(await uiConfirm(`This workroom's project allows at most "${d.level}", so LUTHUR will only be able to READ files here, whatever you pick.\n\nPress Cancel, close this workroom, and choose the right project in Talk to LUTHUR (for the Discord bot: LoanCentral Discord).\n\nKeep it read-only anyway?`,button)))return;
     if(e.permission.value==='bypass'&&s.permission!=='bypass'&&!(await uiConfirm('Enable bypass permissions for this workroom? The agent can execute commands without permission prompts.',button)))return;
     const settings=Object.fromEntries(new FormData(f));delete settings.name;
     for(const key of ['maxWorkers','maxCalls','maxMinutes'])settings[key]=Number(settings[key]);

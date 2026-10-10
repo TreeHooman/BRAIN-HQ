@@ -125,7 +125,9 @@ function polishCode(el) {
   if (!head || el.querySelector(".cm-ask")) return;
   const projects = codeProjects();
   const form = document.createElement("form"); form.className = "cm-ask card"; form.autocomplete = "off";
-  const pick = projects.some(p => p.slug === activeProject()) ? activeProject() : projects[0]?.slug;
+  // The last project picked here sticks (also across page redraws); otherwise the focused project, else the first.
+  const last = hstore.get("hq-code-ask-project", "");
+  const pick = projects.some(p => p.slug === last) ? last : projects.some(p => p.slug === activeProject()) ? activeProject() : projects[0]?.slug;
   form.innerHTML = projects.length
     ? `<label class="cm-ask-l" for="cmAskText"><b>Talk to LUTHUR</b><span>Choose the model, permissions and limits before running. Your request opens as an editable draft.</span></label>
        <div class="cm-ask-row"><select name="project" aria-label="Project">${projects.map(p => `<option value="${esc(p.slug)}" ${p.slug === pick ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select>
@@ -133,6 +135,7 @@ function polishCode(el) {
     : `<label class="cm-ask-l"><b>Talk to LUTHUR</b><span>Add a repository folder to a project (Project → Setup) and LUTHUR can manage coding work there.</span></label>`;
   head.after(form);
   const ta = form.querySelector("textarea");
+  form.elements.project?.addEventListener("change", e => hstore.set("hq-code-ask-project", e.target.value));
   if (ta) {
     ta.addEventListener("input", () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 180) + "px"; });
     ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); } });
