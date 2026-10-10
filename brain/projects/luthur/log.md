@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-10 · Claude Code
+Code workroom fixes: worker plans are never rejected (no task-length cap, extras over the limit dropped and told in chat); current-request text passed in full; LUTHUR project now registered on the HQ folder; a request about HQ code from any workroom also gets the HQ folder for that turn (read-only projects never join). Tests: npm test (14 passing).
+
 ## 2026-10-09 23:45 · claude
 Code customization installed by Codex: per-workroom engine/model/effort, permissions (safe default; voice cannot force bypass), direct/orchestrator, worker/call/time limits, review toggle, custom instructions, editable workroom notes, draft setup before execution and export. Shared settings across drawer/canvas/split. Fixed off-screen composer caused by page perspective, drawer reopen race, duplicate submit, editor focus/mobile layout and denied-mic Always listening retry loop. Queued task instructions editable before first run. API/fake-Claude/Codex and browser regression tests passed; 11 route desktop/mobile smoke passed. 15 files installed with backups and hashes in JARIV/artifacts/code-controls. No real model calls. Installed server needs RESTART-LUTHUR and refresh; no push or commit.
 

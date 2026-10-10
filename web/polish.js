@@ -146,7 +146,9 @@ function polishCode(el) {
     const btn = form.querySelector("button"); btn.disabled = true;
     try {
       // A project named in the request wins over the dropdown (longest name first, so "LoanCentral Discord" beats "LoanCentral").
-      const low = text.toLowerCase(), named = projects.filter(x => x.name && new RegExp(`(^|[^a-z0-9])${x.name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(low)).sort((a, b) => b.name.length - a.name.length)[0];
+      // "LUTHUR" alone just addresses the assistant; the LUTHUR project is picked only when the request is about HQ's code (same rule as code.ts).
+      const aboutHQ = /\bHQ\b|\bLUTHUR(?:'s|’s)?\s+(?:own\s+)?(?:code|codebase|server|dashboard|workroom|app|repo|backend|frontend|source)\b|\bsrc[\\/](?:lib|server|mcp)\b|\bcode-manager\b|\bweb[\\/][a-z-]+\.js\b/i;
+      const low = text.toLowerCase(), named = projects.filter(x => x.name && (x.slug === "luthur" ? aboutHQ.test(text) : true) && (x.slug === "luthur" || new RegExp(`(^|[^a-z0-9])${x.name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(low))).sort((a, b) => b.name.length - a.name.length)[0];
       if (named && named.slug !== form.elements.project.value) { form.elements.project.value = named.slug; hstore.set("hq-code-ask-project", named.slug); toast(`Using project ${named.name} (named in your request)`); }
       const slug = form.elements.project.value, p = projects.find(x => x.slug === slug);
       const { id } = await api("/code/workroom/start", "POST", { project: slug, folder: (p?.paths || [])[0] });

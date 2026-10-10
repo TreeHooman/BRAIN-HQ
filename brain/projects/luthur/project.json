@@ -6,7 +6,9 @@
   "summary": "Personal assistant, War Room and project work hub.",
   "nextStep": "Restart LUTHUR and refresh. Code → Set up workroom → Agent & limits; choose model, permissions and limits, then send the saved draft. Verify one small real request.",
   "updated": "2026-10-09",
-  "paths": [],
+  "paths": [
+    "C:/Users/antho/OneDrive/Project Secrets/HQ"
+  ],
   "repos": [],
   "links": [],
   "tags": [],

@@ -126,6 +126,27 @@ export function stop(key: string) { const b = busy.get(key); if (b) { b.cancelle
 export function stopAll(){for(const key of busy.keys())stop(key);}
 export function hasActiveWork(){return busy.size>0;}
 
+// A request about another registered project also gets that project's folders for this turn, from any workroom
+// (owner, 2026-10-10: a request about LUTHUR's own code sent from the LoanCentral Discord workroom had every edit
+// denied). "LUTHUR" alone is how the owner addresses the assistant, so HQ is matched by what the request is about.
+const ABOUT_HQ = /\bHQ\b|\bLUTHUR(?:'s|’s)?\s+(?:own\s+)?(?:code|codebase|server|dashboard|workroom|app|repo|backend|frontend|source)\b|\bsrc[\\/](?:lib|server|mcp)\b|\bcode-manager\b|\bweb[\\/][a-z-]+\.js\b/i;
+const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const norm = (d: string) => path.resolve(d).toLowerCase().replace(/\\/g, "/");
+export function namedProjects(current: string, text: string, own: string[]) {
+  const mine = own.map(norm), out: { p: brain.Project; dirs: string[]; level: string }[] = [];
+  let low = text.toLowerCase().replace(/\\/g, "/");
+  // longest names first, removed once matched, so "LoanCentral Discord" doesn't also match "LoanCentral"
+  for (const p of brain.listProjects().sort((a, b) => b.name.length - a.name.length)) {
+    const name = p.name.toLowerCase(), re = new RegExp(`(^|[^a-z0-9])${esc(name)}([^a-z0-9]|$)`, "g");
+    const hit = p.slug === "luthur" ? ABOUT_HQ.test(text) : re.test(low) || (p.paths || []).some(d => low.includes(norm(d)));
+    if (p.slug !== "luthur") low = low.replace(re, " ");
+    if (!hit || p.slug === current || !p.paths?.length) continue;
+    const a = access(p.slug), dirs = a.dirs.filter(d => !mine.includes(norm(d)));
+    if (dirs.length) out.push({ p, dirs, level: a.level });
+  }
+  return out;
+}
+
 /** Throws the reasons a message can't start, so the API can answer right away. */
 export function check(key: string, text: string) {
   checkStopped();
@@ -143,11 +164,15 @@ export async function send(key: string, text: string, tier = "balanced", effort:
   readOnly=readOnly || mode==='read';
   validateChoice(choice);
   check(key, text);
-  text = String(text || "").trim().slice(0, 20000);
+  text = String(text || "").trim();
   const s = load(key);
-  const { p, dirs, level: max } = access(s.project, s.folder);
+  const { p, dirs: own, level: max } = access(s.project, s.folder);
   const level = minLevel(readOnly ? "read" : mode === "plan" ? "plan" : "build", max); // the lock in the chat box: look only, no edits
+  // Only projects allowed at least this turn's level join it, so a read-only project (LoanCentral-Test) never becomes editable.
+  const named = namedProjects(s.project, text, own), joined = named.filter(x => minLevel(level, x.level) === level), skipped = named.filter(x => !joined.includes(x));
+  const dirs = [...own, ...joined.flatMap(x => x.dirs)];
   s.messages.push({ role: "you", text, ...(images.length ? { images: images.map(i => i.id) } : {}), at: new Date().toISOString() });
+  if (named.length) s.messages.push({ role: "hq", text: [joined.length ? `Also working in ${joined.map(x => `${x.p.name} (${x.dirs.join("; ")})`).join(", ")}: named in your request.` : "", skipped.length ? `${skipped.map(x => x.p.name).join(", ")} stays ${skipped.map(x => x.level).join("/")}-only here, so it was not added.` : ""].filter(Boolean).join(" "), at: new Date().toISOString() });
   save(key, s);
   const cfg = loadConfig();
   const provider = choice.provider === "codex" ? "codex" : "claude";
