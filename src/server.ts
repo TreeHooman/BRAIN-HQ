@@ -429,6 +429,15 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { "Content-Type": "audio/mpeg", "Content-Length": audio.length, "Cache-Control": "no-store" });
         return res.end(audio);
       }
+      // Wake-ups pushed to the page as they happen, so the War Room lights up "heard you" at once.
+      if (url.pathname === "/api/pc-voice/stream" && req.method === "GET") {
+        res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-store", Connection: "keep-alive" });
+        res.write(": ok\n\n");
+        const off = pcVoice.onEvent(e => res.write(`data: ${JSON.stringify(e)}\n\n`));
+        const ping = setInterval(() => res.write(": ping\n\n"), 25e3);
+        req.on("close", () => { off(); clearInterval(ping); });
+        return;
+      }
       // Live reply text as it streams (Server-Sent Events): the dashboard speaks the first sentence without polling.
       if (url.pathname === "/api/chat/stream" && req.method === "GET") {
         res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-store", Connection: "keep-alive" });

@@ -1,5 +1,5 @@
 "use strict";
-const VoiceVisual={heardUntil:0,state:'idle',oneShot:false};
+const VoiceVisual={wokeUntil:0,heardUntil:0,state:'idle',oneShot:false};
 function voiceActivity(){
   if(typeof Access!=='undefined'&&Access.locked)return {state:'locked',label:'LOCKED',hint:'Unlock to talk'};
   if(window.speechSynthesis?.speaking&&!window.speechSynthesis.paused)return {state:'speaking',label:'SPEAKING',hint:'LUTHUR is talking · mic paused'};
@@ -9,6 +9,7 @@ function voiceActivity(){
   const busy=Cmd.waiting||S?.status?.chatBusy||(route.view==='assistant'&&chatState?.busy);
   if(ready&&Date.now()<VoiceVisual.heardUntil)return {state:'hearing',label:'HEARING YOU',hint:'Your words are appearing below'};
   if(ready&&Wake.buf?.trim())return {state:'captured',label:'WORDS CAPTURED',hint:'Pause to send · or use Send now'};
+  if(Date.now()<VoiceVisual.wokeUntil&&!busy)return {state:'hearing',label:'HEARD YOU',hint:'Go ahead · I’m listening'};
   if(SpeechUI.phase==='sending')return {state:'sending',label:'SENDING',hint:ready?'Sending your words · mic is still on':'Sending your words'};
   if(busy)return {state:'thinking',label:'THINKING',hint:ready?'Working on your reply · mic is still on':'Working on your reply'};
   if(ready&&!UPG.conversation&&!Wake.armed)return {state:'wake',label:'SAY “HEY LUTHUR”',hint:'Waiting for your call · other sounds are ignored'};

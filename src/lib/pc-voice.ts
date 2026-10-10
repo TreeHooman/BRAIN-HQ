@@ -6,6 +6,9 @@ let surface:'main'|'overlay'='main';
 let overlaySeen=0,mainSeen=0;
 let helper: ChildProcess | null = null, error = '', seq = 0, engine: 'local'|'windows' = 'windows';
 let event: {seq:number;text:string;at:number;kind:'wake'|'command';target:'overlay'|'main'} | null = null;
+// Pages listening on /api/pc-voice/stream hear a wake-up the moment it arrives (the 1 s status poll made the "heard you" visual lag).
+const listeners=new Set<(e:{seq:number;at:number;kind:string;target:string})=>void>();
+export function onEvent(fn:(e:{seq:number;at:number;kind:string;target:string})=>void){listeners.add(fn);return()=>{listeners.delete(fn);};}
 export function status(){if(surface==='overlay'&&Date.now()-overlaySeen>30000)surface='main';return {running:!!helper,error,event,protocol:2,surface,engine};}
 // The main window reports while it is on screen; a wake word then goes to it instead of opening the hologram.
 export function desktop(action:string,port:number){if(action==='main-visible'){mainSeen=Date.now();return status();}if(action==='heartbeat'){overlaySeen=Date.now();surface='overlay';return status();}if(action==='release'){surface='main';return status();}if(!['open','hide','main'].includes(action))throw new Error('Choose open, hide or main.');launchOverlay(action as 'open'|'hide'|'main',port);surface=action==='open'?'overlay':'main';overlaySeen=Date.now();return status();}
@@ -19,7 +22,9 @@ export function receive(text: string,kind='command',port=8800,front?:boolean){
   if(!toMain&&kind==='wake'){wakeEngine.log(`ignored wake (LUTHUR not in front, front ${front})`);return {ok:true,ignored:true};}
   if(!toMain)desktop('open',port);
   event={seq:++seq,text:clean,at:Date.now(),kind:kind==='wake'?'wake':'command',target:toMain?'main':'overlay'};
-  wakeEngine.log(`server got ${kind} → ${event.target} (front ${front}, main seen ${Math.round((Date.now()-mainSeen)/1000)}s ago, surface ${surface})`);return {ok:true};
+  wakeEngine.log(`server got ${kind} → ${event.target} (front ${front}, main seen ${Math.round((Date.now()-mainSeen)/1000)}s ago, surface ${surface})`);
+  for(const fn of listeners)try{fn({seq:event.seq,at:event.at,kind:event.kind,target:event.target});}catch{}
+  return {ok:true};
 }
 export function setEnabled(on:boolean,port:number,cookie=''){
   if(!on){helper?.kill();helper=null;event=null;return status();}
