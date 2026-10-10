@@ -7,6 +7,7 @@
   "engines": { "node": ">=24" },
   "scripts": {
     "start": "node --no-warnings src/server.ts",
-    "mcp": "node --no-warnings src/mcp/hq-brain.ts"
+    "mcp": "node --no-warnings src/mcp/hq-brain.ts",
+    "test": "node --no-warnings --test src/lib/*.test.ts"
   }
 }
