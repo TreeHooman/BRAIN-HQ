@@ -15,6 +15,8 @@ export type CodexOptions = {
   activeFile?: { acct: string; id: string };
   addDirs?: string[]; onSpawn?: (pid: number) => void; onStep?: (step: Step) => void;
   onText?: (text: string) => void;
+  /** Images the owner attached (uploads.ts), passed with --image. */
+  images?: { path: string }[];
 };
 
 let cachedBin: { value: string | null; at: number } | null = null;
@@ -75,6 +77,8 @@ export function codexArgs(o: CodexOptions): string[] {
   const args = ["exec", "--json", "--ignore-user-config", "--skip-git-repo-check"];
   if (o.resume) args.push("resume", o.resume);
   args.push("-m", o.model);
+  // "=" form: --image takes several values, so a bare path could swallow the arguments after it.
+  if (!o.resume) for (const img of o.images || []) args.push(`--image=${img.path}`);
   if(o.noAgents)args.push('-c','features.multi_agent=false','-c','features.multi_agent_v2=false');
   args.push("-c", `model_reasoning_effort=${tomlString(o.effort && ["low","medium","high","xhigh","max"].includes(o.effort) ? o.effort : "low")}`);
   // Config overrides apply on resume too. Explicitly suppress inherited approvals and MCP servers.
@@ -132,7 +136,8 @@ function runCodexInner(o: CodexOptions): Promise<RunResult> {
     child.stdout.on("data", data => parser.feed(String(data)));
     child.stderr.on("data", data => { stderr = (stderr + String(data)).slice(-16_000); });
     child.stdin.on("error", () => {});
-    child.stdin.end([agentRules(), o.system || "", where, o.prompt].filter(Boolean).join("\n\n"));
+    const lost = o.resume && o.images?.length ? "(The owner attached an image, but a resumed Codex chat can't receive it. Say so and ask them to describe it or start a new chat.)" : "";
+    child.stdin.end([agentRules(), o.system || "", where, o.prompt, lost].filter(Boolean).join("\n\n"));
     const timer = setTimeout(() => { timedOut = true; killTree(child.pid); }, Math.max(1000, o.timeoutMs));
     child.on("error", e => { clearTimeout(timer); finish({ ok: false, kind: "error", text: clean(e), sessionId: parser.sessionId, durationMs: Date.now() - started }); });
     child.on("close", code => { clearTimeout(timer); parser.finish(); finish(parser.result(code, stderr, timedOut, Date.now() - started)); });

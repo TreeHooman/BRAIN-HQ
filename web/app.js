@@ -626,7 +626,7 @@ async function vAssistant(el) {
     <div class="chat-tier">${tierSwitch()} <span class="small muted">${c.provider === "codex" ? "Codex backup" : "Claude"}${c.personality === "challenger" ? " · Challenger" : ""}</span></div>
     <div id="chatClaudeUsage" class="chat-claude-usage" role="status">Claude · Context unavailable · Usage unavailable</div>
     <div class="chat-log" id="chatLog">
-      ${c.messages.length ? c.messages.map(m => `<div class="msg ${m.role} ${m.error ? "err" : ""}">${m.role === "you" ? esc(m.text) : md(m.text)}<div class="t">${ago(m.at)}</div></div>`).join("")
+      ${c.messages.length ? c.messages.map(m => `<div class="msg ${m.role} ${m.error ? "err" : ""}">${m.role === "you" ? esc(m.text) : md(m.text)}${typeof attThumbs === "function" ? attThumbs(m.images) : ""}<div class="t">${ago(m.at)}</div></div>`).join("")
         : `<div class="card" style="margin-top:20px"><b>Try:</b><div class="row" style="margin-top:8px">${examples.map(x => `<button class="btn sm" data-ex="${esc(x)}">${esc(x)}</button>`).join("")}</div></div>`}
       ${c.busy ? `<div class="typing"><span class="dot pulse" style="background:var(--blue)"></span> Thinking… (reading only what it needs)</div>` : ""}
     </div>

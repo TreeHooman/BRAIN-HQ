@@ -10,6 +10,8 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 4. Later: Obsidian notes (see docs/BACKLOG.md). Guarded computer control: first version done 2026-10-07.
 
 ## Owner checks
+- Images + drafts (after RESTART-LUTHUR + Ctrl+R): paste a screenshot into the Code box, type half a sentence, close the workroom and the window, reopen: text and image are still there. Send it: LUTHUR describes the image. After another restart the box is empty.
+- Solo review (after RESTART-LUTHUR): ask a Code workroom for a small file change without workers; the reply ends with an "Independent review" section and the agents line shows LUTHUR · review.
 - Pause vs stop (Ctrl+R first): mid-conversation say "Luther pause": he goes quiet, then "Hey LUTHUR, what did I just ask?" still knows. Say "Luther stop": quiet + toast "Stopped · fresh start"; the chat is empty and nothing you said before comes back.
 - Wake visual (after RESTART-LUTHUR + Ctrl+R): with LUTHUR in front say "Hey LUTHUR": the War Room shows HEARD YOU straight away, before you finish the sentence.
 - Code models (after RESTART-LUTHUR): send a Code request; under the reply a line lists each agent and its model (LUTHUR · manager, workers, LUTHUR · review).

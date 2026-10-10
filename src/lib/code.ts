@@ -14,9 +14,10 @@ import { killTree, runClaude } from "./claude.ts";
 import { opStart, opEnd, activity } from "./orchestrator.ts";
 import type { Step } from "./narrate.ts";
 import * as brain from "./brain.ts";
+import type { Image } from "./uploads.ts";
 
 type Agent = { role: string; engine: "claude" | "codex"; model: string; effort?: string; ok?: boolean };
-type Msg = { role: "you" | "hq"; text: string; agents?: Agent[]; at: string; error?: boolean; steps?: Step[]; added?: number; removed?: number; ms?: number; ctx?: number; win?: number | null; cost?: number | null; mode?: string };
+type Msg = { role: "you" | "hq"; text: string; images?: string[]; agents?: Agent[]; at: string; error?: boolean; steps?: Step[]; added?: number; removed?: number; ms?: number; ctx?: number; win?: number | null; cost?: number | null; mode?: string };
 type Session = { id: string; project: string; folder?: string; name?: string; sessionId: string | null; createdAt?: string; updatedAt?: string; importedFrom?: string; usage?: { cost: number; turns: number; ctx: number|null; win: number | null; rate: any; at: string }; messages: Msg[] };
 
 const DIR = path.join(DATA, "code");
@@ -121,7 +122,7 @@ export function check(key: string, text: string) {
   if (!dirs.length) throw new Error(`No folder found for ${p.name}. Add its folder under the project's Setup tab.`);
 }
 
-export async function send(key: string, text: string, tier = "balanced", effort: string | null = null, readOnly = false, mode: string | null = null, choice: ModelChoice = {}): Promise<void> {
+export async function send(key: string, text: string, tier = "balanced", effort: string | null = null, readOnly = false, mode: string | null = null, choice: ModelChoice = {}, images: Image[] = []): Promise<void> {
   choice={...choice,...explicitModel(text)};
   validateChoice(choice);
   check(key, text);
@@ -129,7 +130,7 @@ export async function send(key: string, text: string, tier = "balanced", effort:
   const s = load(key);
   const { p, dirs, level: max } = access(s.project, s.folder);
   const level = readOnly ? "read" : max; // the lock in the chat box: look only, no edits
-  s.messages.push({ role: "you", text, at: new Date().toISOString() });
+  s.messages.push({ role: "you", text, ...(images.length ? { images: images.map(i => i.id) } : {}), at: new Date().toISOString() });
   save(key, s);
   const cfg = loadConfig();
   const provider = choice.provider === "codex" ? "codex" : "claude";
@@ -140,12 +141,13 @@ export async function send(key: string, text: string, tier = "balanced", effort:
   const steps: Step[] = [];
   const name = s.name || p.name;
   const onOp = opStart({ id: opId, kind: "code", title: `${name}: ${text.length > 60 ? text.slice(0, 59) + "…" : text}`, project: s.project, model, level, agent: 'LUTHUR' });
-  const onStep = (st: Step) => { onOp(st); const i = steps.findIndex(x => x.id === st.id); if (i >= 0) steps[i] = { ...st }; else steps.push({ ...st }); if (steps.length > 120) steps.shift(); };
+  let edited = false; // any file written this turn: LUTHUR's solo work then gets an independent review (code-manager.ts)
+  const onStep = (st: Step) => { onOp(st); if (st.kind === "tool" && /write|edit/i.test(st.tool || "")) edited = true; const i = steps.findIndex(x => x.id === st.id); if (i >= 0) steps[i] = { ...st }; else steps.push({ ...st }); if (steps.length > 120) steps.shift(); };
   busy.set(key, { opId, provider });
   let ok = false;
   try {
     const base = {
-      prompt: text, model, fallbackModel: fallback, effort, level, mode: level === "build" && (mode === "auto" || mode === "bypass") ? mode : "safe", resume:null, runId: `code-${key}`, addDirs: dirs,
+      prompt: text, model, fallbackModel: fallback, effort, level, mode: level === "build" && (mode === "auto" || mode === "bypass") ? mode : "safe", resume:null, runId: `code-${key}`, addDirs: dirs, images,
       timeoutMs: (cfg.code?.maxMinutes || 20) * 60e3, onStep, onSpawn: pid => { const b = busy.get(key); if (b) {b.pid = pid;if(b.cancelled)killTree(pid);} },
       system: [
         `You're LUTHUR, managing work with the owner live in HQ's Code screen on project "${p.name}" (workroom "${name}").`,
@@ -157,7 +159,7 @@ export async function send(key: string, text: string, tier = "balanced", effort:
       ].join("\n"),
     };
     const agents: Agent[] = [];
-    const res=await manageCode({key,project:p.name,text,history:s.messages.slice(-7,-1).map(m=>`${m.role}: ${m.text.slice(0,400)}`).join('\n'),provider,choice,system:base.system,timeoutMs:base.timeoutMs,cancelled:()=>!!busy.get(key)?.cancelled,run:async spec=>{
+    const res=await manageCode({key,project:p.name,text,edited:cfg.code?.reviewSolo===false?undefined:()=>edited,history:s.messages.slice(-7,-1).map(m=>`${m.role}: ${m.text.slice(0,400)}`).join('\n'),provider,choice,system:base.system,timeoutMs:base.timeoutMs,cancelled:()=>!!busy.get(key)?.cancelled,run:async spec=>{
       const childId=`${opId}-worker-${spec.index}`;
       const child=spec.index===1||spec.index===2?opStart({id:childId,kind:'code',title:spec.role,project:s.project,model:spec.model,level,agent:spec.role,parent:opId}):null;
       let result;

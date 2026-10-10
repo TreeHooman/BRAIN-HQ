@@ -8,6 +8,7 @@ import { DATA, ROOT, writeJson } from "./store.ts";
 import { loadConfig, loadMcpExtras, loadPermissions, agentRules, levelRank, type Level } from "./config.ts";
 import { createNarrator, type Step } from "./narrate.ts";
 import { guarded } from "./guard.ts";
+import { contentBlocks, type Image } from "./uploads.ts";
 
 let cachedBin: { bin: string | null; at: number } | null = null;
 
@@ -65,6 +66,8 @@ export type RunOptions = {
   system?: string; runId?: string; onSpawn?: (pid: number) => void; onStep?: (s: Step) => void;
   activeFile?: { acct: string; id: string };
   onText?: (text: string) => void;
+  /** Images the owner attached (uploads.ts). Sent as image blocks in a stream-json user message. */
+  images?: Image[];
   /** Outbox executor: no built-in tools, no hq-brain, no agent rules; only these MCP tool prefixes (account connectors). */
   act?: { allow: string[] };
   /** Text-only run (explain, briefings, compose, sync, checks): no tools, no MCP servers at all, and only `system` as the
@@ -182,7 +185,9 @@ function runClaudeInner(o: RunOptions): Promise<RunResult> {
     // background runs must use the CLI's own sign-in so they behave the same at boot.
     const env: Record<string, string | undefined> = { ...process.env, HQ_BACKGROUND: "1" };
     for (const k of Object.keys(env)) if (/^(CLAUDECODE|CLAUDE_CODE_|CLAUDE_AGENT_SDK|CLAUDE_PID|CLAUDE_EFFORT|ANTHROPIC_BASE_URL)/.test(k)) delete env[k];
-    const args = buildArgs(o);
+    // Attached images can't go in a plain-text prompt: send one stream-json user message with image blocks instead.
+    const images = o.images?.length ? o.images : null;
+    const args = [...buildArgs(o), ...(images ? ["--input-format", "stream-json"] : [])];
     const timing: RunTiming & { open?: Map<string, number> } = { tools: 0, toolMs: 0, writes: 0 };
     const child = spawn(bin, fake ? [fake, ...args] : args, { cwd: ROOT, windowsHide: true, env });
     timing.spawnMs = Date.now() - started;
@@ -214,7 +219,8 @@ function runClaudeInner(o: RunOptions): Promise<RunResult> {
       }
     });
     child.stderr.on("data", d => { err += d; });
-    child.stdin.end(o.prompt);
+    child.stdin.on("error", () => {});
+    child.stdin.end(images ? JSON.stringify({ type: "user", message: { role: "user", content: contentBlocks(o.prompt, images) } }) + "\n" : o.prompt);
     const timer = setTimeout(() => { timedOut = true; killTree(child.pid); }, o.timeoutMs);
     // A process that already printed its final result but hasn't exited is finished, not stalled: stop it and keep the result.
     const stallTimer = o.stallMs && o.stallMs > 0 ? setInterval(() => {
@@ -318,7 +324,7 @@ function turnInner(o: RunOptions): Promise<RunResult> {
     };
     p.onExit = () => finish(interpret(out, "", false, Date.now() - started));
     const timer = setTimeout(() => { finish({ ...interpret(out, "", true, Date.now() - started), kind: "timeout", ok: false }); }, o.timeoutMs);
-    try { p.child.stdin!.write(JSON.stringify({ type: "user", message: { role: "user", content: [{ type: "text", text: o.prompt }] } }) + "\n"); }
+    try { p.child.stdin!.write(JSON.stringify({ type: "user", message: { role: "user", content: contentBlocks(o.prompt, o.images) } }) + "\n"); }
     catch (e) { finish({ ok: false, kind: "error", text: String(e), sessionId: null, durationMs: 0 }); }
   });
 }

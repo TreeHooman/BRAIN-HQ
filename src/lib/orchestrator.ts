@@ -42,6 +42,7 @@ import * as pacing from "./pacing.ts";
 import * as health from "./health.ts";
 import * as patterns from "./patterns.ts";
 import * as remote from "./remote.ts";
+import type { Image } from "./uploads.ts";
 
 /** Level 4 switches (config "l4"). Unattended pieces stay off until the owner turns them on after validation. */
 export function l4() {
@@ -1226,7 +1227,7 @@ function fastCtx(): fastpath.FastCtx {
 }
 
 // ---------------- chat (the dashboard assistant) ----------------
-type ChatMsg = { role: "you" | "hq"; text: string; at: string; error?: boolean; speech?: string };
+type ChatMsg = { role: "you" | "hq"; text: string; images?: string[]; at: string; error?: boolean; speech?: string };
 type Chat = { id: string; sessionId: string | null; claudeSessionId?: string | null; provider?: "claude" | "codex"; personality?: "normal" | "challenger"; project?: string | null; tier?: string; messages: ChatMsg[];
   claudeUsage?: { context: number; window: number; at: string };codexUsage?:{context:number;window:number;at:string|null;sessionId:string;source:string} };
 let busyIngestAt = 0;
@@ -1305,7 +1306,7 @@ export function continueChat(id: string): Chat {
   writeJson(F.chat, next);
   return next;
 }
-export async function sendChat(text: string, opts: ModelChoice & { project?: string | null; tier?: string; voice?: boolean; context?: string; personality?: string; activeFile?: { acct: string; id: string }; speechRate?: number } = {}): Promise<void> {
+export async function sendChat(text: string, opts: ModelChoice & { project?: string | null; tier?: string; voice?: boolean; context?: string; personality?: string; activeFile?: { acct: string; id: string }; speechRate?: number; images?: Image[] } = {}): Promise<void> {
   checkStopped();
   const sw = timing.stopwatch();
   opts = {...opts,...explicitModel(text)};
@@ -1313,14 +1314,15 @@ export async function sendChat(text: string, opts: ModelChoice & { project?: str
   if (chatBusy) throw new Error("The assistant is still answering.");
   const s = state();
   const c = readJson<Chat>(F.chat, { id: uid("chat"), sessionId: null, messages: [] });
-  c.messages.push({ role: "you", text, at: new Date().toISOString() });
+  const images = opts.images || [];
+  c.messages.push({ role: "you", text, ...(images.length ? { images: images.map(i => i.id) } : {}), at: new Date().toISOString() });
   if (opts.project !== undefined) c.project = opts.project || null;
   if (opts.personality === "challenger" || opts.personality === "normal") c.personality = opts.personality;
   writeJson(F.chat, c);
   // Simple app questions are answered from HQ's own data with no model call (fastpath.ts). Only a model asked for in the
   // words ("use opus …", adaptive:false) skips it: the page sends its model-console pick with every turn, which made
   // "what time is it" take 3-4 s through Haiku (owner, 2026-10-09).
-  const fast = l4().fastpath && (!opts.model || opts.adaptive !== false) ? fastpath.answer(text, fastCtx()) : null;
+  const fast = l4().fastpath && !images.length && (!opts.model || opts.adaptive !== false) ? fastpath.answer(text, fastCtx()) : null;
   if (fast) {
     let reply = fast.text, speech = fast.speech;
     if (fast.action?.kind === "brief-go") {
@@ -1409,7 +1411,7 @@ export async function sendChat(text: string, opts: ModelChoice & { project?: str
     const timing0 = { t0: Date.now(), first: 0, spoken: 0 };
     const temp = c.sessionId && !switching && !rolling ? "warm" : "cold";
     sw.mark("prep"); let lastEmit = 0;
-    const options = { prompt: handoff, model, fallbackModel: fallback, effort, level, resume: c.sessionId?.replace(/^codex:/, "") || null, system, activeFile: opts.activeFile, runId: `chat-${c.id}`, history: { title: text.slice(0, 120), ask: text, project: c.project || null, kind: "Chat" },
+    const options = { prompt: handoff, images, model, fallbackModel: fallback, effort, level, resume: c.sessionId?.replace(/^codex:/, "") || null, system, activeFile: opts.activeFile, runId: `chat-${c.id}`, history: { title: text.slice(0, 120), ask: text, project: c.project || null, kind: "Chat" },
       timeoutMs: (cfg.chat?.maxMinutes || 6) * 60e3, addDirs: proj?.paths || [], onSpawn:(pid:number)=>{control.pid=pid;if(control.cancelled)killTree(pid);},onStep:(step:Step)=>{if(!control.cancelled)onStep(step);}, onText: (text: string) => {
         if (control.cancelled) return;
         chatPartial = redact(text).slice(-60000); timing0.first ||= Date.now(); sw.mark("firstText");

@@ -15,6 +15,8 @@ import { describe } from "./lib/schedule.ts";
 import * as cal from "./lib/calendar.ts";
 import * as outbox from "./lib/outbox.ts";
 import * as code from "./lib/code.ts";
+import * as uploads from "./lib/uploads.ts";
+import * as drafts from "./lib/drafts.ts";
 import * as spotify from "./lib/spotify.ts";
 import * as tts from "./lib/tts.ts";
 import * as canvas from "./lib/canvas.ts";
@@ -66,6 +68,12 @@ async function body(req: http.IncomingMessage): Promise<any> {
   let raw = "";
   for await (const chunk of req) { raw += chunk; if (raw.length > 2e6) throw new Error("Too large"); }
   return raw ? JSON.parse(raw) : {};
+}
+
+// A message may be just a picture: give the model something to answer.
+function withImageText(text: unknown, imgs: uploads.Image[]): string {
+  const t = String(text || "").trim();
+  return t || (imgs.length ? `Look at the attached image${imgs.length > 1 ? "s" : ""}.` : "");
 }
 
 // What the owner is looking at when they talk to LUTHUR, so "check this" / "update that" has a target.
@@ -248,7 +256,11 @@ const routes: [string, RegExp, Handler][] = [
   ["GET", /^\/api\/code\/external\/([a-z0-9-]+)$/, m => code.external(m[1])],
   ["POST", /^\/api\/code\/import$/, (_, b) => code.importSession(String(b.project || ""), String(b.session || ""), b.name)],
   ["GET", /^\/api\/code\/([a-z0-9-]+)$/, m => code.get(m[1])],
-  ["POST", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => { code.check(m[1], String(b.text || "")); validateChoice({...b,...explicitModel(String(b.text||""))}); void code.send(m[1], String(b.text || ""), b.tier, b.effort || null, b.readOnly === true, b.voice === true && loadConfig().assistant?.voiceFull !== false ? "bypass" : typeof b.mode === "string" ? b.mode : null, b).catch(() => {}); return { ok: true }; }],
+  ["POST", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => { const imgs = uploads.resolve(b.images), text = withImageText(b.text, imgs); code.check(m[1], text); validateChoice({...b,...explicitModel(text)}); void code.send(m[1], text, b.tier, b.effort || null, b.readOnly === true, b.voice === true && loadConfig().assistant?.voiceFull !== false ? "bypass" : typeof b.mode === "string" ? b.mode : null, b, imgs).catch(() => {}); return { ok: true }; }],
+  // Attached images (paste/drop/pick in the chat and Code boxes) and unsent drafts (memory only, cleared on restart).
+  ["POST", /^\/api\/uploads$/, (_, b) => uploads.save(b.dataUrl)],
+  ["GET", /^\/api\/drafts\/([a-z:0-9-]+)$/, m => drafts.get(m[1])],
+  ["PUT", /^\/api\/drafts\/([a-z:0-9-]+)$/, (m, b) => drafts.put(m[1], b)],
   ["PUT", /^\/api\/code\/([a-z0-9-]+)$/, (m, b) => code.rename(m[1], String(b.name || ""))],
   ["POST", /^\/api\/code\/([a-z0-9-]+)\/stop$/, m => { code.stop(m[1]); return { ok: true }; }],
   ["DELETE", /^\/api\/code\/([a-z0-9-]+)$/, m => { code.close(m[1]); return { ok: true }; }],
@@ -315,7 +327,7 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/chat\/cleanup$/, () => { const s = orch.status(); if (s.chatBusy || s.active.length) throw new Error("Wait for current work to finish before cleanup."); return chatMemory.cleanChats(); }],
   ["GET", /^\/api\/memory\/search$/, (_, __, u) => searchMemory(u.searchParams.get("q") || "", { project: u.searchParams.get("project") || undefined, source: u.searchParams.get("source") || undefined, limit: Number(u.searchParams.get("limit")) || 30 })],
   ["GET", /^\/api\/chat\/memories$/, (_, __, u) => chatMemory.memorySearch(u.searchParams.get("q") || "")],
-  ["POST", /^\/api\/chat$/, (_, b) => { checkStopped();if (orch.chat().busy) throw Object.assign(new Error("LUTHUR is still answering. Your follow-up can wait for this reply."), { code: 409 }); if (!String(b.text || "").trim()) throw new Error("Say what you want to discuss."); writeCheck(); validateChoice({...b,...explicitModel(String(b.text||""))}); void orch.sendChat(String(b.text || ""), { provider: b.provider, model: b.model, astraApproved: b.astraApproved === true, opusApproved: b.opusApproved === true, adaptive:b.adaptive!==false, project: b.project, tier: b.tier, effort: b.effort, voice: b.voice === true, speechRate: Number(b.speechRate) || undefined, context: chatContext(b.context), personality: b.personality, activeFile: b.context?.screen?.k === "file" && /^g-[a-f0-9]{10}$/.test(b.context.screen.acct || "") && /^[A-Za-z0-9_-]{10,200}$/.test(b.context.screen.id || "") ? { acct: b.context.screen.acct, id: b.context.screen.id } : undefined }).catch(() => {}); return { ok: true }; }],
+  ["POST", /^\/api\/chat$/, (_, b) => { checkStopped();if (orch.chat().busy) throw Object.assign(new Error("LUTHUR is still answering. Your follow-up can wait for this reply."), { code: 409 }); const imgs = uploads.resolve(b.images), text = withImageText(b.text, imgs); if (!text) throw new Error("Say what you want to discuss."); writeCheck(); validateChoice({...b,...explicitModel(text)}); void orch.sendChat(text, { images: imgs, provider: b.provider, model: b.model, astraApproved: b.astraApproved === true, opusApproved: b.opusApproved === true, adaptive:b.adaptive!==false, project: b.project, tier: b.tier, effort: b.effort, voice: b.voice === true, speechRate: Number(b.speechRate) || undefined, context: chatContext(b.context), personality: b.personality, activeFile: b.context?.screen?.k === "file" && /^g-[a-f0-9]{10}$/.test(b.context.screen.acct || "") && /^[A-Za-z0-9_-]{10,200}$/.test(b.context.screen.id || "") ? { acct: b.context.screen.acct, id: b.context.screen.id } : undefined }).catch(() => {}); return { ok: true }; }],
   ["POST", /^\/api\/chat\/new$/, () => { orch.newChat(); return { ok: true }; }],
 
   ["GET", /^\/api\/tts$/, () => tts.status()],
@@ -470,6 +482,12 @@ const server = http.createServer(async (req, res) => {
       if (rawM && req.method === "GET") {
         const r = await google.raw(rawM[1], rawM[2]);
         res.writeHead(200, { "Content-Type": r.type, "Content-Length": r.body.length, "Content-Disposition": "inline", "X-Content-Type-Options": "nosniff", ...(r.type.startsWith("image/") ? { "Content-Security-Policy": "sandbox; default-src 'none'" } : {}), "Cache-Control": "private, max-age=300" });
+        return res.end(r.body);
+      }
+      const upM = url.pathname.match(/^\/api\/uploads\/(img-[a-f0-9]{16}\.(?:png|jpg|webp|gif))$/);
+      if (upM && req.method === "GET") {
+        const r = uploads.read(upM[1]);
+        res.writeHead(200, { "Content-Type": r.type, "Content-Length": r.body.length, "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "sandbox; default-src 'none'", "Cache-Control": "private, max-age=86400" });
         return res.end(r.body);
       }
       if (url.pathname === "/api/search" && req.method === "GET") return send(res, 200, brain.searchBrain(url.searchParams.get("q") || ""));
