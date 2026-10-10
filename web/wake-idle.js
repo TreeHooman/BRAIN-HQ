@@ -1,8 +1,9 @@
 "use strict";
 // Give the owner a follow-up window, measured after playback and echo cooldown.
-const WakeIdle={active:false,last:0,speaking:false,delay:5000,sent:false,named:0,muted:false};
+const WakeIdle={active:false,last:0,speaking:false,delay:8000,sent:false,named:0,muted:false};
 function wakeIdleTouch(){WakeIdle.last=Date.now();}
-const followUpsOn=()=>localStorage.getItem('hq-followup')==='1';
+// Owner (2026-10-09): "when we are going back and forth he won't wait for a Hey LUTHUR". Follow-ups are on unless unticked.
+const followUpsOn=()=>localStorage.getItem('hq-followup')!=='0';
 const idleConversation=upConversation;
 upConversation=function(on){
   const result=idleConversation(on);
@@ -50,7 +51,7 @@ voiceCommand=function(text){
 const idleSettings=vSettings;
 vSettings=function(el){
   const r=idleSettings(el),box=document.getElementById('pcWakeStatus');
-  if(box&&!document.getElementById('followUps')){box.insertAdjacentHTML('afterend',`<label><input id="followUps" type="checkbox" ${followUpsOn()?'checked':''}> Follow-up questions without the name · after an answer, listen 5 seconds for more (off = always say “Hey LUTHUR”)</label>`);
+  if(box&&!document.getElementById('followUps')){box.insertAdjacentHTML('afterend',`<label><input id="followUps" type="checkbox" ${followUpsOn()?'checked':''}> Follow-up questions without the name · after an answer, keep listening 8 seconds for more (off = always say “Hey LUTHUR”)</label>`);
     document.getElementById('followUps').onchange=e=>localStorage.setItem('hq-followup',e.target.checked?'1':'0');}
   return r;
 };

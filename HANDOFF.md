@@ -60,7 +60,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Local branch `luthur-work` tracks that remote branch under a different name, so a plain `git push` refuses: use `git push origin HEAD:claude/relaxed-turing-tnsbre`.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-10 00:41 UTC)
+## Current state (auto, 2026-10-10 00:50 UTC)
 - Stage: building · health: good
 - Next step: Owner: do the 6 away-mode steps in brain/projects/luthur/away-setup.md (phone test first), keep the Level 4 trial going and rate each result 👍/👎.
 
@@ -91,6 +91,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-09 15:30 · claude**: Owner voice checks 1-4 passed (wake, stop, talk-over, "open my calendar"). Fixed: voice-opened calendar (screen.js scrAgendaHtml) is now grouped by day (Overdue/Today/Tomorrow/…) with time column and the Calendar page colours (reminder blue, milestone violet, deadline red, Google event = its calendar colour) + legend.…
 - **2026-10-09 14:30 · claude**: Owner checks batch 1: chat, Tasks, Daily schedule, initiative card OK. Fixed (1) War Room conversation now renders like the LUTHUR tab (bubbles, timestamps, last 60 messages) and picks up messages sent from the LUTHUR tab/phone every 4 s (web/upgrade.js, upgrade.css; refresh to see). (2) Outbox: deleting a calendar ev…
 - **2026-10-09 14:00 · claude**: Owner: phone access over Tailscale has worked for days; Tailscale key expiry disabled. Owner dropped the rest of the away setup (dead-man ping, Chrome Remote Desktop, Autologon, BIOS power-on): removed from Owner checks; away-setup.md kept for reference. Now going through the remaining owner checks, then back to the L…
 - **2026-10-08 03:40 · claude**: Owner: "set keep awake always and do as much as you can for me to manually do tomorrow". keepAwake = always (hq.json + the local override that said busy). New scripts/AWAY-CHECK.cmd (read-only readiness check). Already OK: Windows sleep/hibernate never on mains, startup, watchdog, Tailscale connected + automatic + ser…
@@ -98,6 +99,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-08 08:32 · claude**: Owner said go: switched on l4.plans, l4.retries, l4.projectState in config/hq.json (signals, web research, chat.persistent stay off). Trial week 8-15 Oct: checklist + scorecard in brain/projects/luthur/l4-trial.md; daily 19:00 reminder "LUTHUR trial" and a 15 Oct 19:00 review reminder. Restarted LUTHUR so it is live.
 - **2026-10-08 01:25 · claude**: Level 4 build (docs/L4-PROGRESS.md). Outcome → brief → plan of checked steps → verified result, or one question only the owner can answer. Built: speed (timing.ts stage timings, fastpath.ts no-model answers, memo.ts cache, per-turn brain facts, SSE /api/chat/stream, TTS prefetch, /api/chat/cancel, background runs belo…
 - **2026-10-08 07:15 · claude**: Outbox sends now queue (src/lib/outbox.ts): a second Send while one is running waits its turn instead of failing with "Another item is being sent" (owner hit it cancelling a calendar event). Send marks the item "sending" at once, so pressing again is "Already handled". Calendar Cancel reuses an existing Outbox removal…
-- **2026-10-08 06:55 · claude**: Calendar day Cancel rework (owner: "has a confirm button at the bottom, built badly, doesn't delete some"). Causes: the shared confirm box landed under the Add form with "Confirm/Cancel" buttons; the calendar shows duplicate reminders (same title+time) once, so Cancel removed only one copy; Google events only went to …
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.

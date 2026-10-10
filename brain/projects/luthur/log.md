@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 16:00 · claude
+Owner: "when I talk he completely stops and listens; going back and forth he won't wait for Hey LUTHUR". Reverses the 2026-10-08 name-required rule. Follow-ups without the name are now ON by default and the window after an answer is 8 s (was 5 s; Settings → Voice untick = name only again). Talking over him stops him on the first real word (was 2). Mic comes back ~1.2 s after he finishes (was ~2 s). "Hear only my voice": not built; browser speech recognition can't tell voices apart (options: headset, push-to-talk, a local speaker-ID model later).
+
 ## 2026-10-09 15:30 · claude
 Owner voice checks 1-4 passed (wake, stop, talk-over, "open my calendar"). Fixed: voice-opened calendar (screen.js scrAgendaHtml) is now grouped by day (Overdue/Today/Tomorrow/…) with time column and the Calendar page colours (reminder blue, milestone violet, deadline red, Google event = its calendar colour) + legend. Voice state label now changes instantly (no 400 ms scramble) and "Say Hey LUTHUR" (dim grey-blue) / "mic paused" (orange) / listening (green) look different. Open: corner panel pops up on its own after minimizing/opening LUTHUR; first voice heard is the British device voice, not ElevenLabs. Likely cause: the Windows wake listener (pc-wake.exe) hears LUTHUR's own greeting while the main window isn't focused, and the greeting plays before the ElevenLabs voice is ready. Needs a look.
 

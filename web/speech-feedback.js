@@ -61,14 +61,14 @@ configureVoice=function(u){speechConfigure(u);{let ended=false,watchdog;
     if(ended||u._speechGuard!==SpeechPlayback.generation)return;
     clearTimeout(watchdog);
     if(window.speechSynthesis?.speaking||window.speechSynthesis?.pending){watchdog=setTimeout(end,100);return;}
-    ended=true;SpeechPlayback.blocked=false;SpeechPlayback.until=Date.now()+1000;SpeechPlayback.ignorePcBefore=SpeechPlayback.until;
+    ended=true;SpeechPlayback.blocked=false;SpeechPlayback.until=Date.now()+600;SpeechPlayback.ignorePcBefore=SpeechPlayback.until;
     const generation=SpeechPlayback.generation;
     SpeechPlayback.timer=setTimeout(()=>{
       if(generation!==SpeechPlayback.generation||speechPlaybackBlocked()||Access.locked)return;
       if(!SpeechUI.editing&&Wake.on){if(Wake.buf?.trim())Wake.armed=Date.now();Wake.resume();if(Wake.buf?.trim())Wake.t=setTimeout(()=>speechSend(Wake.buf),turnPauseFor(Wake.buf,turnPauseBase()));}
       if(SpeechPlayback.rearmPc&&!UPG.conversation){SpeechPlayback.rearmPc=false;api('/pc-voice','PUT',{enabled:true}).then(state=>{pcVoiceWasOn=state.running;pcVoicePaint(state);}).catch(()=>{});}
       speechPaint();
-    },1050);speechPaint();
+    },650);speechPaint();
   };
   u._speechWatch=()=>{clearTimeout(watchdog);watchdog=setTimeout(end,250);};
   if(u.addEventListener){u.addEventListener('start',()=>{speechPlaybackStart(u);u._speechWatch();});u.addEventListener('end',end);u.addEventListener('error',end);}

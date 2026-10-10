@@ -70,7 +70,7 @@ StopMonitor.start=function(){
     if(!Barge.hold){
       const text=stopWords(last[0].transcript),ask=text.replace(BARGE_NAME,'').trim();if(!ask)return;
       if(bargeEcho(text,this.speech)||isStopRequest(ask))return;
-      if(ask.split(' ').length<2)return;
+      const first=ask.split(' ');if(first.length<2&&first[0].length<3)return; // one real word is enough (owner, 2026-10-09)
       Barge.from=e.results.length-1;bargeQuiet(this.speech);
     }
     Barge.hold=Date.now();clearTimeout(Barge.t); // still talking: keep the mic, restart the silence clock

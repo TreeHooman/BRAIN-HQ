@@ -10,6 +10,7 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 4. Later: Obsidian notes (see docs/BACKLOG.md). Guarded computer control: first version done 2026-10-07.
 
 ## Owner checks
+- Voice back-and-forth (refresh first): "Hey LUTHUR, what time is it", then ask a follow-up without the name within 8 s: he answers. Talk over him: he stops on your first word. Stay quiet ~8 s: he goes back to waiting for "Hey LUTHUR".
 - Away mode: rate a finished task 👎 with a note ("always…"); give a similar task: its report should follow the lesson. Or say "that last task was wrong because …".
 - Level 4 speed: after a restart ask "what time is it", "what's next on LUTHUR" and "is anything waiting for me": answers should be instant (no thinking pause). Open /api/timing to see the numbers.
 - Level 4 intake: tell LUTHUR a multi-step job by voice (e.g. "work out what it would take to move my project notes into a database and plan it"). A Task brief appears bottom-right (Work panel) with at most 2 questions; correct it by voice, then say "go" (or "go anyway").
@@ -18,7 +19,6 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 - Calendar: after a restart, Cancel a Google event already deleted: its Outbox card ends "sent · already gone", not failed. War Room conversation looks like the LUTHUR tab and updates when you chat elsewhere. Voice: after a restart "Hey LUTHUR" is on by itself, no Settings trip.
 - Voice stop: ask LUTHUR something long, then say "Luther stop" (or "stop listening"): he goes quiet, doesn't finish the answer out loud, and ignores normal talk until you say "Hey LUTHUR" again.
 - Side panel: after a restart, click into another app (LUTHUR behind it or minimized) and say "Hey LUTHUR": the small side panel should pop up and answer.
-- Voice: after a restart, say "Hey LUTHUR, what time is it". After he answers, talk normally: he should NOT respond. Say "Hey LUTHUR" again: he should. Say "Luther, stop listening": he goes back to waiting for his name. Replies should start about 1-2 s sooner.
 - Evening debrief: after a restart, open Today and press "So far today" on the Evening debrief card. At 21:00 one 🌙 alert should arrive (only if LUTHUR did something today) and the card shows it.
 - Initiative picks: approve the 2 "Initiative ·" cards (LoanCentral Phase 0, Reddit recusal rule), read their reports; if useful press Go live now on the plan-level rule. Reject a weak pick later: it shows "you said no".
 - Decide the Discord interest-rate + ID/paystub policy by Oct 10 (loancentral-discord); ask LUTHUR or Claude to lay out options and log the decision.
