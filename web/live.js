@@ -367,17 +367,29 @@ async function codeLoad(full) {
     const steps = (op?.steps || []).filter(s => s.kind === "tool" || s.kind === "text");
     liveBox.innerHTML = `<div class="cd-steps">${steps.slice(-16).map(s => stepLine(s, true)).join("")}<div class="s run"><b>${steps.length ? "Working" : "Starting"}</b><span>${op ? `${op.calls} steps · <span class="a">+${op.added}</span> <span class="d">−${op.removed}</span> · ${fmtDur(Date.now() - op.startedAt)}` : ""}</span></div></div>`;
   } else liveBox?.remove();
+  // Queued messages wait under the live run, in order (server-side queue, see code.ts submit).
+  let qBox = document.getElementById("cdQueue"); const queue = d.queue || [];
+  if (queue.length) {
+    if (!qBox) { qBox = document.createElement("div"); qBox.id = "cdQueue"; qBox.className = "cd-queue"; }
+    log.appendChild(qBox);
+    qBox.innerHTML = `<div class="small muted">${d.queuePaused && !d.busy ? "Queue paused after Stop. Send a message or press Run now to continue." : `Queued: runs when LUTHUR finishes${d.busy ? " the current request" : ""}.`}</div>` + queue.map((q, i) => `<div class="cd-msg you queued"><div class="md">${esc(q.text.length > 400 ? q.text.slice(0, 399) + "…" : q.text)}${q.images ? ` <span class="small muted">· ${q.images} image${q.images > 1 ? "s" : ""}</span>` : ""}</div><div class="row"><span class="small muted">#${i + 1}</span><button type="button" class="btn sm" data-qrun="${esc(q.id)}" ${d.busy ? "hidden" : ""}>Run now</button><button type="button" class="btn sm ghost" data-qdel="${esc(q.id)}" aria-label="Remove from queue">✕</button></div></div>`).join("");
+    qBox.querySelectorAll("[data-qdel]").forEach(b => b.onclick = () => api(`/code/${id}/queue/${b.dataset.qdel}`, "DELETE").then(() => codeLoad(false)).catch(x => toast(x.message)));
+    qBox.querySelectorAll("[data-qrun]").forEach(b => b.onclick = () => api(`/code/${id}/queue/${b.dataset.qrun}/run`, "POST").then(() => { Code.sentAt = Date.now(); codeLoad(false); }).catch(x => toast(x.message)));
+  } else qBox?.remove();
   if (stick || full) log.scrollTop = log.scrollHeight;
   const stop = document.getElementById("cdStop"); if (stop) stop.hidden = !d.busy;
-  const send = document.getElementById("cdSend"); if (send) send.disabled = d.busy;
+  const send = document.getElementById("cdSend"); if (send) { send.disabled = false; send.textContent = d.busy ? "Queue for LUTHUR" : "Send to LUTHUR"; }
   clearTimeout(Code.poll);
-  if (d.busy || Date.now() - Code.sentAt < 3000) Code.poll = setTimeout(() => codeLoad(false), 1100);
+  if (d.busy || queue.length || Date.now() - Code.sentAt < 3000) Code.poll = setTimeout(() => codeLoad(false), 1100);
 }
 async function codeSend() {
-  const ta = document.getElementById("cdText"); const text = ta?.value.trim(); if (!text || Code.data?.busy) return;
+  const ta = document.getElementById("cdText"); const text = ta?.value.trim(); if (!text) return;
   const sendButton=document.getElementById("cdSend"); if(sendButton?.disabled)return; if(sendButton)sendButton.disabled=true;
-  try { await api(`/code/${Code.slug}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort(), mode: hstore.get("hq-cv-mode-" + Code.slug, "safe") }); }
+  let r;
+  try { r = await api(`/code/${Code.slug}`, "POST", { text, tier: currentTier(), effort: currentEffort() === "auto" ? null : currentEffort(), mode: hstore.get("hq-cv-mode-" + Code.slug, "safe") }); }
   catch (e) { if(sendButton)sendButton.disabled=false;toast("⚠ " + e.message, 5000); return; }
+  if (sendButton) sendButton.disabled = false;
+  if (r?.queued) toast(`Queued #${r.queued}: runs when LUTHUR is free`);
   hstore.set("hq-code-draft-"+Code.slug, "");
   ta.value = ""; ta.style.height = ""; Code.sentAt = Date.now(); Snd.blip(980, .06); corePing?.(); opsKick?.(); liveKick();
   codeLoad(false);

@@ -15,11 +15,12 @@ import { killTree, runClaude } from "./claude.ts";
 import { opStart, opEnd, activity } from "./orchestrator.ts";
 import type { Step } from "./narrate.ts";
 import * as brain from "./brain.ts";
-import type { Image } from "./uploads.ts";
+import { resolve as uploadImages, type Image } from "./uploads.ts";
 
 type Agent = { role: string; engine: "claude" | "codex"; model: string; effort?: string; ok?: boolean };
 type Msg = { role: "you" | "hq"; text: string; images?: string[]; agents?: Agent[]; at: string; error?: boolean; steps?: Step[]; added?: number; removed?: number; ms?: number; ctx?: number; win?: number | null; cost?: number | null; mode?: string };
-type Session = { id: string; project: string; folder?: string; name?: string; sessionId: string | null; createdAt?: string; updatedAt?: string; importedFrom?: string; usage?: { cost: number; turns: number; ctx: number|null; win: number | null; rate: any; at: string }; messages: Msg[]; settings?: CodeSettings };
+type Queued = { id: string; text: string; images?: string[]; at: string; tier?: string; effort?: string | null; readOnly?: boolean; mode?: string | null };
+type Session = { id: string; project: string; folder?: string; name?: string; sessionId: string | null; createdAt?: string; updatedAt?: string; importedFrom?: string; usage?: { cost: number; turns: number; ctx: number|null; win: number | null; rate: any; at: string }; messages: Msg[]; settings?: CodeSettings; queue?: Queued[] };
 
 const DIR = path.join(DATA, "code");
 const ID = /^[a-z0-9-]{1,60}$/;
@@ -95,7 +96,7 @@ export function get(key: string) {
   const { p, dirs, level } = access(s.project, s.folder);
   const settings = codeSettings(s.settings);
   const sameProject = [...busy.keys()].filter(k => k !== key && readJson<Session | null>(path.join(DIR, `${k}.json`), null)?.project === s.project).length;
-  return { id: key, project: s.project, name: s.name || p.name, folders: p.paths || [], found: dirs, level, busy: busy.has(key), opId: busy.get(key)?.opId || null, sameProject, usage: s.usage || null, messages: s.messages.slice(-60),manager:true,settings,effectiveLevel:minLevel(["read","plan"].includes(settings.permission)?settings.permission:"build",level),effectiveMinutes:Math.min(settings.maxMinutes,loadConfig().code?.maxMinutes||120),workroom:workroom(key) };
+  return { id: key, project: s.project, name: s.name || p.name, folders: p.paths || [], found: dirs, level, busy: busy.has(key), opId: busy.get(key)?.opId || null, sameProject, usage: s.usage || null, messages: s.messages.slice(-60),queue:(s.queue||[]).map(q=>({id:q.id,text:q.text,at:q.at,images:q.images?.length||0})),queuePaused:paused.has(key),manager:true,settings,effectiveLevel:minLevel(["read","plan"].includes(settings.permission)?settings.permission:"build",level),effectiveMinutes:Math.min(settings.maxMinutes,loadConfig().code?.maxMinutes||120),workroom:workroom(key) };
 }
 
 export function configure(key: string, patch: Partial<CodeSettings>) {
@@ -237,8 +238,57 @@ export async function send(key: string, text: string, tier = "balanced", effort:
     const latest=load(key),cancelled=!!busy.get(key)?.cancelled;
     latest.messages.push({role:'hq',text:cancelled?'_Stopped._':`Workroom needs attention: ${(error as Error).message}`,at:new Date().toISOString(),error:!cancelled});
     save(key,latest);
-  } finally { const cancelled=busy.get(key)?.cancelled;busy.delete(key); opEnd(opId, ok,!!cancelled); }
+  } finally { const cancelled=busy.get(key)?.cancelled;busy.delete(key); opEnd(opId, ok,!!cancelled); if(cancelled)paused.add(key); if(queueOn)setTimeout(drain, 0); }
 }
+
+// ---------------- queued messages (owner, 2026-10-10: "let me queue chats, like Claude Code") ----------------
+// A message sent while its workroom is busy (or while the parallel limit is full) waits in the session file and
+// runs in order when there's room. Stop pauses that workroom's queue until the owner sends or presses Run now.
+const paused = new Set<string>();
+let queueOn = false;
+let drainTimer: ReturnType<typeof setTimeout> | null = null;
+export function isBusy(key: string) { return busy.has(key); }
+/** Starts the message now, or queues it when this workroom (or the parallel limit) is busy. */
+export function submit(key: string, text: string, images: Image[], o: Omit<Queued, "id" | "text" | "images" | "at"> = {}): { queued: number } {
+  checkStopped();
+  if (!String(text || "").trim()) throw new Error("Type what you want done.");
+  const s = load(key);
+  if (busy.has(key) || busy.size >= maxParallel() || s.queue?.length) {
+    access(s.project, s.folder);
+    (s.queue ||= []).push({ id: uid(), text, ...(images.length ? { images: images.map(i => i.id) } : {}), at: new Date().toISOString(), ...o });
+    save(key, s); paused.delete(key); if (queueOn) setTimeout(drain, 0);
+    return { queued: s.queue.length };
+  }
+  paused.delete(key); check(key, text); requestSettings(key);
+  void send(key, text, o.tier, o.effort ?? null, o.readOnly === true, o.mode ?? null, {}, images).catch(() => {});
+  return { queued: 0 };
+}
+export function unqueue(key: string, qid: string) { const s = load(key); s.queue = (s.queue || []).filter(q => q.id !== qid); save(key, s); }
+/** Run now: the item moves to the front and the paused queue resumes. */
+export function runQueued(key: string, qid: string) {
+  const s = load(key), i = (s.queue || []).findIndex(q => q.id === qid); if (i < 0) throw new Error("That queued message is gone.");
+  s.queue!.unshift(...s.queue!.splice(i, 1)); save(key, s); paused.delete(key); if (queueOn) drain();
+}
+function drain() {
+  if (drainTimer) { clearTimeout(drainTimer); drainTimer = null; }
+  let keys: string[] = []; try { keys = fs.readdirSync(DIR); } catch {}
+  for (const key of keys.filter(f => f.endsWith(".json")).map(f => f.slice(0, -5)).filter(k => ID.test(k))) {
+    if (busy.has(key) || paused.has(key) || busy.size >= maxParallel()) continue;
+    let s: Session; try { s = load(key); } catch { continue; }
+    const next = s.queue?.[0]; if (!next) continue;
+    s.queue!.shift(); save(key, s);
+    try { check(key, next.text); }
+    catch (e) {
+      if (!/No folder|Type what|Unknown project/.test((e as Error).message)) { const back = load(key); (back.queue ||= []).unshift(next); save(key, back); continue; }
+      const latest = load(key); latest.messages.push({ role: "you", text: next.text, at: next.at }, { role: "hq", text: `Queued message not started: ${(e as Error).message}`, at: new Date().toISOString(), error: true }); save(key, latest); continue;
+    }
+    void send(key, next.text, next.tier, next.effort ?? null, next.readOnly === true, next.mode ?? null, {}, uploadImages(next.images)).catch(() => {});
+  }
+  // anything still waiting (parallel limit full) is retried when a run ends, plus a slow safety tick
+  drainTimer = setTimeout(drain, 15000); drainTimer.unref?.();
+}
+/** Called once by the server at boot: queued messages survive a restart. */
+export function startQueue() { queueOn = true; setTimeout(drain, 3000).unref?.(); }
 
 // ---------------- existing Claude Code sessions (from the terminal / VS Code) ----------------
 // Claude Code keeps each conversation in ~/.claude/projects/<folder path with every non-letter/digit as "-">/<uuid>.jsonl.

@@ -732,3 +732,8 @@ html, body { overflow-x: hidden; }
 .lb-head .a { color: var(--green); } .lb-head .d { color: var(--red); }
 .lb-steps { flex: 1; min-height: 0; overflow: auto; margin: 10px 16px; align-content: start; }
 .lb-done { padding: 0 16px 14px; }
+
+/* Code: queued messages (live.js codeLoad) */
+.cd-queue { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.cd-queue .cd-msg.queued { opacity: .72; border-style: dashed; }
+.cd-queue .row { gap: 6px; align-items: center; justify-content: flex-end; }
