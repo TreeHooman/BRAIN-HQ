@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 22:40 · claude
+Owner: "do everything for LUTHUR, run the tests on your side" + "see what model each agent uses in Code". Tests (all on isolated copies, fake models): base-15 15/15 (fixed a test race: initiative picks from the real brain filled the approvals queue first, the test now waits for its own card), phase0 8/8, initiative 8/8, verify 11/11, debrief 5/5, Level 4 31/31, Away 18/18, autonomy 11/13 (the 2 known failures). Wake selftest (Windows TTS into the detector, no mic): "hey luther", "hey luther, what time is it", "luther" detected; "hey luthor" (TTS says it differently) missed; 0 false wakes on hey brother / mother made leather / Martin Luther King / hey lover / weather / hey arthur. Phone layout at 375 px: no sideways scroll, listening switch and tabs fit. New: every Code reply now ends with a line naming each agent and its model (LUTHUR · manager, each worker, LUTHUR · review: e.g. "Sonnet 5.5 low"), using the model id the CLI reported (claude.ts RunStats.model, code.ts Msg.agents, canvas.js cmAgents). Verified end to end on a copy with a manager→worker→review fake. Needs RESTART-LUTHUR.
+
 ## 2026-10-09 21:05 · claude
 Owner: minimized side-panel wake still didn't work; "remove it, I don't need that feature". The PC detector no longer opens the side panel: a wake-up while LUTHUR's window isn't in front is ignored (pc-voice.ts receive). "Hey LUTHUR" works only with LUTHUR in front (browser listener + detector backup). Hologram can still be opened by hand from Settings.
 

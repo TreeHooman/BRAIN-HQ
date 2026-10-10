@@ -10,6 +10,7 @@ A fast, token-smart assistant the owner can talk to anywhere (PC, phone, desktop
 4. Later: Obsidian notes (see docs/BACKLOG.md). Guarded computer control: first version done 2026-10-07.
 
 ## Owner checks
+- Code models (after RESTART-LUTHUR): send a Code request; under the reply a line lists each agent and its model (LUTHUR · manager, workers, LUTHUR · review).
 - Listening switch (War Room, after Update + Ctrl+R): Always listening → just talk, he answers with no name; "stop talking" only hushes him (stays Always); "switch to Luther mode" flips to Hey LUTHUR, "switch to always listening" flips back. Hey LUTHUR mode → "Hey Luther, what time is it" in one breath answers instantly.
 - Wake word (after a restart): Settings → Voice → Wake word says "On"; press Test (should say Heard: HEY_LUTHER). TV/talk nearby shouldn't wake him; if he misses you, raise Sensitivity.
 - Voice back-and-forth (refresh first): "Hey LUTHUR, what time is it", then ask a follow-up without the name within 8 s: he answers. Talk over him: he stops on your first word. Stay quiet ~8 s: he goes back to waiting for "Hey LUTHUR".
