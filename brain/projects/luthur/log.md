@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 18:40 · claude
+Picovoice dropped (its console needs a company email). Switched the wake word to sherpa-onnx keyword spotting (Apache-2.0, fully local, no account): owner OK'd downloading sherpa-onnx v1.13.8 win-x64 lib + the gigaspeech KWS "mobile" model; engine DLLs in scripts/sherpa. scripts/pc-wake-kws.cs/.exe replaces pc-wake-pv (wake phrase typed in Settings, tokenized in wake-engine.ts with a SentencePiece unigram tokenizer verified 9/9 on the model's examples; --selftest has Windows speak the phrase into the spotter). Blocker: the "mobile" encoder crashes in v1.13.8 (Reshape in /downsample: graph built for a different chunk than its metadata, same with fp32), so the model files were not kept. Next: owner OK to download the regular sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01 model (17.6 MB), then selftest and switch on. Until then the Windows listener stays in use.
+
 ## 2026-10-09 16:45 · claude
 Owner said "do it" to a dedicated wake word (step 1 of 3: wake word now; speaker-ID "only my voice" and local Whisper after the L4 review). Built Picovoice Porcupine v4.0 support: scripts/pc-wake-pv.cs/.exe (C# + P/Invoke, winmm mic, no installs; after the name it records the sentence and uses Windows dictation like pc-wake.exe), src/lib/wake-engine.ts (AccessKey only in hq.local.json, keyword at data/wake/keyword.ppn, Test setup, falls back to the Windows listener if Picovoice fails to start), routes /api/wake-engine(+/keyword,/check), pc-voice.ts picks the engine, Settings → Voice → "Wake word · Picovoice" card (web/wake-engine.js). Waiting on: owner OK to download libpv_porcupine.dll + porcupine_params.pv (v4.0, Apache-2.0) into scripts/pv; owner Picovoice account, AccessKey and "Hey Luther" Windows .ppn.
 
