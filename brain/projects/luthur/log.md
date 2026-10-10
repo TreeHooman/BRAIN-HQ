@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 19:00 · claude
+Wake word works (offline tests). Owner OK'd the regular sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01 model (checksum matches); installed in scripts/sherpa/model (int8 encoder, fp32 decoder/joiner). Model samples: LIGHT UP / LOVELY CHILD / FOREVER all detected at the right times. Selftest (Windows TTS says the phrase): "hey luther" and "luther" wake it; "hey brother", "hey mother", "hey there", "the leather couch", "Martin Luther King", "hello there" don't (at 0.5 and 0.8); "hey luthor" only at 0.8. Default sensitivity 0.65. Takes over from the Windows listener after a restart. Owner to try with the real mic.
+
 ## 2026-10-09 18:40 · claude
 Picovoice dropped (its console needs a company email). Switched the wake word to sherpa-onnx keyword spotting (Apache-2.0, fully local, no account): owner OK'd downloading sherpa-onnx v1.13.8 win-x64 lib + the gigaspeech KWS "mobile" model; engine DLLs in scripts/sherpa. scripts/pc-wake-kws.cs/.exe replaces pc-wake-pv (wake phrase typed in Settings, tokenized in wake-engine.ts with a SentencePiece unigram tokenizer verified 9/9 on the model's examples; --selftest has Windows speak the phrase into the spotter). Blocker: the "mobile" encoder crashes in v1.13.8 (Reshape in /downsample: graph built for a different chunk than its metadata, same with fp32), so the model files were not kept. Next: owner OK to download the regular sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01 model (17.6 MB), then selftest and switch on. Until then the Windows listener stays in use.
 

@@ -60,7 +60,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Local branch `luthur-work` tracks that remote branch under a different name, so a plain `git push` refuses: use `git push origin HEAD:claude/relaxed-turing-tnsbre`.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-10 01:04 UTC)
+## Current state (auto, 2026-10-10 01:28 UTC)
 - Stage: building · health: good
 - Next step: Owner: do the 6 away-mode steps in brain/projects/luthur/away-setup.md (phone test first), keep the Level 4 trial going and rate each result 👍/👎.
 
@@ -91,6 +91,7 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-09 18:40 · claude**: Picovoice dropped (its console needs a company email). Switched the wake word to sherpa-onnx keyword spotting (Apache-2.0, fully local, no account): owner OK'd downloading sherpa-onnx v1.13.8 win-x64 lib + the gigaspeech KWS "mobile" model; engine DLLs in scripts/sherpa. scripts/pc-wake-kws.cs/.exe replaces pc-wake-pv…
 - **2026-10-09 16:45 · claude**: Owner said "do it" to a dedicated wake word (step 1 of 3: wake word now; speaker-ID "only my voice" and local Whisper after the L4 review). Built Picovoice Porcupine v4.0 support: scripts/pc-wake-pv.cs/.exe (C# + P/Invoke, winmm mic, no installs; after the name it records the sentence and uses Windows dictation like p…
 - **2026-10-09 16:00 · claude**: Owner: "when I talk he completely stops and listens; going back and forth he won't wait for Hey LUTHUR". Reverses the 2026-10-08 name-required rule. Follow-ups without the name are now ON by default and the window after an answer is 8 s (was 5 s; Settings → Voice untick = name only again). Talking over him stops him o…
 - **2026-10-09 15:30 · claude**: Owner voice checks 1-4 passed (wake, stop, talk-over, "open my calendar"). Fixed: voice-opened calendar (screen.js scrAgendaHtml) is now grouped by day (Overdue/Today/Tomorrow/…) with time column and the Calendar page colours (reminder blue, milestone violet, deadline red, Google event = its calendar colour) + legend.…
@@ -98,6 +99,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-09 14:00 · claude**: Owner: phone access over Tailscale has worked for days; Tailscale key expiry disabled. Owner dropped the rest of the away setup (dead-man ping, Chrome Remote Desktop, Autologon, BIOS power-on): removed from Owner checks; away-setup.md kept for reference. Now going through the remaining owner checks, then back to the L…
 - **2026-10-08 03:40 · claude**: Owner: "set keep awake always and do as much as you can for me to manually do tomorrow". keepAwake = always (hq.json + the local override that said busy). New scripts/AWAY-CHECK.cmd (read-only readiness check). Already OK: Windows sleep/hibernate never on mains, startup, watchdog, Tailscale connected + automatic + ser…
 - **2026-10-08 03:00 · claude**: Away mode built overnight (owner: "talk and get shit done… away for months, back and forth with LUTHUR while he controls usage and does work"). docs/AWAY-MODE.md. - Phone access: Tailscale was already installed, the iPhone is on the tailnet and `tailscale serve` already serves LUTHUR at https://desktop-aklj0fo.tail2bf…
-- **2026-10-08 08:32 · claude**: Owner said go: switched on l4.plans, l4.retries, l4.projectState in config/hq.json (signals, web research, chat.persistent stay off). Trial week 8-15 Oct: checklist + scorecard in brain/projects/luthur/l4-trial.md; daily 19:00 reminder "LUTHUR trial" and a 15 Oct 19:00 review reminder. Restarted LUTHUR so it is live.
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.

@@ -17,7 +17,7 @@ const conf = () => loadConfig().wakeWord || {};
 const err = (msg: string, code = 400) => Object.assign(new Error(msg), { code });
 let lastError = "", failedAt = 0;
 
-const sens = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : .5; };
+const sens = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : .65; }; // 0.5 missed "luthor", 0.8 still ignored brother/mother/leather/"Martin Luther King" (selftest, 2026-10-09)
 /** Sensitivity 0..1 → the spotter's threshold (lower threshold = wakes more easily) and boost score. */
 const tuning = (s: number) => ({ threshold: (0.4 - 0.3 * s).toFixed(3), score: (1 + s).toFixed(2) });
 const phrase = () => String(conf().phrase || DEFAULT_PHRASE);
