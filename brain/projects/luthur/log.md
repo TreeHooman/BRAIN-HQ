@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 20:10 · claude
+Owner: still not catching "Hey LUTHUR, …" in one breath and slow to notice; asked for a War Room switch between always listening and Hey LUTHUR mode. Log: detector heard the name, page claimed it ~0.9 s later, but the browser listener wasn't running (ending a conversation toggles Wake.on off, so wake-handoff.js never restarted it) → fixed. New web/listen-mode.js: War Room "Listening: Always listening | Hey LUTHUR" switch (saved per device). Always = conversation stays open while LUTHUR's window is in use (no name, no wake-up lag; idle timeout skipped); minimized → conversation closes and the PC detector re-arms; "stop listening" switches to Hey LUTHUR mode. Needs Update.
+
 ## 2026-10-09 19:45 · claude
 Owner test of the new wake word: "takes a long time, I have to say Hey LUTHUR, wait, then talk; and 'what time is it' is slow". Log showed: detector hears the name fine, but recording the rest of the sentence added ~1.5 s and Windows dictation caught nothing, so the page opened a conversation and waited for a second sentence. Timing showed "what time is it" went to Haiku (2.9-4.6 s to first audio): the page sends its model-console pick with every turn and fastpath skipped any turn with a model. Fixes: fastpath now only skips when the words ask for a model (adaptive:false) → instant answer again; detector hands over the moment it hears the name; while LUTHUR's window is in use the browser listener runs too and handles "Hey LUTHUR, …" in one sentence (web/wake-handoff.js), the detector's wake-up is dropped unless the browser missed the name; minimized → detector opens the side panel (then speak). Needs Update/restart.
 

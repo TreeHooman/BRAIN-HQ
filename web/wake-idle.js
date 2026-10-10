@@ -23,6 +23,7 @@ const STOP_ONLY=new Set(['stop','no','okay','ok','please','hey','luther','luthur
 // and listen only for "Hey LUTHUR". Saying the name again lifts the mute. "Force stop" keeps its own behaviour.
 const isForceStopSafe=text=>typeof isForceStop==='function'&&isForceStop(text);
 function stopTalking(){
+  if(typeof listenAlways==='function'&&listenAlways())listenModeSet('wake','Okay, Hey LUTHUR mode. Say “Hey LUTHUR” when you need me.');
   WakeIdle.muted=true;window.speechSynthesis?.cancel();
   speechClearTurn();if(UPG.conversation)upConversation(false);speechStatus('wake');
 }
@@ -43,7 +44,7 @@ voiceCommand=function(text){
   // After the first request, more speech only counts if it used the name (or interrupted LUTHUR mid-sentence,
   // which voice-stream.js marks just before calling this).
   const barge=Date.now()-(window.hqVoiceTurn||0)<400;
-  if(WakeIdle.sent&&!followUpsOn()&&!barge&&Date.now()-WakeIdle.named>15000)return;
+  if(WakeIdle.sent&&!followUpsOn()&&!barge&&Date.now()-WakeIdle.named>15000&&!(typeof listenAlways==='function'&&listenAlways()))return;
   WakeIdle.sent=true;WakeIdle.muted=false;
   return idleVoiceCommand(text);
 };
@@ -85,6 +86,8 @@ Wake.start=function(){
   return result;
 };
 function wakeIdleCheck(){
+  // Always-listening mode (listen-mode.js) keeps the conversation open while LUTHUR's window is in use.
+  if(typeof listenAlways==='function'&&listenAlways()&&typeof wakeMainInUse==='function'&&wakeMainInUse()){wakeIdleTouch();return;}
   if(!WakeIdle.active)return;
   if(Access.locked||ForceStop.stopped||ForceStop.busy){WakeIdle.active=false;return;}
   if(!Wake.rec||Wake.paused)WakeIdle.speaking=false;

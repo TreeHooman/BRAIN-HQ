@@ -300,3 +300,10 @@ body.has-ops:has(.ops.min) #view {padding-bottom:60px}
 /* Settings → Voice → Wake word (wake-engine.js) */
 #wakeEngine .we-state { font:12px var(--mono); color:var(--text3); }
 #wakeEngine .we-state[data-on="1"] { color:#79efb6; }
+
+/* War Room listening switch (listen-mode.js) */
+.listen-mode { display:flex; align-items:center; gap:6px; margin:8px 0 0; font:11px var(--mono); color:var(--text3); flex-wrap:wrap; }
+.listen-mode > span { letter-spacing:.12em; text-transform:uppercase; margin-right:4px; }
+.listen-mode button { font:12px var(--mono); padding:6px 12px; border-radius:999px; border:1px solid #6ff2ff33; background:transparent; color:var(--text2); cursor:pointer; }
+.listen-mode button.on { border-color:#79efb6; color:#79efb6; background:#79efb612; box-shadow:0 0 10px #79efb622; }
+.listen-mode button[data-mode="wake"].on { border-color:#80eeff; color:#80eeff; background:#80eeff12; box-shadow:0 0 10px #80eeff22; }

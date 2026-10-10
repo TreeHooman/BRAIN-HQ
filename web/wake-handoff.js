@@ -6,8 +6,9 @@
 // - Minimized or behind other apps: only the PC detector (scripts/pc-wake-kws.exe), which opens the side panel.
 function wakeMainInUse(){return !window.hqOverlay&&document.visibilityState==='visible'&&document.hasFocus()&&!(typeof Access!=='undefined'&&Access.locked)&&!(typeof ForceStop!=='undefined'&&ForceStop.stopped);}
 setInterval(()=>{
-  if(!pcVoiceWasOn||window.hqDesktopVoiceOwner||UPG.conversation||!Wake.on)return;
-  if(wakeMainInUse()){if(Wake.paused&&!Wake.rec&&!speechPlaybackBlocked()&&!SpeechUI.editing){Wake.paused=false;Wake.start();}}
+  if(!pcVoiceWasOn||window.hqDesktopVoiceOwner||UPG.conversation||WAKE_PHONE)return;
+  // Ending a conversation switches the browser listener off (upgrade.js upConversation), so turn it back on here.
+  if(wakeMainInUse()){if(!Wake.rec&&!speechPlaybackBlocked()&&!SpeechUI.editing){Wake.on=true;Wake.paused=false;Wake.start();}}
   else if(!Wake.paused)Wake.pause();
 },400);
 /** Called by voice.js before acting on a detector wake-up: true when the browser listener already has this turn. */
