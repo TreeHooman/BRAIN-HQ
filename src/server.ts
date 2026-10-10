@@ -307,6 +307,7 @@ const routes: [string, RegExp, Handler][] = [
   ["POST", /^\/api\/desktop-overlay$/, (_, b) => { writeCheck(); return pcVoice.desktop(String(b.action||'open'),PORT); }],
   ["GET", /^\/api\/wake-engine$/, () => wakeEngine.status()],
   ["PUT", /^\/api\/wake-engine$/, (_, b) => { writeCheck(); return wakeEngine.save(b); }],
+  ["POST", /^\/api\/wake-engine\/log$/, (_, b) => { writeCheck(); wakeEngine.log(String(b.line || "").replace(/[\r\n]+/g, " ").slice(0, 200)); return { ok: true }; }],
   ["POST", /^\/api\/wake-engine\/check$/, () => { writeCheck(); return wakeEngine.check(); }],
   ["POST", /^\/api\/pc-voice\/claim$/, (_, b) => { writeCheck(); return pcVoice.claim(Number(b.at)); }],
   ["GET", /^\/api\/chat\/retention$/, () => chatMemory.retentionStatus()],

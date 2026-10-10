@@ -86,7 +86,9 @@ async function pcVoicePoll(){
     const event=state.event;
     if(event?.target==='overlay'&&!window.hqOverlay)return;
     if(event&&event.at>pcVoiceLast){pcVoiceLast=event.at;if(Date.now()-event.at<20000&&(await api('/pc-voice/claim','POST',{at:event.at})).event){
-      if(typeof speechPlaybackBlocked==='function'&&(speechPlaybackBlocked()||event.at<=SpeechPlayback.ignorePcBefore))return;
+      const wlog=line=>api('/wake-engine/log','POST',{line}).catch(()=>{});
+      if(typeof speechPlaybackBlocked==='function'&&(speechPlaybackBlocked()||event.at<=SpeechPlayback.ignorePcBefore)){wlog('page dropped it: LUTHUR was speaking');return;}
+      wlog(`page starts conversation (${route.view}, words: ${event.text?.trim()?event.text.trim().split(/\s+/).length:0})`);
       window.hqVoiceAt=Date.now();
       if(route.view!=='command'){location.hash='command';await new Promise(resolve=>setTimeout(resolve,400));}
       if(event.kind==='wake'){

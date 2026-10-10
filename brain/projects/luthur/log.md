@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 19:20 · claude
+Owner: new wake word "not picking it up in the War Room". The detector had restarted once (so it likely detected and handed over), so added a hand-off trail in data/wake/kws.log: helper (start, mic level every 30 s, keyword heard, words caught after the name, hand-over), server (event → main/overlay, claim) and page (conversation started / dropped because LUTHUR was speaking) via POST /api/wake-engine/log. New helper build committed straight into git (the running exe was locked); Update installs it. Next: owner tests, Claude reads the log.
+
 ## 2026-10-09 19:00 · claude
 Wake word works (offline tests). Owner OK'd the regular sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01 model (checksum matches); installed in scripts/sherpa/model (int8 encoder, fp32 decoder/joiner). Model samples: LIGHT UP / LOVELY CHILD / FOREVER all detected at the right times. Selftest (Windows TTS says the phrase): "hey luther" and "luther" wake it; "hey brother", "hey mother", "hey there", "the leather couch", "Martin Luther King", "hello there" don't (at 0.5 and 0.8); "hey luthor" only at 0.8. Default sensitivity 0.65. Takes over from the Windows listener after a restart. Owner to try with the real mic.
 

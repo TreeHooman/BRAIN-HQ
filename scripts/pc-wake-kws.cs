@@ -124,6 +124,8 @@ class PcWakeKws {
     } catch { return ""; }
   }
 
+  // One line per event to HQ_KWS_LOG (data/wake/kws.log): start, mic level every 30 s, detections, hand-over. No audio or words.
+  static void Log(string line) { var f = Environment.GetEnvironmentVariable("HQ_KWS_LOG"); if (string.IsNullOrEmpty(f)) return; try { File.AppendAllText(f, DateTime.Now.ToString("HH:mm:ss.f") + " " + line + Environment.NewLine); } catch {} }
   static float Env(string name, float d) { float v; return float.TryParse(Environment.GetEnvironmentVariable(name) ?? "", System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out v) ? v : d; }
 
   static int Main(string[] args) {
@@ -169,11 +171,14 @@ class PcWakeKws {
         return 0;
       }
       using (var mic = new Mic(rate, 1600)) {
-        double floor = 200;
+        double floor = 200, peak = 0; int n = 0;
+        Log("start threshold=" + cfg.keywords_threshold + " score=" + cfg.keywords_score);
         for (;;) {
           var f = mic.Read(1600); // 100 ms
           double e = Rms(f); floor = e < floor ? floor * .9 + e * .1 : floor * .995 + e * .005; // slow-rising noise floor
-          if (Spot(kws, stream, f, rate) == null) continue;
+          peak = Math.Max(peak, e); if (++n % 300 == 0) { Log("mic floor=" + (int)floor + " peak=" + (int)peak); peak = 0; }
+          string hit = Spot(kws, stream, f, rate); if (hit == null) continue;
+          Log("heard " + hit);
           // Name heard: keep the sentence that follows ("Hey LUTHUR, what time is it") until ~0.7 s of quiet, max 10 s.
           var said = new List<short>(); int quiet = 0, chunks = 0; bool talking = false; double gate = Math.Max(floor * 3, 350);
           while (chunks++ < 100) {
@@ -189,12 +194,13 @@ class PcWakeKws {
                 http.Headers["Cookie"] = Environment.GetEnvironmentVariable("HQ_PC_VOICE_COOKIE") ?? ""; http.Headers["X-HQ"] = "1"; http.Headers["Content-Type"] = "application/json";
                 http.UploadString("http://127.0.0.1:" + port + "/api/pc-voice/event", new JavaScriptSerializer().Serialize(new { kind = "wake", text = text }));
               }
+              Log("handed over" + (text.Length > 0 ? " with " + text.Split(' ').Length + " words" : " (no words after the name)"));
               return 0; // the dashboard takes over the conversation in the chosen voice
             } catch { if (tries >= 3) { Console.Error.WriteLine("Could not hand the wake word to LUTHUR. Unlock and open the app."); return 1; } Thread.Sleep(1500); }
           }
         }
       }
-    } catch (Exception ex) { Console.Error.WriteLine(ex.Message); return 1; }
+    } catch (Exception ex) { Log("error " + ex.Message); Console.Error.WriteLine(ex.Message); return 1; }
     finally { SherpaOnnxDestroyOnlineStream(stream); SherpaOnnxDestroyKeywordSpotter(kws); }
   }
 }

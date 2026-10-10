@@ -9,7 +9,9 @@ import { spawnSync } from "node:child_process";
 import { loadConfig, saveLocal } from "./config.ts";
 import { DATA } from "./store.ts";
 
-const DIR = path.join(DATA, "wake"), KEYWORDS = path.join(DIR, "keywords.txt");
+const DIR = path.join(DATA, "wake"), KEYWORDS = path.join(DIR, "keywords.txt"), LOG = path.join(DIR, "kws.log");
+/** Wake hand-off trail (helper + server + page), newest last; trimmed when it passes ~200 KB. */
+export function log(line: string) { try { fs.mkdirSync(DIR, { recursive: true }); if ((fs.statSync(LOG, { throwIfNoEntry: false })?.size || 0) > 200e3) fs.writeFileSync(LOG, ""); fs.appendFileSync(LOG, new Date().toTimeString().slice(0, 8) + " " + line + "\n"); } catch {} }
 const EXE = path.resolve("scripts/pc-wake-kws.exe"), LIBDIR = path.resolve("scripts/sherpa"), MODEL = path.join(LIBDIR, "model");
 const FILES = [path.join(LIBDIR, "sherpa-onnx-c-api.dll"), path.join(LIBDIR, "onnxruntime.dll"), path.join(MODEL, "encoder.onnx"), path.join(MODEL, "decoder.onnx"), path.join(MODEL, "joiner.onnx"), path.join(MODEL, "tokens.txt"), path.join(MODEL, "bpe.model")];
 const DEFAULT_PHRASE = "hey luther, hey luthor";
@@ -67,7 +69,7 @@ export function usable() { return conf().enabled !== false && libOk() && !failed
 export function helper(): { exe: string; env: Record<string, string> } {
   if (!fs.existsSync(KEYWORDS)) writeKeywords();
   const t = tuning(sens(conf().sensitivity));
-  return { exe: EXE, env: { HQ_KWS_KEYWORDS: KEYWORDS, HQ_KWS_THRESHOLD: t.threshold, HQ_KWS_SCORE: t.score } };
+  return { exe: EXE, env: { HQ_KWS_KEYWORDS: KEYWORDS, HQ_KWS_THRESHOLD: t.threshold, HQ_KWS_SCORE: t.score, HQ_KWS_LOG: LOG } };
 }
 /** pc-voice.ts reports how the helper ended: code 2 = the spotter couldn't start. */
 export function ended(code: number | null, stderr: string) {

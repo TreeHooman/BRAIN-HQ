@@ -9,13 +9,14 @@ let event: {seq:number;text:string;at:number;kind:'wake'|'command';target:'overl
 export function status(){if(surface==='overlay'&&Date.now()-overlaySeen>30000)surface='main';return {running:!!helper,error,event,protocol:2,surface,engine};}
 // The main window reports while it is on screen; a wake word then goes to it instead of opening the hologram.
 export function desktop(action:string,port:number){if(action==='main-visible'){mainSeen=Date.now();return status();}if(action==='heartbeat'){overlaySeen=Date.now();surface='overlay';return status();}if(action==='release'){surface='main';return status();}if(!['open','hide','main'].includes(action))throw new Error('Choose open, hide or main.');launchOverlay(action as 'open'|'hide'|'main',port);surface=action==='open'?'overlay':'main';overlaySeen=Date.now();return status();}
-export function claim(at:number){if(!event||event.at!==at)return {event:null};const claimed=event;event=null;return {event:claimed};}
+export function claim(at:number){if(!event||event.at!==at){wakeEngine.log('page claim missed');return {event:null};}const claimed=event;event=null;wakeEngine.log(`page claimed ${claimed.kind} after ${Date.now()-claimed.at}ms`);return {event:claimed};}
 export function receive(text: string,kind='command',port=8800){
   const clean=String(text||'').trim().slice(0,8000);
   if(!clean&&kind!=='wake')throw new Error('Empty voice request');
   const toMain=surface!=='overlay'&&Date.now()-mainSeen<4000;
   if(!toMain)desktop('open',port);
-  event={seq:++seq,text:clean,at:Date.now(),kind:kind==='wake'?'wake':'command',target:toMain?'main':'overlay'};return {ok:true};
+  event={seq:++seq,text:clean,at:Date.now(),kind:kind==='wake'?'wake':'command',target:toMain?'main':'overlay'};
+  wakeEngine.log(`server got ${kind} → ${event.target} (main seen ${Math.round((Date.now()-mainSeen)/1000)}s ago, surface ${surface})`);return {ok:true};
 }
 export function setEnabled(on:boolean,port:number,cookie=''){
   if(!on){helper?.kill();helper=null;event=null;return status();}
