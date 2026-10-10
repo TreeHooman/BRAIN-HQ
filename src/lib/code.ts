@@ -179,7 +179,7 @@ export async function send(key: string, text: string, tier = "balanced", effort:
     const agents: Agent[] = [];
     const res=await manageCode({settings,key,project:p.name,text,edited:settings.reviewSolo?()=>edited:undefined,history:s.messages.slice(-7,-1).map(m=>`${m.role}: ${m.text.slice(0,400)}`).join('\n'),provider,choice,system:base.system,timeoutMs:base.timeoutMs,cancelled:()=>!!busy.get(key)?.cancelled,run:async spec=>{
       const childId=`${opId}-worker-${spec.index}`;
-      const child=spec.index===1||spec.index===2?opStart({id:childId,kind:'code',title:spec.role,project:s.project,model:spec.model,level,agent:spec.role,parent:opId}):null;
+      const child=spec.index>=1&&spec.role!=='LUTHUR · review'?opStart({id:childId,kind:'code',title:spec.role,project:s.project,model:spec.model,level,agent:spec.role,parent:opId}):null;
       let result;
       try{result=await (provider==='codex'?runCodex:runClaude)({...base,prompt:spec.prompt,system:spec.system,model:spec.model,effort:spec.effort,timeoutMs:spec.timeoutMs,resume:null,runId:`code-${key}-${spec.index}`,noAgents:true,onStep:st=>{onStep(st);child?.(st);}});return result;}
       finally{agents.push({role:spec.role,engine:provider,model:result?.stats?.model||spec.model,effort:spec.effort,ok:!!result?.ok});if(child)opEnd(childId,!!result?.ok,!!busy.get(key)?.cancelled);}

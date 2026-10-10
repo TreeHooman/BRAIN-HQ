@@ -14,7 +14,7 @@ function codeManagerModal(){
 async function codeSettingsModal(id) {
  try {
   const d=await api('/code/'+id),s=d.settings;if(!s)throw new Error('Restart LUTHUR to activate Code settings.');
-  modal(`<h2>Agent & limits</h2><p class="muted">Settings for ${esc(d.name)}. Changes apply to the next request, including voice.</p>
+  modal(`<h2>Agent & limits</h2><p class="muted">Settings for ${esc(d.name)}. Changes apply to the next request, including voice.</p>${d.level!=='build'?`<p class="cd-warn"><b>This project allows at most: ${esc(d.level)}.</b> Safe, auto and bypass can't edit files here, whatever you pick below. Pick the right project, or raise its permission in the project's Setup tab.</p>`:''}
    <form id="codeSettingsForm" class="form code-settings">
     <label class="f">Workroom name<input name="name" maxlength="40" value="${esc(d.name)}" required></label>
     <div class="code-setting-grid">
@@ -23,8 +23,8 @@ async function codeSettingsModal(id) {
      <label class="f">Thinking<select name="effort">${opts([['low','Low'],['medium','Medium'],['high','High']],s.effort)}</select></label>
      <label class="f">Permissions<select name="permission"></select></label>
      <label class="f">Working style<select name="orchestration">${opts([['direct','One agent — direct work'],['managed','Orchestrator + review']],s.orchestration)}</select></label>
-     <label class="f">Worker limit<input name="maxWorkers" type="number" min="0" max="2" value="${s.maxWorkers}" required></label>
-     <label class="f">Model calls per request<input name="maxCalls" type="number" min="1" max="4" value="${s.maxCalls}" required></label>
+     <label class="f">Worker limit<input name="maxWorkers" type="number" min="0" max="6" value="${s.maxWorkers}" required></label>
+     <label class="f">Model calls per request<input name="maxCalls" type="number" min="1" max="8" value="${s.maxCalls}" required></label>
      <label class="f">Minutes per request<input name="maxMinutes" type="number" min="1" max="120" value="${s.maxMinutes}" required></label>
     </div>
     <p id="codePermissionHelp" class="small muted"></p>

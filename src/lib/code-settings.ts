@@ -13,7 +13,7 @@ export function codeSettings(input: Partial<CodeSettings> = {}): CodeSettings {
   if (!['read', 'plan', 'safe', 'auto', 'bypass'].includes(s.permission)) fail('Choose a permission level.');
   if (s.provider === 'codex' && s.permission === 'bypass') fail('Codex uses a workspace sandbox. Choose Read, Plan or Workspace edits.');
   if (!['direct', 'managed'].includes(s.orchestration)) fail('Choose one agent or orchestrator.');
-  for (const [key, min, max] of [['maxWorkers', 0, 2], ['maxCalls', 1, 4], ['maxMinutes', 1, 120]] as const) {
+  for (const [key, min, max] of [['maxWorkers', 0, 6], ['maxCalls', 1, 8], ['maxMinutes', 1, 120]] as const) {
     if (!Number.isInteger(s[key]) || s[key] < min || s[key] > max) fail(`${key} must be between ${min} and ${max}.`);
   }
   for (const key of ['instructions'] as const) if (typeof s[key] !== 'string' || s[key].length > 20000) fail(`${key} must be text under 20,000 characters.`);

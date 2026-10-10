@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 23:55 · mission code-cs-mv218m97lb89-3
+v3.1 review (discord-bot-next): both workers and the reviewer ran read-only with no shell, so nothing was fixed or tested. The reviewer confirmed by reading: backups go inside OneDrive (bot.py:42), there's no ticket_reminders switch, weekly funded_total counts declined/voided offers (ledger.py:812), and get_int returns 0 (meaning unlimited) on a bad saved value (ledger.py:177). Fixes need a build-permission run.
+
 ## 2026-10-09 19:21 · mission runmv1rpwflhqnz
 Initiative: Phase 0 reminder prep (milestone was due 8 Oct, now overdue). Brain still shows none of the 8 items done; the 07 Oct checklist stands. Added paste-ready drafts (owner sends; I posted nothing). 
 DRAFT A, r/ModSupport modmail: "Subject: Lending record-keeping subreddit, API access question. Hi, I moderate r/LoanCentral (~7.5k members), a community for keeping records of informal peer loans (amount, repay amount, status; no interest shown, US/CA only). We run a small moderation/record bot and were denied Data Access (ticket 18545859). We're resubmitting before 31 Oct. Could you tell us what the approved path is for a moderation bot that reads/writes posts in our own subreddit, and whether anything in our setup conflicts with the Developer Terms? Happy to share details. Thanks."
