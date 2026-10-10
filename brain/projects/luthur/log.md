@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 20:25 · claude
+Owner: in Always listening, "stop talking" should only stop him talking; switch modes only on "switch to Luther mode". Done (wake-idle.js stopTalking hushes only in always mode; listen-mode.js handles whole-utterance commands "switch to Luther/Luthor mode", "Hey Luther mode", "wake word mode" and "switch to always listening"/"always listening"; tested 15 phrases incl. "I always listen to music" and "switch to dark mode" → no switch).
+
 ## 2026-10-09 20:10 · claude
 Owner: still not catching "Hey LUTHUR, …" in one breath and slow to notice; asked for a War Room switch between always listening and Hey LUTHUR mode. Log: detector heard the name, page claimed it ~0.9 s later, but the browser listener wasn't running (ending a conversation toggles Wake.on off, so wake-handoff.js never restarted it) → fixed. New web/listen-mode.js: War Room "Listening: Always listening | Hey LUTHUR" switch (saved per device). Always = conversation stays open while LUTHUR's window is in use (no name, no wake-up lag; idle timeout skipped); minimized → conversation closes and the PC detector re-arms; "stop listening" switches to Hey LUTHUR mode. Needs Update.
 

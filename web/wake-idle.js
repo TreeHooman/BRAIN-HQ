@@ -23,7 +23,9 @@ const STOP_ONLY=new Set(['stop','no','okay','ok','please','hey','luther','luthur
 // and listen only for "Hey LUTHUR". Saying the name again lifts the mute. "Force stop" keeps its own behaviour.
 const isForceStopSafe=text=>typeof isForceStop==='function'&&isForceStop(text);
 function stopTalking(){
-  if(typeof listenAlways==='function'&&listenAlways())listenModeSet('wake','Okay, Hey LUTHUR mode. Say “Hey LUTHUR” when you need me.');
+  // Always-listening mode (owner, 2026-10-09): "stop"/"stop talking" only hushes him; the mic stays open and the mode
+  // changes only on "switch to LUTHUR mode" (listen-mode.js).
+  if(typeof listenAlways==='function'&&listenAlways()){WakeIdle.muted=true;window.speechSynthesis?.cancel();speechClearTurn();return;}
   WakeIdle.muted=true;window.speechSynthesis?.cancel();
   speechClearTurn();if(UPG.conversation)upConversation(false);speechStatus('wake');
 }

@@ -2,7 +2,7 @@
 // War Room switch (owner ask, 2026-10-09): "Always listening" or "Hey LUTHUR".
 // - Always listening: while LUTHUR's window is in use the mic stays open and every sentence goes to LUTHUR, no name
 //   needed and no wake-up lag. Minimized or behind other apps, the PC detector takes over until you come back.
-//   "Stop listening" (or any END_TALK phrase in wake-idle.js) switches to Hey LUTHUR mode.
+//   "Stop"/"stop talking" only hushes him. Only "switch to LUTHUR mode" changes the mode (owner, 2026-10-09).
 // - Hey LUTHUR: the name starts a conversation; it stays open for follow-ups for a few seconds (wake-idle.js).
 const listenAlways=()=>localStorage.getItem('hq-listen-mode')==='always';
 function listenModeSet(mode,say){
@@ -10,7 +10,7 @@ function listenModeSet(mode,say){
   listenModePaint();
   if(mode==='always'){WakeIdle.muted=false;listenModeTick(true);}
   else if(UPG.conversation)upConversation(false);
-  toast(say||(mode==='always'?'Always listening · just talk. Say “stop listening” to switch back.':'Hey LUTHUR mode · say his name to start.'));
+  toast(say||(mode==='always'?'Always listening · just talk. Say “switch to LUTHUR mode” to go back to the name.':'Hey LUTHUR mode · say his name to start.'));
 }
 function listenModePaint(){
   const box=document.getElementById('listenMode');if(!box)return;
@@ -43,4 +43,17 @@ vCommand=async function(el){
   anchor.before(box);
   box.querySelectorAll('button').forEach(b=>b.onclick=()=>listenModeSet(b.dataset.mode));
   listenModePaint();
+};
+// Spoken mode switches, checked before anything else: "switch to Luther mode" / "Hey Luther mode" / "wake word mode",
+// and "switch to always listening" / "always listen".
+const LISTEN_TO_WAKE=/^(?:(?:hey |ok |okay )?(?:luthur|luther|luthor|lutha|lothar) )?(?:please )?(?:(?:switch|change|go|put)(?: (?:it|yourself|back))?(?: (?:to|into|in|on))? )?(?:the )?(?:hey )?(?:luthur|luther|luthor|lutha|lothar|wake ?word|name)(?:'s)? mode(?: please)?$/;
+const LISTEN_TO_ALWAYS=/^(?:(?:hey |ok |okay )?(?:luthur|luther|luthor|lutha|lothar) )?(?:please )?(?:(?:switch|change|go|put)(?: (?:it|yourself|back))?(?: (?:to|into|in|on))? )?(?:the )?always(?: listen(?:ing)?)?(?: mode)?(?: please)?$/;
+const listenModeVoice=voiceCommand;
+voiceCommand=function(text){
+  const t=String(text||'').toLowerCase().replace(/[.,!?]+/g,' ').replace(/\s+/g,' ').trim();
+  if(t.split(' ').length<=8){
+    if(LISTEN_TO_WAKE.test(t)){window.speechSynthesis?.cancel();listenModeSet('wake','Hey LUTHUR mode. Say “Hey LUTHUR” when you need me.');return;}
+    if(LISTEN_TO_ALWAYS.test(t)){window.speechSynthesis?.cancel();listenModeSet('always');return;}
+  }
+  return listenModeVoice(text);
 };
