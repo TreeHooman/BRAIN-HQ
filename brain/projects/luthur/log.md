@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 21:05 · claude
+Owner: minimized side-panel wake still didn't work; "remove it, I don't need that feature". The PC detector no longer opens the side panel: a wake-up while LUTHUR's window isn't in front is ignored (pc-voice.ts receive). "Hey LUTHUR" works only with LUTHUR in front (browser listener + detector backup). Hologram can still be opened by hand from Settings.
+
 ## 2026-10-09 20:55 · claude
 Owner: with LUTHUR minimized, "Hey LUTHUR" was answered by the War Room, not the side panel. Log: server routed to main because the page had reported "visible and focused" <1 s before. Fix: the detector now asks Windows which window is in front when it hears the name (GetForegroundWindow title == "LUTHUR" and not minimized) and sends front=true/false; the server routes on that (page report only as fallback). Needs Update.
 

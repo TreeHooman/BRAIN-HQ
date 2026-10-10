@@ -15,6 +15,8 @@ export function receive(text: string,kind='command',port=8800,front?:boolean){
   if(!clean&&kind!=='wake')throw new Error('Empty voice request');
   // The detector says whether LUTHUR's window is really in front (Windows foreground check); the page's own report is the fallback.
   const toMain=surface!=='overlay'&&(typeof front==='boolean'?front:Date.now()-mainSeen<4000);
+  // Owner (2026-10-09): no side-panel pop-up. A wake-up while LUTHUR's window isn't in front is ignored.
+  if(!toMain&&kind==='wake'){wakeEngine.log(`ignored wake (LUTHUR not in front, front ${front})`);return {ok:true,ignored:true};}
   if(!toMain)desktop('open',port);
   event={seq:++seq,text:clean,at:Date.now(),kind:kind==='wake'?'wake':'command',target:toMain?'main':'overlay'};
   wakeEngine.log(`server got ${kind} → ${event.target} (front ${front}, main seen ${Math.round((Date.now()-mainSeen)/1000)}s ago, surface ${surface})`);return {ok:true};
