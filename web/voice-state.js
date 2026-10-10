@@ -29,7 +29,7 @@ function voiceVisualPaint(){
     if(!core.querySelector('.voice-core-status')){const status=document.createElement('div');status.className='voice-core-status';status.setAttribute('role','status');status.innerHTML='<div class="voice-core-icon"></div><b></b><span></span><div class="voice-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>';core.append(status);}
     const changed=core.dataset.voiceState!==activity.state;core.dataset.voiceState=activity.state;
     const status=core.querySelector('.voice-core-status');if(changed)status.querySelector('.voice-core-icon').innerHTML=voiceIcon(activity.state);
-    const centerLabel=status.querySelector('b');centerLabel.setAttribute('aria-label',activity.label);if(centerLabel.dataset.v!==activity.label){centerLabel.dataset.v=activity.label;scrambleTo(centerLabel,activity.label,400);}voiceSetText(status.querySelector('span'),activity.hint);
+    const centerLabel=status.querySelector('b');centerLabel.setAttribute('aria-label',activity.label);if(centerLabel.dataset.v!==activity.label){centerLabel.dataset.v=activity.label;centerLabel.textContent=activity.label;}voiceSetText(status.querySelector('span'),activity.hint);
     const listening=['listening','hearing','captured'].includes(activity.state);
     core.classList.toggle('listening',listening);core.classList.toggle('busy',['thinking','sending'].includes(activity.state));core.classList.toggle('speaking',activity.state==='speaking');
     const label=document.getElementById('coreState');if(label){voiceSetText(label,activity.label);label.dataset.v=activity.label;}

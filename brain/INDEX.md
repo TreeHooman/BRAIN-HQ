@@ -1,6 +1,6 @@
 # HQ index
 
-_Auto-generated 2026-10-09 17:37. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-09 17:45. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|

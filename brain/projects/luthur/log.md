@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-09 15:30 · claude
+Owner voice checks 1-4 passed (wake, stop, talk-over, "open my calendar"). Fixed: voice-opened calendar (screen.js scrAgendaHtml) is now grouped by day (Overdue/Today/Tomorrow/…) with time column and the Calendar page colours (reminder blue, milestone violet, deadline red, Google event = its calendar colour) + legend. Voice state label now changes instantly (no 400 ms scramble) and "Say Hey LUTHUR" (dim grey-blue) / "mic paused" (orange) / listening (green) look different. Open: corner panel pops up on its own after minimizing/opening LUTHUR; first voice heard is the British device voice, not ElevenLabs. Likely cause: the Windows wake listener (pc-wake.exe) hears LUTHUR's own greeting while the main window isn't focused, and the greeting plays before the ElevenLabs voice is ready. Needs a look.
+
 ## 2026-10-09 14:30 · claude
 Owner checks batch 1: chat, Tasks, Daily schedule, initiative card OK. Fixed (1) War Room conversation now renders like the LUTHUR tab (bubbles, timestamps, last 60 messages) and picks up messages sent from the LUTHUR tab/phone every 4 s (web/upgrade.js, upgrade.css; refresh to see). (2) Outbox: deleting a calendar event that is already gone now counts as done ("DONE already gone") instead of failing forever (src/lib/outbox.ts; needs restart). The stuck "test test luthur test" card was a duplicate: the event was really deleted 2026-10-08 06:24; settled it as done.
 

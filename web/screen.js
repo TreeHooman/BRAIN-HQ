@@ -98,11 +98,24 @@ async function scrBrief(what, ask) {
   scrPaint();
 }
 function scrAgenda(days) {
-  const now = new Date(), end = new Date(now.getTime() + days * 864e5), out = [];
-  (S.calendar?.upcoming || []).forEach(e => { const s = e.allDay ? toDate(e.start + "T00:00") : new Date(e.start); if (s >= new Date(ymd(now)) && s < end) out.push({ s, t: e.title, sub: e.location || "", when: e.allDay ? fmtWhen(e.start) : fmtWhen(e.start) }); });
-  S.reminders.filter(r => !r.done).forEach(r => { const s = toDate(r.due); if (s < end) out.push({ s, t: r.title, sub: r.project ? projName(r.project) : "", when: fmtWhen(r.due), rem: true }); });
-  S.milestones.filter(m => !m.done).forEach(m => { const s = toDate(m.date); if (s >= new Date(ymd(now)) && s < end) out.push({ s, t: m.title, sub: m.kind === "deadline" ? "deadline" : "milestone", when: fmtWhen(m.date) }); });
+  // Same colours as the Calendar page: reminders blue, milestones violet, deadlines red, Google events in their calendar's colour.
+  const now = new Date(), end = new Date(now.getTime() + days * 864e5), out = [], day0 = new Date(ymd(now));
+  const named = { teal: "var(--green)", green: "var(--green)", amber: "var(--amber)", violet: "var(--violet)", blue: "var(--accent)" };
+  const fcol = Object.fromEntries((S.calendar?.feeds || []).map(f => [f.id, /^#/.test(f.color || "") ? f.color : named[f.color] || "var(--green)"]));
+  const hm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  (S.calendar?.upcoming || []).forEach(e => { const s = e.allDay ? toDate(e.start + "T00:00") : new Date(e.start); if (s >= day0 && s < end) out.push({ s, t: e.title, sub: e.location || "", when: fmtWhen(e.start), time: e.allDay ? "" : hm(s), type: "event", color: fcol[e.feed] || "var(--green)" }); });
+  S.reminders.filter(r => !r.done).forEach(r => { const s = toDate(r.due); if (s < end) out.push({ s, t: r.title, sub: r.project ? projName(r.project) : "", when: fmtWhen(r.due), time: r.due.length > 10 ? hm(s) : "", rem: true, type: "reminder", color: "var(--accent)", overdue: s < now }); });
+  S.milestones.filter(m => !m.done).forEach(m => { const s = toDate(m.date); if (s >= day0 && s < end) out.push({ s, t: m.title, sub: projName(m.project) || "", when: fmtWhen(m.date), time: "", type: m.kind === "deadline" ? "deadline" : "milestone", color: m.kind === "deadline" ? "var(--red)" : "var(--violet)" }); });
   return out.sort((a, b) => a.s - b.s).slice(0, 40);
+}
+function scrAgendaHtml(days) {
+  const it = scrAgenda(days); if (!it.length) return `<div class="scr-msg">Nothing scheduled.</div>`;
+  const today = ymd(new Date()), tmr = ymd(new Date(Date.now() + 864e5)), groups = new Map();
+  for (const i of it) { const k = i.overdue ? "overdue" : ymd(i.s); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(i); }
+  const head = k => k === "overdue" ? "Overdue" : k === today ? "Today" : k === tmr ? "Tomorrow" : toDate(k + "T00:00").toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" });
+  const label = { event: "event", reminder: "reminder", milestone: "milestone", deadline: "deadline" };
+  return `<div class="scr-agenda"><div class="ag-legend"><span style="--c:var(--accent)">Reminder</span><span style="--c:var(--violet)">Milestone</span><span style="--c:var(--red)">Deadline</span><span style="--c:var(--green)">Calendar</span></div>
+    ${[...groups].map(([k, l]) => `<section class="ag-day ${k === "overdue" ? "ag-overdue" : ""}"><h4>${esc(head(k))}<em>${l.length}</em></h4>${l.map(i => `<div class="ag-item" style="--c:${i.color}"><span class="ag-time">${i.overdue ? esc(i.when) : i.time || "all day"}</span><b>${esc(i.t)}</b><span class="ag-tag">${label[i.type]}${i.sub ? " · " + esc(i.sub) : ""}</span></div>`).join("")}</section>`).join("")}</div>`;
 }
 
 // The home screen: tiles for everything worth pulling up, one click each (no browser, so it's instant).
@@ -161,7 +174,7 @@ function scrBody() {
     return `<div class="scr-msg">This file type opens in Google. Use “Open in Chrome”.</div>`;
   }
   if (v.k === "project") { const p = d.project || {}; return `<article class="scr-read"><div class="scr-src">${esc(p.stage)} · ${esc(p.health)}</div><h2>${esc(p.name)}</h2><p>${esc(p.summary || "")}</p><p><b>Next:</b> ${esc(p.nextStep || "—")}</p><div class="row scr-act"><button type="button" class="btn sm" data-scract="check">✓ Check it</button><button type="button" class="btn sm" data-scract="update">✎ Update</button><button type="button" class="btn sm ghost" data-scract="log">+ Log note</button></div><div class="md small">${md(String(d.log || "").split(/^## /m).slice(1, 4).map(x => "## " + x).join(""))}</div></article>`; }
-  if (v.k === "agenda") { const it = scrAgenda(v.days); return `<div class="scr-list">${it.map(i => `<div class="scr-item static"><b>${esc(i.t)}</b><span class="scr-src">${esc(i.when)}${i.sub ? " · " + esc(i.sub) : ""}</span></div>`).join("") || `<div class="scr-msg">Nothing scheduled.</div>`}</div>`; }
+  if (v.k === "agenda") return scrAgendaHtml(v.days);
   return "";
 }
 function scrQuest() {
