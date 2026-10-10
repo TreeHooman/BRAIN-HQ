@@ -1,11 +1,11 @@
 # HQ index
 
-_Auto-generated 2026-10-09 21:53. Don't edit; change project.json files instead._
+_Auto-generated 2026-10-09 22:28. Don't edit; change project.json files instead._
 
 | project | kind | stage | health | next step | updated |
 |---|---|---|---|---|---|
 | loancentral | business | live | watch | Phase 0 overdue (was 8 Oct): owner posts Reddit items in order: US/CA rule, close r/LoanCentralEU, send ModSupport modmail (draft A) and r/borrow + r/SimpleLoans message (draft B) from log 2026-10-09, wiki update, run website updater, then tick milestone. | 2026-10-09 |
-| loancentral-discord | product | building | good | Decide interest/ID policy (recommend option A: no published rate, no ID/paystubs; see log 2026-10-09), then do the lender-claim test on REQ-0002. | 2026-10-09 |
+| loancentral-discord | product | building | good | Overnight: LUTHUR builds Lending upgrade v3.1 in discord-bot-next (plan.md). Then owner reads CHANGES.md, swaps it in and tests with an alt. | 2026-10-09 |
 | reddit | workstream | building | risk | Owner: post the dated recusal rule in the wiki; then check the [CONFIRM] facts in the resubmission draft (plan.md), fill [FILL], send by 31 Oct (reminder 24 Oct). | 2026-10-09 |
 | neuroweb | product | idea | unknown | Owner: tell the assistant what NeuroWeb is (one or two lines) so it can fill this in. | 2026-10-05 |
 | genbot | product | paused | unknown | Owner: confirm GenBot = GenBets-P and say what it does. | 2026-10-07 |

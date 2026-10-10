@@ -1,5 +1,8 @@
 # Log
 
+## 2026-10-10 00:05 · claude
+Owner: after "Luther stop" he kept the words as if I would carry on; wants "Luther pause" = what stop did, and "Luther stop" = stop + full reset. New web/voice-pause.js (loads after l4.js): pause / hold on / hold up / one sec = go quiet, turn ends, conversation kept. Stop / stop talking / shut up / stop listening / "no no stop" = go quiet + cancel the reply being written + drop queued follow-ups, captured words, transcript and typed draft + restart the mic session + fresh chat (old one archived in History). Force stop unchanged. "pause the music" / "stop the music" are normal requests. Checked: 17-phrase routing table; on a copy, pause kept the chat (2 messages), stop gave a new empty chat with everything cleared, no errors. Needs Ctrl+R (frontend only).
+
 ## 2026-10-09 23:10 · claude
 Owner: the "heard you" visual lags behind "Hey LUTHUR". Cause: the page checked for detector wake-ups once a second (voice.js pcVoicePoll), and in the window it waited for the browser recognizer to spell the name. Fix: pc-voice.ts pushes each wake-up over a new event stream (/api/pc-voice/stream); web/wake-instant.js shows HEARD YOU ("Go ahead · I'm listening") at once and runs the hand-off immediately. Measured on a copy: push ~60 ms after the server gets it; War Room label HEARD YOU 8 ms after that. Also set up the Level 4 run sheet (5 scripted jobs) in l4-trial.md, job 1 = Discord weekly stats post build. Needs RESTART-LUTHUR.
 
