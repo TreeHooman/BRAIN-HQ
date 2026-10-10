@@ -34,6 +34,7 @@ the `.ts` files directly, with no npm dependencies.
 - `src/lib/codex.ts`: Codex CLI. Claude leads; Codex may take any run with the same permission (owner rule, 2026-10-07). `queue_followup` accepts `engine`. `src/lib/model-policy.ts`: Auto routing (Luna/Haiku for chat, Sol/Sonnet for work); Astra/Opus only when selected. On Windows, build runs add `-c windows.sandbox="unelevated"`: without it Codex 0.160 runs workspace-write as read-only (check `sandbox_policy` in `~/.codex/sessions/*.jsonl`).
 - `src/lib/pc-control.ts`: chat-only PC control: `chrome_open` (owner's Chrome, open only), `app_open` (allowlist, `pc.apps` in config, `pc.enabled:false` turns all off), `browser_*` (drives LUTHUR's screen browser by element ref; passwords/payment refused, send/buy/post/delete clicks and non-search submits need `owner_confirmed`). MCP → server via `data/pc/req-*.json` / `res-*.json` (250 ms poll).
 - `src/lib/desktop-control.ts` + `scripts/pc-desktop.exe` (.cs): owner-started desktop control (screenshots, click, type, keys) with an always-on-top Stop/Allow bar. See `docs/DESKTOP-CONTROL.md`.
+- Wake word and listening (2026-10-09): `scripts/pc-wake-kws.exe` (.cs) is a local sherpa-onnx keyword spotter (engine + model in `scripts/sherpa/`, Apache-2.0, no account) that replaces Windows recognition (`pc-wake.exe` is only the fallback if it fails to start). `src/lib/wake-engine.ts`: the owner's phrase (Settings → Voice → Wake word) is tokenized there and written to `data/wake/keywords.txt`; `--selftest` makes Windows speak the phrase into it; `data/wake/kws.log` traces every wake hand-off (helper, server, page). The detector hands over the moment it hears the name and sends `front` (Windows foreground window is "LUTHUR"); `pc-voice.ts` ignores wake-ups when LUTHUR isn't in front (owner removed the side-panel pop-up). In the window the browser listener also runs and owns the sentence (`web/wake-handoff.js`). `web/listen-mode.js`: War Room switch Always listening / Hey LUTHUR (per device); in Always "stop" only hushes, "…Luther mode" / "…always listening" switch by voice. Follow-ups without the name are on by default (8 s). Rebuilding a running helper: compile to `.exe.next` (RESTART-LUTHUR applies it) or commit it with `git update-index --cacheinfo` so Update installs it.
 - `src/lib/tts.ts` + `web/eleven-voice.js`: ElevenLabs voice. The page keeps calling `speechSynthesis`; the shim routes `speak()` to `/api/tts/speak` (MP3) and fakes `speaking`/`pending`/`cancel` and the utterance events, so voice modules need no changes. Key and voice live in `config/hq.local.json` (`elevenlabs`), never sent to the page; spoken text capped ~320 chars; on errors/no credits it falls back to the device voice (owner's pick, else best en-GB). Settings → Voice has the card.
 - `src/mcp/hq-brain.ts`: zero-dep stdio MCP. Write tools hidden at `read`; `chatOnly` tools only for `chat-*` runs; `code-*` runs get the small `CODE_SET`.
 - `src/lib/code.ts` + `code-manager.ts`: Code workrooms. LUTHUR manages, with at most 2 sequential workers + 1 review per turn and fresh context each turn. Notes are in `data/code/workrooms/<id>/`.
@@ -60,13 +61,13 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Local branch `luthur-work` tracks that remote branch under a different name, so a plain `git push` refuses: use `git push origin HEAD:claude/relaxed-turing-tnsbre`.
 
 <!-- AUTO:START (generated from brain/projects/luthur; edit those files, not this block) -->
-## Current state (auto, 2026-10-10 02:16 UTC)
+## Current state (auto, 2026-10-10 02:17 UTC)
 - Stage: building · health: good
 - Next step: Owner: do the 6 away-mode steps in brain/projects/luthur/away-setup.md (phone test first), keep the Level 4 trial going and rate each result 👍/👎.
 
 ### Waiting on the owner
-- Listening switch (War Room, after Update + Ctrl+R): Always listening → just talk, he answers with no name; minimize → "Hey Luther" still opens the side panel; "stop talking" only hushes him (stays Al…
-- Wake word (after a restart): Settings → Voice → Wake word says "On"; press Test (should say Heard: HEY_LUTHER). With LUTHUR minimized say "Hey Luther, what time is it": he answers. TV/talk nearby sho…
+- Listening switch (War Room, after Update + Ctrl+R): Always listening → just talk, he answers with no name; "stop talking" only hushes him (stays Always); "switch to Luther mode" flips to Hey LUTHUR, …
+- Wake word (after a restart): Settings → Voice → Wake word says "On"; press Test (should say Heard: HEY_LUTHER). TV/talk nearby shouldn't wake him; if he misses you, raise Sensitivity.
 - Voice back-and-forth (refresh first): "Hey LUTHUR, what time is it", then ask a follow-up without the name within 8 s: he answers. Talk over him: he stops on your first word. Stay quiet ~8 s: he goes…
 - Away mode: rate a finished task 👎 with a note ("always…"); give a similar task: its report should follow the lesson. Or say "that last task was wrong because …".
 - Level 4 speed: after a restart ask "what time is it", "what's next on LUTHUR" and "is anything waiting for me": answers should be instant (no thinking pause). Open /api/timing to see the numbers.
@@ -75,7 +76,6 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Level 4 trial week (to 15 Oct): one real job a day, score it in brain/projects/luthur/l4-trial.md; review on 15 Oct (Level 4 if no false "done").
 - Calendar: after a restart, Cancel a Google event already deleted: its Outbox card ends "sent · already gone", not failed. War Room conversation looks like the LUTHUR tab and updates when you chat els…
 - Voice stop: ask LUTHUR something long, then say "Luther stop" (or "stop listening"): he goes quiet, doesn't finish the answer out loud, and ignores normal talk until you say "Hey LUTHUR" again.
-- Side panel: after a restart, click into another app (LUTHUR behind it or minimized) and say "Hey LUTHUR": the small side panel should pop up and answer.
 - Evening debrief: after a restart, open Today and press "So far today" on the Evening debrief card. At 21:00 one 🌙 alert should arrive (only if LUTHUR did something today) and the card shows it.
 - Initiative picks: approve the 2 "Initiative ·" cards (LoanCentral Phase 0, Reddit recusal rule), read their reports; if useful press Go live now on the plan-level rule. Reject a weak pick later: it s…
 - Decide the Discord interest-rate + ID/paystub policy by Oct 10 (loancentral-discord); ask LUTHUR or Claude to lay out options and log the decision.
@@ -83,16 +83,15 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - Voice noise: talk with fans/wind going; when you stop, LUTHUR shows "Say Hey LUTHUR" after ~5 s and ignores everything until you say the name.
 - Voice: while LUTHUR talks, say "stop": it should go quiet and Hey LUTHUR stays on in Settings. Then ask something and talk over the answer: it should stop and answer you. Check the War Room 5H ring s…
 - Desktop control: say "Luther, take control", check the bar appears, then ask it to open Notepad and type a line (press Allow on the bar). Say "release control", then take control again: Notepad shoul…
-- Wake word: with LUTHUR on screen, "Hey LUTHUR" listens in the app (no hologram); minimized, a small corner hologram opens (not full screen).
 - PC control: say "Luther, pull up YouTube in Chrome", "open Spotify", then "find red running shoes on Amazon" (LUTHUR's browser on the War Room). It must ask before anything like Buy or Send.
 - Voice: while LUTHUR is talking, say "Luther, open my calendar": it should stop and do the new request. Screens should open while it is still answering.
 - Voice: LUTHUR starts speaking before the full answer is done, and waits when you trail off on "and…" or "um…".
-- Say "Hey LUTHUR" with the app minimized: the hologram opens, listens and answers in your voice choice.
 - Hologram stays on top and see-through; drag it by the title bar.
 - First real Outbox email send from a Workspace account with writing allowed.
 - Phone: open the dashboard and check the new mobile layout.
 
 ### Latest work (newest first, last 8; full log: brain/projects/luthur/log.md)
+- **2026-10-09 21:05 · claude**: Owner: minimized side-panel wake still didn't work; "remove it, I don't need that feature". The PC detector no longer opens the side panel: a wake-up while LUTHUR's window isn't in front is ignored (pc-voice.ts receive). "Hey LUTHUR" works only with LUTHUR in front (browser listener + detector backup). Hologram can st…
 - **2026-10-09 20:55 · claude**: Owner: with LUTHUR minimized, "Hey LUTHUR" was answered by the War Room, not the side panel. Log: server routed to main because the page had reported "visible and focused" <1 s before. Fix: the detector now asks Windows which window is in front when it hears the name (GetForegroundWindow title == "LUTHUR" and not mini…
 - **2026-10-09 20:40 · claude**: "Switch to Luther mode" didn't work: recognition added words in front ("hit wait switch to hey Luther mode", "Swisher hey Luther mode"). Now a short sentence (≤9 words) that ends with "<Luther|Luthor|wake word> mode" or "always listening (mode)" switches; "Hey Luther mode" alone (arrives as "mode") too. Retested 13 ph…
 - **2026-10-09 20:25 · claude**: Owner: in Always listening, "stop talking" should only stop him talking; switch modes only on "switch to Luther mode". Done (wake-idle.js stopTalking hushes only in always mode; listen-mode.js handles whole-utterance commands "switch to Luther/Luthor mode", "Hey Luther mode", "wake word mode" and "switch to always lis…
@@ -100,6 +99,5 @@ The owner's install updates from GitHub `TreeHooman/BRAIN-HQ`, branch `claude/re
 - **2026-10-09 19:45 · claude**: Owner test of the new wake word: "takes a long time, I have to say Hey LUTHUR, wait, then talk; and 'what time is it' is slow". Log showed: detector hears the name fine, but recording the rest of the sentence added ~1.5 s and Windows dictation caught nothing, so the page opened a conversation and waited for a second s…
 - **2026-10-09 19:20 · claude**: Owner: new wake word "not picking it up in the War Room". The detector had restarted once (so it likely detected and handed over), so added a hand-off trail in data/wake/kws.log: helper (start, mic level every 30 s, keyword heard, words caught after the name, hand-over), server (event → main/overlay, claim) and page (…
 - **2026-10-09 19:00 · claude**: Wake word works (offline tests). Owner OK'd the regular sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01 model (checksum matches); installed in scripts/sherpa/model (int8 encoder, fp32 decoder/joiner). Model samples: LIGHT UP / LOVELY CHILD / FOREVER all detected at the right times. Selftest (Windows TTS says the …
-- **2026-10-09 18:40 · claude**: Picovoice dropped (its console needs a company email). Switched the wake word to sherpa-onnx keyword spotting (Apache-2.0, fully local, no account): owner OK'd downloading sherpa-onnx v1.13.8 win-x64 lib + the gigaspeech KWS "mobile" model; engine DLLs in scripts/sherpa. scripts/pc-wake-kws.cs/.exe replaces pc-wake-pv…
 <!-- AUTO:END -->
 - Model console default engine is now Claude: `modelEngine()` falls back to Claude, and a one-time `hq-engine-claude-default` flag resets the old stored Codex default once; later manual picks persist. Refresh to activate.
